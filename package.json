@@ -1,11 +1,21 @@
 {
   "name": "berry-shield",
   "version": "1.0.0",
+  "description": "Security plugin for OpenClaw - blocks destructive commands, redacts secrets and PII",
   "type": "module",
   "openclaw": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
   },
   "peerDependencies": {
     "openclaw": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
   }
 }
