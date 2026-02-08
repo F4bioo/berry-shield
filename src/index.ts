@@ -3,6 +3,7 @@ import { mergeConfig, type PluginConfig } from "./types/config";
 import { registerBerryRoot } from "./layers/root";
 import { registerBerryPulp } from "./layers/pulp";
 import { registerBerryThorn } from "./layers/thorn";
+import { registerBerryLeaf } from "./layers/leaf";
 
 /**
  * Berry Shield - Security plugin for OpenClaw
@@ -36,9 +37,9 @@ export default {
         registerBerryRoot(api, config);
         registerBerryPulp(api, config);
         registerBerryThorn(api, config);
+        registerBerryLeaf(api, config);
 
-        // TODO: Implement remaining layers
-        // - Berry.Leaf (message_received)
+        // TODO: Implement remaining layer
         // - Berry.Stem (registerTool: berry_check)
     },
 };
