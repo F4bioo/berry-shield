@@ -1,6 +1,7 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { mergeConfig, type PluginConfig } from "./types/config";
 import { registerBerryRoot } from "./layers/root";
+import { registerBerryPulp } from "./layers/pulp";
 
 /**
  * Berry Shield - Security plugin for OpenClaw
@@ -32,9 +33,9 @@ export default {
 
         // Register all layers
         registerBerryRoot(api, config);
+        registerBerryPulp(api, config);
 
         // TODO: Implement remaining layers
-        // - Berry.Pulp (tool_result_persist)
         // - Berry.Thorn (before_tool_call)
         // - Berry.Leaf (message_received)
         // - Berry.Stem (registerTool: berry_check)
