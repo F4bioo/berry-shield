@@ -1,0 +1,66 @@
+{
+    "id": "berry-shield",
+    "name": "Berry Shield",
+    "description": "Security plugin - blocks destructive commands, redacts secrets and PII",
+    "version": "1.0.0",
+    "configSchema": {
+        "type": "object",
+        "properties": {
+            "mode": {
+                "type": "string",
+                "enum": [
+                    "enforce",
+                    "audit"
+                ],
+                "default": "enforce",
+                "description": "Enforce blocks/redacts, audit only logs"
+            },
+            "layers": {
+                "type": "object",
+                "properties": {
+                    "root": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Enable Berry.Root (prompt guard)"
+                    },
+                    "pulp": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Enable Berry.Pulp (output scanner)"
+                    },
+                    "thorn": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Enable Berry.Thorn (tool blocker)"
+                    },
+                    "leaf": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Enable Berry.Leaf (input audit)"
+                    },
+                    "stem": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Enable Berry.Stem (security gate)"
+                    }
+                }
+            },
+            "sensitiveFilePaths": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                },
+                "default": [],
+                "description": "Additional file path patterns (regex)"
+            },
+            "destructiveCommands": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                },
+                "default": [],
+                "description": "Additional command patterns (regex)"
+            }
+        }
+    }
+}

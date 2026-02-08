@@ -1,0 +1,11 @@
+{
+  "name": "berry-shield",
+  "version": "1.0.0",
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "peerDependencies": {
+    "openclaw": "*"
+  }
+}
