@@ -9,6 +9,8 @@
     ]
   },
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "build": "tsc"
   },
@@ -16,6 +18,7 @@
     "openclaw": "*"
   },
   "devDependencies": {
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.18"
   }
 }

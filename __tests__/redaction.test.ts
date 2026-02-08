@@ -1,0 +1,105 @@
+import { describe, expect, it } from "vitest";
+import { redactString, walkAndRedact, redactSensitiveData } from "../src/utils/redaction";
+import { SECRET_PATTERNS, PII_PATTERNS, getAllRedactionPatterns } from "../src/patterns";
+
+describe("redactString", () => {
+    it("redacts AWS key from text", () => {
+        const text = "My key is AKIAIOSFODNN7EXAMPLE";
+        const result = redactString(text, SECRET_PATTERNS);
+
+        expect(result.content).toBe("My key is [AWS_KEY_REDACTED]");
+        expect(result.redactionCount).toBe(1);
+        expect(result.redactedTypes).toContain("AWS Access Key");
+    });
+
+    it("redacts multiple secrets", () => {
+        const text = "AWS: AKIAIOSFODNN7EXAMPLE, OpenAI: sk-abc123def456ghi789jkl012";
+        const result = redactString(text, SECRET_PATTERNS);
+
+        expect(result.redactionCount).toBe(2);
+        expect(result.redactedTypes).toContain("AWS Access Key");
+        expect(result.redactedTypes).toContain("OpenAI Key");
+    });
+
+    it("redacts email from text", () => {
+        const text = "Contact me at user@example.com";
+        const result = redactString(text, PII_PATTERNS);
+
+        expect(result.content).toBe("Contact me at [EMAIL_REDACTED]");
+        expect(result.redactionCount).toBe(1);
+    });
+
+    it("returns unchanged text if no matches", () => {
+        const text = "Hello, this is normal text";
+        const result = redactString(text, SECRET_PATTERNS);
+
+        expect(result.content).toBe(text);
+        expect(result.redactionCount).toBe(0);
+        expect(result.redactedTypes).toHaveLength(0);
+    });
+});
+
+describe("walkAndRedact", () => {
+    const patterns = getAllRedactionPatterns();
+
+    it("redacts strings", () => {
+        const result = walkAndRedact("Key: AKIAIOSFODNN7EXAMPLE", patterns);
+        expect(result.content).toBe("Key: [AWS_KEY_REDACTED]");
+    });
+
+    it("redacts arrays", () => {
+        const input = ["user@example.com", "normal text"];
+        const result = walkAndRedact(input, patterns);
+
+        expect(result.content).toEqual(["[EMAIL_REDACTED]", "normal text"]);
+        expect(result.redactionCount).toBe(1);
+    });
+
+    it("redacts nested objects", () => {
+        const input = {
+            user: {
+                email: "user@example.com",
+                name: "John",
+            },
+            apiKey: "AKIAIOSFODNN7EXAMPLE",
+        };
+        const result = walkAndRedact(input, patterns);
+
+        expect(result.content).toEqual({
+            user: {
+                email: "[EMAIL_REDACTED]",
+                name: "John",
+            },
+            apiKey: "[AWS_KEY_REDACTED]",
+        });
+        expect(result.redactionCount).toBe(2);
+    });
+
+    it("handles primitives unchanged", () => {
+        expect(walkAndRedact(42, patterns).content).toBe(42);
+        expect(walkAndRedact(true, patterns).content).toBe(true);
+        expect(walkAndRedact(null, patterns).content).toBe(null);
+    });
+});
+
+describe("redactSensitiveData", () => {
+    it("redacts all types of sensitive data", () => {
+        const input = {
+            config: {
+                awsKey: "AKIAIOSFODNN7EXAMPLE",
+                email: "admin@company.com",
+            },
+        };
+        const result = redactSensitiveData(input);
+
+        expect(result.content).toEqual({
+            config: {
+                awsKey: "[AWS_KEY_REDACTED]",
+                email: "[EMAIL_REDACTED]",
+            },
+        });
+        expect(result.redactionCount).toBe(2);
+        expect(result.redactedTypes).toContain("AWS Access Key");
+        expect(result.redactedTypes).toContain("Email");
+    });
+});

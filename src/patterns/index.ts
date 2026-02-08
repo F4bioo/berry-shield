@@ -165,7 +165,8 @@ export const SENSITIVE_FILE_PATTERNS: RegExp[] = [
  * Destructive command patterns.
  */
 export const DESTRUCTIVE_COMMAND_PATTERNS: RegExp[] = [
-    /\b(rm|rmdir|unlink|del|format|mkfs|dd\s+if=)\b/i,
+    /\b(rm|rmdir|unlink|del|format|mkfs)\b/i,
+    /\bdd\s+if=/i,
 ];
 
 /**
