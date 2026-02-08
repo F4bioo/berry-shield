@@ -4,6 +4,7 @@ import { registerBerryRoot } from "./layers/root";
 import { registerBerryPulp } from "./layers/pulp";
 import { registerBerryThorn } from "./layers/thorn";
 import { registerBerryLeaf } from "./layers/leaf";
+import { registerBerryStem } from "./layers/stem";
 
 /**
  * Berry Shield - Security plugin for OpenClaw
@@ -33,13 +34,11 @@ export default {
         // Log startup (minimalist format as per spec)
         api.logger.info(`🍓 Berry Shield v1.0.0 | ${activeLayers} layers active`);
 
-        // Register all layers
-        registerBerryRoot(api, config);
-        registerBerryPulp(api, config);
-        registerBerryThorn(api, config);
-        registerBerryLeaf(api, config);
-
-        // TODO: Implement remaining layer
-        // - Berry.Stem (registerTool: berry_check)
+        // Register all 5 security layers
+        registerBerryRoot(api, config);  // Prompt Guard
+        registerBerryPulp(api, config);  // Output Scanner
+        registerBerryThorn(api, config); // Tool Blocker
+        registerBerryLeaf(api, config);  // Input Audit
+        registerBerryStem(api, config);  // Security Gate
     },
 };
