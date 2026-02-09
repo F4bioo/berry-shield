@@ -220,6 +220,22 @@ export function registerBerryThorn(
                 };
             }
 
+            // Check if exec command references a sensitive file (e.g., cat .env)
+            if (command && isSensitiveFile(command, config.sensitiveFilePaths)) {
+                const reason = `Command references sensitive file: ${command.substring(0, 50)}${command.length > 50 ? "..." : ""}`;
+
+                if (config.mode === "audit") {
+                    api.logger.warn(`[berry-shield] Berry.Thorn: AUDIT - ${reason}`);
+                    return undefined; // Don't block in audit mode
+                }
+
+                api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
+                return {
+                    block: true,
+                    blockReason: `🍓 Berry Shield: ${reason}. This file may contain secrets or credentials.`,
+                };
+            }
+
             // Check for sensitive file access
             const filePath = extractFilePath(toolName, params);
             if (filePath && isSensitiveFile(filePath, config.sensitiveFilePaths)) {
