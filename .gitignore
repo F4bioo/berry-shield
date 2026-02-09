@@ -1,9 +1,7 @@
 # Dependencies
 node_modules/
 
-# Build output
-dist/
-*.js
+# Build output (keeping dist/ for deployment)
 *.js.map
 *.d.ts
 
