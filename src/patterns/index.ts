@@ -91,6 +91,16 @@ export const SECRET_PATTERNS: SecurityPattern[] = [
         pattern: /api[-_]?key\s*[:=]\s*[a-zA-Z0-9_.\-/+=]{20,}/gi,
         placeholder: "[API_KEY_REDACTED]",
     },
+    {
+        name: "Telegram Bot Token",
+        pattern: /[0-9]{8,10}:[a-zA-Z0-9_-]{35,}/g,
+        placeholder: "[TELEGRAM_TOKEN_REDACTED]",
+    },
+    {
+        name: "Generic JSON Secret",
+        pattern: /"(?:apiKey|token|secret|auth|password|passwd)"\s*:\s*"([^"]+)"/gi,
+        placeholder: "\"key\": \"[GENERIC_SECRET_REDACTED]\"",
+    },
 ];
 
 /**
@@ -159,6 +169,7 @@ export const SENSITIVE_FILE_PATTERNS: RegExp[] = [
     /\.kube\/config$/i,
     /\/etc\/shadow$/i,
     /\/etc\/passwd$/i,
+    /openclaw\.json$/i,
 ];
 
 /**
