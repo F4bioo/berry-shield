@@ -13,8 +13,8 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { PluginConfig } from "../types/config";
 import {
-    DESTRUCTIVE_COMMAND_PATTERNS,
-    SENSITIVE_FILE_PATTERNS,
+    getAllDestructiveCommandPatterns,
+    getAllSensitiveFilePatterns,
 } from "../patterns";
 
 /**
@@ -48,8 +48,8 @@ function isDestructiveCommand(
     command: string,
     customPatterns: string[]
 ): boolean {
-    // Check built-in patterns
-    for (const pattern of DESTRUCTIVE_COMMAND_PATTERNS) {
+    // Check built-in + custom patterns from dynamic loader
+    for (const pattern of getAllDestructiveCommandPatterns()) {
         if (pattern.test(command)) {
             return true;
         }
@@ -81,8 +81,8 @@ function isSensitiveFile(filePath: string, customPatterns: string[]): boolean {
     // Normalize path separators
     const normalizedPath = filePath.replace(/\\/g, "/");
 
-    // Check built-in patterns
-    for (const pattern of SENSITIVE_FILE_PATTERNS) {
+    // Check built-in + custom patterns from dynamic loader
+    for (const pattern of getAllSensitiveFilePatterns()) {
         if (pattern.test(normalizedPath)) {
             return true;
         }
