@@ -5,6 +5,7 @@ import { registerBerryPulp } from "./layers/pulp";
 import { registerBerryThorn } from "./layers/thorn";
 import { registerBerryLeaf } from "./layers/leaf";
 import { registerBerryStem } from "./layers/stem";
+import { registerBerryShieldCli } from "./cli";
 
 /**
  * Berry Shield - Security plugin for OpenClaw
@@ -40,5 +41,8 @@ export default {
         registerBerryThorn(api, config); // Tool Blocker
         registerBerryLeaf(api, config);  // Input Audit
         registerBerryStem(api, config);  // Security Gate
+
+        // Register CLI commands (bshield)
+        registerBerryShieldCli(api);
     },
 };
