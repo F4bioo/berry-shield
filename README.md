@@ -169,10 +169,51 @@ Security events are logged in JSON format for easy parsing:
   "timestamp": "2024-01-15T10:30:00.000Z",
   "event": "message_received",
   "sessionKey": "abc123",
-  "containsSecrets": true,
   "sensitiveTypes": ["AWS Access Key"]
 }
 ```
+
+## CLI Usage
+
+Berry Shield includes a CLI for managing custom rules safely.
+
+### Add a Secret Rule
+```bash
+# Add a custom secret pattern
+openclaw bshield add secret --name "MyToken" --pattern "my_token_[a-z0-9]{16}" --placeholder "[MY_TOKEN]"
+```
+
+### Add a Sensitive File Rule
+```bash
+# Block access to specific files
+openclaw bshield add file --pattern "config/production\.json"
+```
+
+### Add a Destructive Command Rule
+```bash
+# Block dangerous commands
+openclaw bshield add command --pattern "drop database"
+```
+
+### List Rules
+```bash
+# Show all active rules (built-in + custom)
+openclaw bshield list
+```
+
+### Remove a Rule
+```bash
+# Remove a custom rule by name
+openclaw bshield remove MyToken
+```
+
+### Test a Pattern
+```bash
+# Verify if a string is redacted
+openclaw bshield test "here is my_token_abc123"
+```
+
+> **Note:** After adding or removing rules, you may need to restart the OpenClaw service or reload the plugin for changes to take effect.
 
 ## Operational Modes
 
