@@ -68,6 +68,52 @@ describe("SENSITIVE_FILE_PATTERNS", () => {
         });
     });
 
+    describe("certificate files", () => {
+        it("matches .p12 files", () => {
+            expect(testPath("certificate.p12")).toBe(true);
+        });
+
+        it("matches .pfx files", () => {
+            expect(testPath("certificate.pfx")).toBe(true);
+        });
+    });
+
+    describe("SSH files", () => {
+        it("matches known_hosts", () => {
+            expect(testPath("/home/user/.ssh/known_hosts")).toBe(true);
+        });
+
+        it("matches .ssh/config", () => {
+            expect(testPath("/home/user/.ssh/config")).toBe(true);
+        });
+    });
+
+    describe("other sensitive files", () => {
+        it("matches .netrc", () => {
+            expect(testPath("/home/user/.netrc")).toBe(true);
+        });
+
+        it("matches .npmrc", () => {
+            expect(testPath("/home/user/.npmrc")).toBe(true);
+        });
+
+        it("matches /etc/shadow", () => {
+            expect(testPath("/etc/shadow")).toBe(true);
+        });
+
+        it("matches /etc/passwd", () => {
+            expect(testPath("/etc/passwd")).toBe(true);
+        });
+
+        it("matches openclaw.json", () => {
+            expect(testPath("openclaw.json")).toBe(true);
+        });
+
+        it("matches openclaw.json with path", () => {
+            expect(testPath("/home/user/.openclaw/openclaw.json")).toBe(true);
+        });
+    });
+
     describe("safe files", () => {
         it("does not match README.md", () => {
             expect(testPath("README.md")).toBe(false);

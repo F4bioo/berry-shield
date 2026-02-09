@@ -129,7 +129,7 @@ export const PII_PATTERNS: SecurityPattern[] = [
     },
     {
         name: "International Phone",
-        pattern: /\b\+[2-9]\d{0,2}[-.\s]?\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b/g,
+        pattern: /(\+[2-9]\d{0,2}[-.\s]?\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{3,4})\b/g,
         placeholder: "[PHONE_REDACTED]",
     },
     {

@@ -5,29 +5,21 @@
  * Usage: openclaw bshield remove <name>
  */
 
-import { loadCustomRules, saveCustomRules, secretRuleExists } from "../storage.js";
+import { removeCustomRule } from "../storage.js";
 
 /**
  * Handler for the remove command
  */
 export async function removeCommand(name: string): Promise<void> {
-    const rules = loadCustomRules();
+    const result = removeCustomRule(name);
 
-    // Check if rule exists
-    if (!secretRuleExists(rules, name)) {
+    if (!result.removed) {
         console.error(`\n✗ Rule '${name}' not found.\n`);
         return;
     }
 
-    // Remove the rule
-    rules.secrets = rules.secrets.filter(
-        s => s.name.toLowerCase() !== name.toLowerCase()
-    );
-
-    saveCustomRules(rules);
-
     console.log(`
-✓ Removed rule: ${name}
+✓ Removed ${(result.type || "")} rule: ${name}
 
 To apply changes, run:
 

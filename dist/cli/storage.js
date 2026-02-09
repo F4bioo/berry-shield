@@ -4,9 +4,9 @@
  * Manages reading/writing custom-rules.json from ~/.openclaw/config/berry-shield/
  * This location is outside the plugin directory so rules persist across reinstalls.
  */
-import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
 // Storage location outside plugin directory
 const CONFIG_DIR = path.join(os.homedir(), ".openclaw", "config", "berry-shield");
 const RULES_FILE = path.join(CONFIG_DIR, "custom-rules.json");
@@ -86,4 +86,109 @@ export function generatePlaceholder(name) {
  */
 export function getRulesFilePath() {
     return RULES_FILE;
+}
+export function getStoragePath() {
+    return RULES_FILE;
+}
+/**
+ * Add a custom rule.
+ * Returns result object indicating success or failure.
+ */
+export function addCustomRule(type, options) {
+    const { name, pattern, placeholder, force } = options;
+    // Validate regex
+    const validation = validateRegex(pattern);
+    if (!validation.valid) {
+        return { success: false, error: `Invalid regex pattern: ${validation.error}` };
+    }
+    const rules = loadCustomRules();
+    const now = new Date().toISOString();
+    if (type === "secret") {
+        if (!name)
+            return { success: false, error: "Secret rules require a name" };
+        if (secretRuleExists(rules, name) && !force) {
+            return { success: false, error: `Rule '${name}' already exists. Use --force to override.` };
+        }
+        // Remove existing if forcing
+        if (secretRuleExists(rules, name)) {
+            rules.secrets = rules.secrets.filter(s => s.name.toLowerCase() !== name.toLowerCase());
+        }
+        const finalPlaceholder = placeholder || generatePlaceholder(name);
+        const newRule = {
+            name,
+            pattern,
+            placeholder: finalPlaceholder,
+            addedAt: now,
+        };
+        rules.secrets.push(newRule);
+        saveCustomRules(rules);
+        return { success: true, rule: newRule };
+    }
+    else if (type === "file") {
+        const exists = rules.sensitiveFiles.some(f => f.pattern === pattern);
+        if (exists && !force) {
+            return { success: false, error: "File pattern already exists. Use --force to add anyway." };
+        }
+        // Remove existing if forcing (to update timestamp or just dedup)
+        if (exists) {
+            rules.sensitiveFiles = rules.sensitiveFiles.filter(f => f.pattern !== pattern);
+        }
+        const newRule = { pattern, addedAt: now };
+        rules.sensitiveFiles.push(newRule);
+        saveCustomRules(rules);
+        return { success: true, rule: newRule };
+    }
+    else if (type === "command") {
+        const exists = rules.destructiveCommands.some(c => c.pattern === pattern);
+        if (exists && !force) {
+            return { success: false, error: "Command pattern already exists. Use --force to add anyway." };
+        }
+        if (exists) {
+            rules.destructiveCommands = rules.destructiveCommands.filter(c => c.pattern !== pattern);
+        }
+        const newRule = { pattern, addedAt: now };
+        rules.destructiveCommands.push(newRule);
+        saveCustomRules(rules);
+        return { success: true, rule: newRule };
+    }
+    return { success: false, error: `Unknown type: ${type}` };
+}
+/**
+ * Remove a custom rule by name (secrets) or pattern (files/commands).
+ * For simplicity, we search by name in secrets first, then try to match pattern in others.
+ */
+export function removeCustomRule(identifier) {
+    const rules = loadCustomRules();
+    let removed = false;
+    let type = undefined;
+    // optimized: check secrets by name first
+    const initialSecretsCount = rules.secrets.length;
+    rules.secrets = rules.secrets.filter(s => s.name.toLowerCase() !== identifier.toLowerCase());
+    if (rules.secrets.length < initialSecretsCount) {
+        removed = true;
+        type = "secret";
+    }
+    // if not found, check sensitive files by pattern
+    if (!removed) {
+        const initialFilesCount = rules.sensitiveFiles.length;
+        rules.sensitiveFiles = rules.sensitiveFiles.filter(f => f.pattern !== identifier);
+        if (rules.sensitiveFiles.length < initialFilesCount) {
+            removed = true;
+            type = "file";
+        }
+    }
+    // if not found, check commands by pattern
+    if (!removed) {
+        const initialCmdsCount = rules.destructiveCommands.length;
+        rules.destructiveCommands = rules.destructiveCommands.filter(c => c.pattern !== identifier);
+        if (rules.destructiveCommands.length < initialCmdsCount) {
+            removed = true;
+            type = "command";
+        }
+    }
+    if (removed) {
+        saveCustomRules(rules);
+        return { success: true, removed: true, type };
+    }
+    return { success: true, removed: false };
 }

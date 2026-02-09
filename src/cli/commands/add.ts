@@ -6,12 +6,10 @@
  */
 
 import {
-    loadCustomRules,
-    saveCustomRules,
-    validateRegex,
-    secretRuleExists,
-    generatePlaceholder,
-    getRulesFilePath,
+    addCustomRule,
+    type SecretRule,
+    type FileRule,
+    type CommandRule,
 } from "../storage.js";
 
 interface AddOptions {
@@ -49,85 +47,23 @@ function printError(message: string): void {
 export async function addCommand(type: string, options: AddOptions): Promise<void> {
     const { name, pattern, placeholder, force } = options;
 
-    // Validate type
-    const validTypes = ["secret", "file", "command"];
-    if (!validTypes.includes(type)) {
-        printError(`Unknown type: ${type}. Valid types: ${validTypes.join(", ")}`);
+    const result = addCustomRule(type, { name, pattern, placeholder, force });
+
+    if (!result.success) {
+        printError(result.error || "Unknown error");
         return;
     }
 
-    // Secrets require a name
-    if (type === "secret" && !name) {
-        printError("Secret rules require --name");
-        return;
+    const rule = result.rule as SecretRule | FileRule | CommandRule;
+
+    // Determine info to display
+    let displayIdentifier = rule.pattern;
+    let displayPlaceholder: string | undefined = undefined;
+
+    if ('name' in rule) {
+        displayIdentifier = rule.name;
+        displayPlaceholder = rule.placeholder;
     }
 
-    // Validate the regex pattern
-    const validation = validateRegex(pattern);
-    if (!validation.valid) {
-        printError(`Invalid regex pattern: ${validation.error}`);
-        return;
-    }
-
-    const rules = loadCustomRules();
-    const now = new Date().toISOString();
-
-    if (type === "secret") {
-        // Check for existing rule with same name
-        if (secretRuleExists(rules, name!) && !force) {
-            printError(`Rule '${name}' already exists. Use --force to override.`);
-            return;
-        }
-
-        // Remove existing if using --force
-        if (secretRuleExists(rules, name!)) {
-            rules.secrets = rules.secrets.filter(
-                s => s.name.toLowerCase() !== name!.toLowerCase()
-            );
-        }
-
-        const finalPlaceholder = placeholder || generatePlaceholder(name!);
-
-        rules.secrets.push({
-            name: name!,
-            pattern,
-            placeholder: finalPlaceholder,
-            addedAt: now,
-        });
-
-        saveCustomRules(rules);
-        printSuccess(type, name!, pattern, finalPlaceholder);
-
-    } else if (type === "file") {
-        // Check for duplicate pattern
-        const exists = rules.sensitiveFiles.some(f => f.pattern === pattern);
-        if (exists && !force) {
-            printError(`File pattern already exists. Use --force to add anyway.`);
-            return;
-        }
-
-        rules.sensitiveFiles.push({
-            pattern,
-            addedAt: now,
-        });
-
-        saveCustomRules(rules);
-        printSuccess(type, pattern, pattern);
-
-    } else if (type === "command") {
-        // Check for duplicate pattern
-        const exists = rules.destructiveCommands.some(c => c.pattern === pattern);
-        if (exists && !force) {
-            printError(`Command pattern already exists. Use --force to add anyway.`);
-            return;
-        }
-
-        rules.destructiveCommands.push({
-            pattern,
-            addedAt: now,
-        });
-
-        saveCustomRules(rules);
-        printSuccess(type, pattern, pattern);
-    }
+    printSuccess(type, displayIdentifier, rule.pattern, displayPlaceholder);
 }
