@@ -9,7 +9,7 @@
  * NOTE: This hook may not be wired in all OpenClaw versions.
  * Berry.Stem provides a complementary fallback mechanism.
  */
-import { DESTRUCTIVE_COMMAND_PATTERNS, SENSITIVE_FILE_PATTERNS, } from "../patterns";
+import { getAllDestructiveCommandPatterns, getAllSensitiveFilePatterns, } from "../patterns";
 /**
  * Checks if a command is destructive.
  *
@@ -18,8 +18,8 @@ import { DESTRUCTIVE_COMMAND_PATTERNS, SENSITIVE_FILE_PATTERNS, } from "../patte
  * @returns True if destructive
  */
 function isDestructiveCommand(command, customPatterns) {
-    // Check built-in patterns
-    for (const pattern of DESTRUCTIVE_COMMAND_PATTERNS) {
+    // Check built-in + custom patterns from dynamic loader
+    for (const pattern of getAllDestructiveCommandPatterns()) {
         if (pattern.test(command)) {
             return true;
         }
@@ -48,8 +48,8 @@ function isDestructiveCommand(command, customPatterns) {
 function isSensitiveFile(filePath, customPatterns) {
     // Normalize path separators
     const normalizedPath = filePath.replace(/\\/g, "/");
-    // Check built-in patterns
-    for (const pattern of SENSITIVE_FILE_PATTERNS) {
+    // Check built-in + custom patterns from dynamic loader
+    for (const pattern of getAllSensitiveFilePatterns()) {
         if (pattern.test(normalizedPath)) {
             return true;
         }
