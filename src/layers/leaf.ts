@@ -124,15 +124,21 @@ export function registerBerryLeaf(
 
     api.on(
         "message_received",
-        (event: MessageReceivedEvent) => {
-            const { message, source, senderId, sessionKey, timestamp } = event;
+        (event: any, ctx: any) => {
+            // Normalize event data (OpenClaw passed message might be in 'message' or 'content')
+            const message = event.message || event.content || "";
+            const { source, senderId, timestamp } = event;
+            const sessionKey = event.sessionKey || ctx.sessionKey;
+
+            // Skip if no message content
+            if (!message) return;
 
             // Detect sensitive content in the message
             const detection = detectSensitiveContent(message, patterns);
 
             // Build audit log entry (JSON structured log)
             const auditEntry: AuditLogEntry = {
-                timestamp: (timestamp ?? new Date()).toISOString(),
+                timestamp: (timestamp ? new Date(timestamp) : new Date()).toISOString(),
                 event: "message_received",
                 sessionKey,
                 source,
