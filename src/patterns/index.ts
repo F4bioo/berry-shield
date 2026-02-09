@@ -180,9 +180,86 @@ export const DESTRUCTIVE_COMMAND_PATTERNS: RegExp[] = [
     /\bdd\s+if=/i,
 ];
 
+// ============================================================================
+// Dynamic Pattern Loading (includes custom rules)
+// ============================================================================
+
+// Lazy import to avoid circular dependency
+type CustomRulesShape = {
+    secrets: Array<{ name: string; pattern: string; placeholder: string }>;
+    sensitiveFiles: Array<{ pattern: string }>;
+    destructiveCommands: Array<{ pattern: string }>;
+};
+
+const emptyCustomRules: CustomRulesShape = { secrets: [], sensitiveFiles: [], destructiveCommands: [] };
+
+let _loadCustomRules: (() => CustomRulesShape) | null = null;
+
+function getCustomRulesLoader(): () => CustomRulesShape {
+    if (!_loadCustomRules) {
+        try {
+            // Dynamic import to prevent circular dependency
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const storage = require("../cli/storage.js");
+            _loadCustomRules = storage.loadCustomRules as () => CustomRulesShape;
+        } catch {
+            // CLI module not available, return empty rules
+            _loadCustomRules = () => emptyCustomRules;
+        }
+    }
+    return _loadCustomRules;
+}
+
 /**
- * Combines all redaction patterns into a single array.
+ * Combines all redaction patterns (built-in + custom) into a single array.
  */
 export function getAllRedactionPatterns(): SecurityPattern[] {
-    return [...SECRET_PATTERNS, ...PII_PATTERNS];
+    const loader = getCustomRulesLoader();
+    const custom = loader();
+
+    // Convert custom secrets to SecurityPattern format
+    const customSecrets: SecurityPattern[] = custom.secrets.map(s => ({
+        name: s.name,
+        pattern: new RegExp(s.pattern, "gi"),
+        placeholder: s.placeholder,
+    }));
+
+    return [...SECRET_PATTERNS, ...customSecrets, ...PII_PATTERNS];
 }
+
+/**
+ * Gets all sensitive file patterns (built-in + custom).
+ */
+export function getAllSensitiveFilePatterns(): RegExp[] {
+    const loader = getCustomRulesLoader();
+    const custom = loader();
+
+    const customFiles = custom.sensitiveFiles.map(f => {
+        try {
+            return new RegExp(f.pattern, "i");
+        } catch {
+            return null;
+        }
+    }).filter((r): r is RegExp => r !== null);
+
+    return [...SENSITIVE_FILE_PATTERNS, ...customFiles];
+}
+
+/**
+ * Gets all destructive command patterns (built-in + custom).
+ */
+export function getAllDestructiveCommandPatterns(): RegExp[] {
+    const loader = getCustomRulesLoader();
+    const custom = loader();
+
+    const customCmds = custom.destructiveCommands.map(c => {
+        try {
+            return new RegExp(c.pattern, "i");
+        } catch {
+            return null;
+        }
+    }).filter((r): r is RegExp => r !== null);
+
+    return [...DESTRUCTIVE_COMMAND_PATTERNS, ...customCmds];
+}
+
