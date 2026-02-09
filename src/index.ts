@@ -25,7 +25,7 @@ export default {
 
     register(api: OpenClawPluginApi) {
         // Get user config and merge with defaults
-        const userConfig = api.getConfig?.() ?? {};
+        const userConfig = api.config ?? {};
         const config: PluginConfig = mergeConfig(userConfig as Partial<PluginConfig>);
 
         // Count active layers
