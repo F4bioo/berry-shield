@@ -61,7 +61,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
             bshield
                 .command("add <type>")
                 .description("Add a custom rule (secret | file | command)")
-                .requiredOption("--name <name>", "Rule name (required for secrets)")
+                .option("--name <name>", "Rule name (required for secrets)")
                 .requiredOption("--pattern <pattern>", "Regex pattern to match")
                 .option("--placeholder <text>", "Custom placeholder for redaction")
                 .option("--force", "Override existing rule with same name")

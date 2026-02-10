@@ -161,12 +161,15 @@ export function registerBerryStem(api, config) {
                     // In audit mode, still return DENIED but log differently
                     if (config.mode === "audit") {
                         api.logger.info("[berry-shield] Berry.Stem: AUDIT mode - would block destructive command");
+                        // Fall through to ALLOWED
                     }
-                    return {
-                        content: [
-                            { type: "text", text: formatDeniedDestructiveCommand(target) },
-                        ],
-                    };
+                    else {
+                        return {
+                            content: [
+                                { type: "text", text: formatDeniedDestructiveCommand(target) },
+                            ],
+                        };
+                    }
                 }
                 // Also check if exec command references a sensitive file (e.g., cat .env)
                 if (isSensitiveFile(target, config.sensitiveFilePaths)) {
@@ -188,12 +191,15 @@ export function registerBerryStem(api, config) {
                     // In audit mode, still return DENIED but log differently
                     if (config.mode === "audit") {
                         api.logger.info("[berry-shield] Berry.Stem: AUDIT mode - would block sensitive file access");
+                        // Fall through to ALLOWED
                     }
-                    return {
-                        content: [
-                            { type: "text", text: formatDeniedSensitiveFile(target) },
-                        ],
-                    };
+                    else {
+                        return {
+                            content: [
+                                { type: "text", text: formatDeniedSensitiveFile(target) },
+                            ],
+                        };
+                    }
                 }
             }
             // Operation is allowed

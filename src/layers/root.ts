@@ -6,7 +6,7 @@
  * instruct the agent to call berry_check before exec/read operations.
  */
 
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi, PluginHookBeforeAgentStartEvent } from "openclaw/plugin-sdk";
 import type { PluginConfig } from "../types/config";
 
 /**
@@ -49,7 +49,7 @@ export function registerBerryRoot(
 
     api.on(
         "before_agent_start",
-        (event) => {
+        (event: PluginHookBeforeAgentStartEvent) => {
             // Inject security policy into the agent's context
             if (event.prependContext) {
                 event.prependContext(SECURITY_POLICY);

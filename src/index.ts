@@ -32,9 +32,6 @@ export default {
         // Count active layers
         const activeLayers = Object.values(config.layers).filter(Boolean).length;
 
-        // Log startup (minimalist format as per spec)
-        api.logger.info(`🍓 Berry Shield v1.0.0 | ${activeLayers} layers active`);
-
         // Register all 5 security layers
         registerBerryRoot(api, config);  // Prompt Guard
         registerBerryPulp(api, config);  // Output Scanner

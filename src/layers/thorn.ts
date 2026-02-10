@@ -10,32 +10,12 @@
  * Berry.Stem provides a complementary fallback mechanism.
  */
 
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi, PluginHookBeforeToolCallEvent, BlockResult } from "openclaw/plugin-sdk";
 import type { PluginConfig } from "../types/config";
 import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
 } from "../patterns";
-
-/**
- * Tool call event structure.
- */
-interface ToolCallEvent {
-    /** Name of the tool being called */
-    toolName: string;
-    /** Parameters passed to the tool */
-    params: Record<string, unknown>;
-}
-
-/**
- * Block result structure.
- */
-interface BlockResult {
-    /** Whether to block the tool call */
-    block: boolean;
-    /** Reason for blocking */
-    blockReason?: string;
-}
 
 /**
  * Checks if a command is destructive.
@@ -200,7 +180,7 @@ export function registerBerryThorn(
 
     api.on(
         "before_tool_call",
-        (event: ToolCallEvent): BlockResult | undefined => {
+        (event: PluginHookBeforeToolCallEvent): BlockResult | undefined => {
             const { toolName, params } = event;
 
             // Check for destructive commands

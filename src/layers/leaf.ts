@@ -8,30 +8,14 @@
  * It provides an audit trail for security monitoring and compliance.
  */
 
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi, PluginHookMessageReceivedEvent, PluginHookMessageContext } from "openclaw/plugin-sdk";
 import type { PluginConfig } from "../types/config";
 import { getAllRedactionPatterns, type SecurityPattern } from "../patterns";
 
 /**
- * Message received event structure.
+ * Internal audit log entry structure.
  */
-interface MessageReceivedEvent {
-    /** The message content */
-    message: string;
-    /** Source of the message (e.g., 'whatsapp', 'telegram', 'cli') */
-    source?: string;
-    /** Sender identifier */
-    senderId?: string;
-    /** Session key */
-    sessionKey?: string;
-    /** Timestamp of the message */
-    timestamp?: Date;
-}
-
-/**
- * Audit log entry structure.
- */
-interface AuditLogEntry {
+interface InternalAuditLogEntry {
     /** Timestamp in ISO format */
     timestamp: string;
     /** Event type */
@@ -124,7 +108,7 @@ export function registerBerryLeaf(
 
     api.on(
         "message_received",
-        (event: any, ctx: any) => {
+        (event: PluginHookMessageReceivedEvent, ctx: PluginHookMessageContext) => {
             // Normalize event data (OpenClaw passed message might be in 'message' or 'content')
             const message = event.message || event.content || "";
             const { source, senderId, timestamp } = event;
@@ -137,7 +121,7 @@ export function registerBerryLeaf(
             const detection = detectSensitiveContent(message, patterns);
 
             // Build audit log entry (JSON structured log)
-            const auditEntry: AuditLogEntry = {
+            const auditEntry: InternalAuditLogEntry = {
                 timestamp: (timestamp ? new Date(timestamp) : new Date()).toISOString(),
                 event: "message_received",
                 sessionKey,
@@ -152,17 +136,11 @@ export function registerBerryLeaf(
             // Log the audit entry
             if (detection.containsSecrets || detection.containsPII) {
                 // Warn level for messages with sensitive content
-                api.logger.warn(
-                    `[berry-shield] Berry.Leaf: AUDIT - sensitive content detected [${detection.types.join(", ")}]`
-                );
-                api.logger.debug(
-                    `[berry-shield] Berry.Leaf: ${JSON.stringify(auditEntry)}`
-                );
+                api.logger.warn(`[berry-shield] Berry.Leaf: AUDIT - sensitive content detected [${detection.types.join(", ")}]`);
+                api.logger.debug(`[berry-shield] Berry.Leaf: ${JSON.stringify(auditEntry)}`);
             } else {
                 // Debug level for normal messages
-                api.logger.debug(
-                    `[berry-shield] Berry.Leaf: ${JSON.stringify(auditEntry)}`
-                );
+                api.logger.debug(`[berry-shield] Berry.Leaf: ${JSON.stringify(auditEntry)}`);
             }
 
             // NOTE: message_received hook cannot return values to modify/block

@@ -14,7 +14,7 @@
  * before exec/read operations.
  */
 
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi, ToolResult } from "openclaw/plugin-sdk";
 import type { PluginConfig } from "../types/config";
 import {
     getAllDestructiveCommandPatterns,
@@ -34,21 +34,6 @@ interface BerryCheckParams {
     operation: OperationType;
     /** File path or command to check */
     target: string;
-}
-
-/**
- * Tool result content item.
- */
-interface ToolResultContent {
-    type: "text";
-    text: string;
-}
-
-/**
- * Tool result structure.
- */
-interface ToolResult {
-    content: ToolResultContent[];
 }
 
 /**
@@ -223,16 +208,15 @@ export function registerBerryStem(
 
                     // In audit mode, still return DENIED but log differently
                     if (config.mode === "audit") {
-                        api.logger.info(
-                            "[berry-shield] Berry.Stem: AUDIT mode - would block destructive command"
-                        );
+                        api.logger.info("[berry-shield] Berry.Stem: AUDIT mode - would block destructive command");
+                        // Fall through to ALLOWED
+                    } else {
+                        return {
+                            content: [
+                                { type: "text", text: formatDeniedDestructiveCommand(target) },
+                            ],
+                        };
                     }
-
-                    return {
-                        content: [
-                            { type: "text", text: formatDeniedDestructiveCommand(target) },
-                        ],
-                    };
                 }
 
                 // Also check if exec command references a sensitive file (e.g., cat .env)
@@ -242,9 +226,7 @@ export function registerBerryStem(
                     );
 
                     if (config.mode === "audit") {
-                        api.logger.info(
-                            "[berry-shield] Berry.Stem: AUDIT mode - would block command referencing sensitive file"
-                        );
+                        api.logger.info("[berry-shield] Berry.Stem: AUDIT mode - would block command referencing sensitive file");
                     }
 
                     return {
@@ -258,29 +240,24 @@ export function registerBerryStem(
             // Check for sensitive files on read/write operations
             if (operation === "read" || operation === "write") {
                 if (isSensitiveFile(target, config.sensitiveFilePaths)) {
-                    api.logger.warn(
-                        `[berry-shield] Berry.Stem: DENIED ${operation} - sensitive file: ${target}`
-                    );
+                    api.logger.warn(`[berry-shield] Berry.Stem: DENIED ${operation} - sensitive file: ${target}`);
 
                     // In audit mode, still return DENIED but log differently
                     if (config.mode === "audit") {
-                        api.logger.info(
-                            "[berry-shield] Berry.Stem: AUDIT mode - would block sensitive file access"
-                        );
+                        api.logger.info("[berry-shield] Berry.Stem: AUDIT mode - would block sensitive file access");
+                        // Fall through to ALLOWED
+                    } else {
+                        return {
+                            content: [
+                                { type: "text", text: formatDeniedSensitiveFile(target) },
+                            ],
+                        };
                     }
-
-                    return {
-                        content: [
-                            { type: "text", text: formatDeniedSensitiveFile(target) },
-                        ],
-                    };
                 }
             }
 
             // Operation is allowed
-            api.logger.debug(
-                `[berry-shield] Berry.Stem: ALLOWED ${operation} on ${target}`
-            );
+            api.logger.debug(`[berry-shield] Berry.Stem: ALLOWED ${operation} on ${target}`);
 
             return {
                 content: [{ type: "text", text: formatAllowed(operation, target) }],

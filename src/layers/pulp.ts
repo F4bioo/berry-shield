@@ -10,19 +10,9 @@
  * LIMITATION: The LLM may see the output BEFORE this hook runs (timing gap).
  */
 
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi, PluginHookToolResultPersistEvent, PluginHookMessageSendingEvent } from "openclaw/plugin-sdk";
 import type { PluginConfig } from "../types/config";
 import { redactSensitiveData } from "../utils/redaction";
-
-/**
- * Tool result event structure.
- */
-interface ToolResultEvent {
-    /** Tool name that produced the result */
-    toolName: string;
-    /** The result payload to be persisted */
-    result: unknown;
-}
 
 /**
  * Registers the Berry.Pulp layer (Output Scanner).
@@ -42,34 +32,44 @@ export function registerBerryPulp(
 
     api.on(
         "tool_result_persist",
-        (event: ToolResultEvent) => {
-            // In audit mode, just log without modifying
-            if (config.mode === "audit") {
-                const { redactionCount, redactedTypes } = redactSensitiveData(event.result);
-                if (redactionCount > 0) {
-                    api.logger.info(
-                        `[berry-shield] Berry.Pulp: AUDIT - would redact ${redactionCount} item(s) [${redactedTypes.join(", ")}] in ${event.toolName}`
-                    );
-                }
-                return undefined; // Keep original
-            }
-
-            // In enforce mode, redact and return modified result
+        (event: PluginHookToolResultPersistEvent) => {
             const { content, redactionCount, redactedTypes } = redactSensitiveData(event.result);
 
             if (redactionCount > 0) {
-                api.logger.info(
-                    `[berry-shield] Berry.Pulp: redacted ${redactionCount} item(s) [${redactedTypes.join(", ")}] in ${event.toolName}`
-                );
-                // Return the modified result to replace the original
+                if (config.mode === "audit") {
+                    api.logger.warn(`[berry-shield] AUDIT: would redact ${redactionCount} items in tool result: ${event.toolName}`);
+                    return event;
+                }
+
+                api.logger.warn(`[berry-shield] Redacted ${redactionCount} items [${redactedTypes.join(", ")}] from tool result: ${event.toolName}`);
                 return { ...event, result: content };
             }
 
-            // No redactions needed, keep original
-            return undefined;
+            return event;
         },
-        { priority: 200 } // High priority - security runs first
+        { priority: 200 }
     );
 
-    api.logger.debug("[berry-shield] Berry.Pulp layer registered");
+    // [Secondary] Message Sending: Redact direct messages (when supported by channel)
+    api.on(
+        "message_sending",
+        (event: PluginHookMessageSendingEvent) => {
+            const { content, redactionCount, redactedTypes } = redactSensitiveData(event.content);
+
+            if (redactionCount > 0 && typeof content === "string") {
+                if (config.mode === "audit") {
+                    api.logger.warn(`[berry-shield] Berry.Pulp: AUDIT - would redact ${redactionCount} item(s) [${redactedTypes.join(", ")}] in outgoing message`);
+                    return undefined;
+                }
+
+                api.logger.warn(`[berry-shield] Berry.Pulp: redacted ${redactionCount} item(s) [${redactedTypes.join(", ")}] in outgoing message`);
+                return { content };
+            }
+
+            return undefined;
+        },
+        { priority: 200 }
+    );
+
+    api.logger.info("[berry-shield] Berry.Pulp layer registered (Output Scanner)");
 }
