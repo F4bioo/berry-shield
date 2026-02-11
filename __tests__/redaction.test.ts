@@ -61,7 +61,7 @@ describe("walkAndRedact", () => {
                 email: "user@example.com",
                 name: "John",
             },
-            apiKey: "AKIAIOSFODNN7EXAMPLE",
+            awsField: "AKIAIOSFODNN7EXAMPLE",
         };
         const result = walkAndRedact(input, patterns);
 
@@ -70,7 +70,7 @@ describe("walkAndRedact", () => {
                 email: "[EMAIL_REDACTED]",
                 name: "John",
             },
-            apiKey: "[AWS_KEY_REDACTED]",
+            awsField: "[AWS_KEY_REDACTED]",
         });
         expect(result.redactionCount).toBe(2);
     });
@@ -86,7 +86,7 @@ describe("redactSensitiveData", () => {
     it("redacts all types of sensitive data", () => {
         const input = {
             config: {
-                awsKey: "AKIAIOSFODNN7EXAMPLE",
+                awsAccess: "AKIAIOSFODNN7EXAMPLE",
                 email: "admin@company.com",
             },
         };
@@ -94,7 +94,7 @@ describe("redactSensitiveData", () => {
 
         expect(result.content).toEqual({
             config: {
-                awsKey: "[AWS_KEY_REDACTED]",
+                awsAccess: "[AWS_KEY_REDACTED]",
                 email: "[EMAIL_REDACTED]",
             },
         });

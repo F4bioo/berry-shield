@@ -55,6 +55,32 @@ export function redactString(
     };
 }
 
+const SENSITIVE_KEY_EXACT = new Set([
+    "key",
+    "auth",
+    "credential",
+    "cred",
+    "secret",
+]);
+
+const SENSITIVE_KEY_SUFFIXES = [
+    "token",
+    "password",
+    "passwd",
+    "secret",
+    "apikey",
+    "api_key",
+    "access_key",
+    "secret_key",
+    "private_key",
+];
+
+function isSensitiveKey(key: string): boolean {
+    const lower = key.toLowerCase();
+    if (SENSITIVE_KEY_EXACT.has(lower)) return true;
+    return SENSITIVE_KEY_SUFFIXES.some(suffix => lower.endsWith(suffix));
+}
+
 /**
  * Recursively walks through an object and redacts sensitive data.
  *
@@ -66,8 +92,32 @@ export function walkAndRedact<T>(
     obj: T,
     patterns: SecurityPattern[]
 ): RedactionResult<T> {
-    // Handle strings directly
+    // Handle strings
     if (typeof obj === "string") {
+        // OPTIMIZATION: Check if string looks like JSON before parsing
+        const trimmed = obj.trim();
+        const isJsonCandidate = (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+            (trimmed.startsWith("[") && trimmed.endsWith("]"));
+
+        if (isJsonCandidate) {
+            try {
+                const parsed = JSON.parse(obj);
+                // Recursively redact the parsed object
+                const result = walkAndRedact(parsed, patterns);
+
+                // If redactions occurred inside the JSON, re-serialize it
+                if (result.redactionCount > 0) {
+                    return {
+                        content: JSON.stringify(result.content) as unknown as T,
+                        redactionCount: result.redactionCount,
+                        redactedTypes: result.redactedTypes,
+                    };
+                }
+            } catch {
+                // Not valid JSON, fall through to normal string redaction
+            }
+        }
+
         return redactString(obj, patterns) as unknown as RedactionResult<T>;
     }
 
@@ -100,6 +150,19 @@ export function walkAndRedact<T>(
         const redactedObject: Record<string, unknown> = {};
 
         for (const [key, value] of Object.entries(obj)) {
+            // Key-Based Redaction: Check if the key itself indicates a secret
+            if (isSensitiveKey(key)) {
+                // Only redact primitives (strings/numbers/booleans) to preserve structure
+                if (!value || typeof value !== "object") {
+                    redactedObject[key] = `[${key.toUpperCase()}_REDACTED]`;
+                    totalRedactions++;
+                    if (!allRedactedTypes.includes(`Key: ${key}`)) {
+                        allRedactedTypes.push(`Key: ${key}`);
+                    }
+                    continue;
+                }
+            }
+
             const result = walkAndRedact(value, patterns);
             redactedObject[key] = result.content;
             totalRedactions += result.redactionCount;

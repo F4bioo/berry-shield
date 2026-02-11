@@ -246,12 +246,29 @@ function refreshPatterns(): PatternCache {
     // Load and compile patterns
     const custom = loadCustomRules();
 
-    const customSecrets: SecurityPattern[] = custom.secrets.map(s => ({
-        name: s.name,
-        category: "secret",
-        pattern: new RegExp(s.pattern, "gi"),
-        placeholder: s.placeholder,
-    }));
+    const customSecrets: SecurityPattern[] = custom.secrets.map(s => {
+        let pattern = s.pattern;
+        let flags = "gi";
+
+        // Handle PCRE-style case insensitivity (?i)
+        if (pattern.startsWith("(?i)")) {
+            pattern = pattern.substring(4);
+            // "i" is already in default flags, but for clarity/completeness
+            flags = "gi";
+        }
+
+        try {
+            return {
+                name: s.name,
+                category: "secret",
+                pattern: new RegExp(pattern, flags),
+                placeholder: s.placeholder,
+            };
+        } catch (e) {
+            console.error(`[berry-shield] Failed to compile secret pattern '${s.name}': ${e}`);
+            return null;
+        }
+    }).filter((r): r is SecurityPattern => r !== null);
 
     const customFiles = custom.sensitiveFiles.map(f => {
         try { return new RegExp(f.pattern, "i"); } catch { return null; }
