@@ -6,6 +6,7 @@
  */
 
 import * as fs from "node:fs";
+import { GITLEAKS_PATTERNS } from "./generated";
 
 /**
  * Pattern definition with regex and replacement placeholder.
@@ -121,6 +122,12 @@ export const SECRET_PATTERNS: SecurityPattern[] = [
         pattern: /"(?:apiKey|token|secret|auth|password|passwd)"\s*:\s*"([^"]+)"/gi,
         placeholder: "\"key\": \"[GENERIC_SECRET_REDACTED]\"",
     },
+    ...GITLEAKS_PATTERNS.map((rule) => ({
+        name: rule.id,
+        category: "secret" as const,
+        pattern: new RegExp(rule.pattern, "g"),
+        placeholder: `[${rule.id.toUpperCase().replace(/-/g, "_")}_REDACTED]`,
+    })),
 ];
 
 /**

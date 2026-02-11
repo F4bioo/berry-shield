@@ -28,8 +28,9 @@ describe("Contract Protection: Integrated Security Motor", () => {
             const matches = findMatches(input, patterns);
 
             expect(matches).toContain("AWS Access Key");
+            expect(matches).toContain("aws-access-token");
             expect(matches).toContain("Email");
-            expect(matches.length).toBe(2);
+            expect(matches.length).toBe(3);
 
             // Verifies immutability - findMatches didn't change the input
             expect(input.level1.level2.secret).toBe("AKIAIOSFODNN7EXAMPLE");

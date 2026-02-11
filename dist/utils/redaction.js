@@ -19,7 +19,7 @@ export function redactString(text, patterns) {
     for (const pattern of patterns) {
         // Reset regex lastIndex for global patterns
         pattern.pattern.lastIndex = 0;
-        const matches = text.match(pattern.pattern);
+        const matches = result.match(pattern.pattern);
         if (matches && matches.length > 0) {
             result = result.replace(pattern.pattern, pattern.placeholder);
             redactionCount += matches.length;
