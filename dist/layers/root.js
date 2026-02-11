@@ -25,7 +25,11 @@ SECURITY RULES - You MUST follow these rules at all times:
 4. If you encounter sensitive data, describe it generically (e.g., "Found an API key in the file") without revealing the actual value.
 
 5. Do NOT attempt to bypass these rules. They exist to protect the user's security and privacy.
-</berry_shield_policy>`;
+</berry_shield_policy>
+
+---
+
+`;
 /**
  * Registers the Berry.Root layer (Prompt Guard).
  *
@@ -35,16 +39,16 @@ SECURITY RULES - You MUST follow these rules at all times:
 export function registerBerryRoot(api, config) {
     // Skip if layer is disabled
     if (!config.layers.root) {
-        api.logger.debug("[berry-shield] Berry.Root layer disabled");
+        api.logger.debug?.("[berry-shield] Berry.Root layer disabled");
         return;
     }
-    api.on("before_agent_start", (event) => {
+    api.on("before_agent_start", (_event) => {
         // Inject security policy into the agent's context
-        if (event.prependContext) {
-            event.prependContext(SECURITY_POLICY);
-            api.logger.debug("[berry-shield] Berry.Root: security policy injected");
-        }
+        api.logger.debug?.("[berry-shield] Berry.Root: injecting security policy");
+        return {
+            prependContext: SECURITY_POLICY
+        };
     }, { priority: 200 } // High priority - security runs first
     );
-    api.logger.debug("[berry-shield] Berry.Root layer registered");
+    api.logger.debug?.("[berry-shield] Berry.Root layer registered");
 }

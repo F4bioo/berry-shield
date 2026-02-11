@@ -18,17 +18,13 @@ import { testCommand } from "./commands/test.js";
  * - openclaw bshield test <input>
  */
 export function registerBerryShieldCli(api) {
-    // Cast to extended type - registerCli exists at runtime
-    const extendedApi = api;
-    // Check if registerCli is available (may not be in older versions)
-    if (typeof extendedApi.registerCli !== "function") {
-        api.logger.warn("[berry-shield] CLI registration not available in this OpenClaw version");
-        return;
-    }
-    extendedApi.registerCli(({ program }) => {
+    // Register the CLI with OpenClaw using the official SDK registrar
+    api.registerCli((ctx) => {
+        const { program, config, logger } = ctx;
         const bshield = program
             .command("bshield")
-            .description("🍓 Berry Shield - Custom security rules management");
+            .description("🍓 Berry Shield - Custom security rules management")
+            .addHelpText('after', '\nFor more info, visit: https://github.com/F4bioo/berry-shield\n');
         // Add command
         bshield
             .command("add <type>")
@@ -38,35 +34,28 @@ export function registerBerryShieldCli(api) {
             .option("--placeholder <text>", "Custom placeholder for redaction")
             .option("--force", "Override existing rule with same name")
             .action(async (type, options) => {
-            const opts = options;
-            await addCommand(type, {
-                name: opts.name,
-                pattern: opts.pattern,
-                placeholder: opts.placeholder,
-                force: opts.force,
-            });
+            await addCommand(type, options, config, logger);
         });
         // Remove command
         bshield
             .command("remove <name>")
             .description("Remove a custom rule by name")
             .action(async (name) => {
-            await removeCommand(name);
+            await removeCommand(name, config, logger);
         });
         // List command
         bshield
             .command("list")
             .description("List all rules (built-in and custom)")
             .action(async () => {
-            await listCommand();
+            await listCommand(config, logger);
         });
         // Test command
         bshield
             .command("test <input>")
             .description("Test if input matches any security pattern")
             .action(async (input) => {
-            await testCommand(input);
+            await testCommand(input, config, logger);
         });
     }, { commands: ["bshield"] });
-    api.logger.info("[berry-shield] CLI commands registered: bshield");
 }

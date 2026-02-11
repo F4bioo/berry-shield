@@ -5,8 +5,11 @@
  * Usage: openclaw bshield test <input>
  */
 
+import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
+type PluginLogger = OpenClawPluginApi["logger"];
+
 import { loadCustomRules } from "../storage.js";
-import { SECRET_PATTERNS, PII_PATTERNS, type SecurityPattern } from "../../patterns/index.js";
+import { SECRET_PATTERNS, PII_PATTERNS } from "../../patterns/index.js";
 
 interface MatchResult {
     name: string;
@@ -17,8 +20,13 @@ interface MatchResult {
 /**
  * Handler for the test command
  */
-export async function testCommand(input: string): Promise<void> {
+export async function testCommand(
+    input: string,
+    _config: OpenClawConfig,
+    logger: PluginLogger
+): Promise<void> {
     const custom = loadCustomRules();
+    logger.debug?.(`[berry-shield] CLI: Testing input: ${input.substring(0, 20)}...`);
     const matches: MatchResult[] = [];
 
     // Test against built-in secret patterns

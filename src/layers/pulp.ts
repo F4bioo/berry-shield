@@ -10,9 +10,10 @@
  * LIMITATION: The LLM may see the output BEFORE this hook runs (timing gap).
  */
 
-import type { OpenClawPluginApi, PluginHookToolResultPersistEvent, PluginHookMessageSendingEvent } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { PluginConfig } from "../types/config";
-import { redactSensitiveData } from "../utils/redaction";
+import { getAllRedactionPatterns } from "../patterns";
+import { walkAndRedact } from "../utils/redaction";
 
 /**
  * Registers the Berry.Pulp layer (Output Scanner).
@@ -26,23 +27,28 @@ export function registerBerryPulp(
 ): void {
     // Skip if layer is disabled
     if (!config.layers.pulp) {
-        api.logger.debug("[berry-shield] Berry.Pulp layer disabled");
+        api.logger.debug?.("[berry-shield] Berry.Pulp layer disabled");
         return;
     }
 
+    const patterns = getAllRedactionPatterns();
+
     api.on(
         "tool_result_persist",
-        (event: PluginHookToolResultPersistEvent) => {
-            const { content, redactionCount, redactedTypes } = redactSensitiveData(event.result);
+        (event) => {
+            const { content, redactionCount, redactedTypes } = walkAndRedact(event.message, patterns);
 
             if (redactionCount > 0) {
                 if (config.mode === "audit") {
                     api.logger.warn(`[berry-shield] AUDIT: would redact ${redactionCount} items in tool result: ${event.toolName}`);
+                    // Return unmodified event in audit mode
                     return event;
                 }
 
                 api.logger.warn(`[berry-shield] Redacted ${redactionCount} items [${redactedTypes.join(", ")}] from tool result: ${event.toolName}`);
-                return { ...event, result: content };
+
+                // Return modified message. 'content' is the redacted version of event.message.
+                return { ...event, message: content };
             }
 
             return event;
@@ -53,17 +59,17 @@ export function registerBerryPulp(
     // [Secondary] Message Sending: Redact direct messages (when supported by channel)
     api.on(
         "message_sending",
-        (event: PluginHookMessageSendingEvent) => {
-            const { content, redactionCount, redactedTypes } = redactSensitiveData(event.content);
+        (event) => {
+            const { content, redactionCount, redactedTypes } = walkAndRedact(event.content, patterns);
 
-            if (redactionCount > 0 && typeof content === "string") {
+            if (redactionCount > 0) {
                 if (config.mode === "audit") {
                     api.logger.warn(`[berry-shield] Berry.Pulp: AUDIT - would redact ${redactionCount} item(s) [${redactedTypes.join(", ")}] in outgoing message`);
                     return undefined;
                 }
 
                 api.logger.warn(`[berry-shield] Berry.Pulp: redacted ${redactionCount} item(s) [${redactedTypes.join(", ")}] in outgoing message`);
-                return { content };
+                return { content: content };
             }
 
             return undefined;
@@ -71,5 +77,5 @@ export function registerBerryPulp(
         { priority: 200 }
     );
 
-    api.logger.info("[berry-shield] Berry.Pulp layer registered (Output Scanner)");
+    api.logger.debug?.("[berry-shield] Berry.Pulp layer registered (Output Scanner)");
 }

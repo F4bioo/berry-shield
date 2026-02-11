@@ -5,6 +5,9 @@
  * Usage: openclaw bshield list
  */
 
+import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
+type PluginLogger = OpenClawPluginApi["logger"];
+
 import { loadCustomRules, getRulesFilePath } from "../storage.js";
 import {
     SECRET_PATTERNS,
@@ -16,8 +19,12 @@ import {
 /**
  * Handler for the list command
  */
-export async function listCommand(): Promise<void> {
+export async function listCommand(
+    _config: OpenClawConfig,
+    logger: PluginLogger
+): Promise<void> {
     const custom = loadCustomRules();
+    logger.debug?.("[berry-shield] CLI: Listing security rules");
 
     console.log("\n🍓 Berry Shield Rules\n");
 

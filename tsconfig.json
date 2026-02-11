@@ -12,7 +12,12 @@
         "types": [
             "node",
             "vitest/globals"
-        ]
+        ],
+        "paths": {
+            "openclaw/plugin-sdk": [
+                "./node_modules/openclaw/dist/plugin-sdk/index.d.ts"
+            ]
+        }
     },
     "include": [
         "src/**/*",

@@ -9,8 +9,9 @@ import { SECRET_PATTERNS, PII_PATTERNS } from "../../patterns/index.js";
 /**
  * Handler for the test command
  */
-export async function testCommand(input) {
+export async function testCommand(input, _config, logger) {
     const custom = loadCustomRules();
+    logger.debug?.(`[berry-shield] CLI: Testing input: ${input.substring(0, 20)}...`);
     const matches = [];
     // Test against built-in secret patterns
     for (const pattern of SECRET_PATTERNS) {

@@ -1,57 +1,121 @@
 # 🍓 Berry Shield
 
-> Security plugin for OpenClaw - blocks destructive commands, redacts secrets and PII
+> A modular security plugin for OpenClaw that helps manage data access and command execution.
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](package.json)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-plugin-green.svg)](https://docs.openclaw.ai/tools/plugin)
 
 ## Overview
 
-Berry Shield is a comprehensive security plugin that implements a **5-layer defense system** to protect your OpenClaw sessions from accidental data leaks and destructive operations.
+Berry Shield is a plugin for the OpenClaw ecosystem that provides several layers of observation and control over the Agent's interactions.
 
-## 🏰 Architecture
+## 🏰 System Overview
 
-| Layer | Name | Function |
-|-------|------|----------|
-| 🌱 | **Berry.Root** | Prompt Guard - injects security policies into agent context |
-| 🍇 | **Berry.Pulp** | Output Scanner - redacts secrets/PII from tool outputs |
-| 🌵 | **Berry.Thorn** | Tool Blocker - blocks dangerous tool calls before execution |
-| 🍃 | **Berry.Leaf** | Input Audit - logs messages for security auditing |
-| 🌿 | **Berry.Stem** | Security Gate - tool-based checkpoint the agent must call |
+Berry Shield is designed with multiple layers. The idea is that if an interaction isn't caught by one layer, it might be caught by another.
 
+### Visual Lifecycle (Technical Sequence)
+
+This diagram shows how Berry Shield hooks into the official OpenClaw lifecycle to protect your data.
+
+```mermaid
+sequenceDiagram
+    participant U as "👤 User"
+    participant OC as "🛡️ OpenClaw (Hooks)"
+    participant B as "🍓 Berry Shield (Layers)"
+    participant A as "🤖 LLM Agent"
+    participant T as "🛠️ Tool (Terminal/FS)"
+
+    U->>OC: Sends Message
+    OC->>B: message_received (Leaf - Audit)
+    Note over B: Logs activity
+    OC->>B: before_agent_start (Root - Policy)
+    B-->>OC: Prepend Security Policies
+    OC->>A: Start Turn with Policies
+    
+    A->>B: Calls berry_check (Stem - Gate)
+    B-->>A: STATUS: ALLOWED / DENIED
+    
+    A->>OC: Executes Tool (e.g., read_file)
+    OC->>B: before_tool_call (Thorn - Intercept)
+    alt is_blocked
+        B-->>OC: Block Execution
+        OC-->>A: Error: Security Violation
+    else is_allowed
+        OC->>T: Run Operation
+        T-->>OC: Raw result (Secrets inside)
+        OC->>B: tool_result_persist (Pulp - Redact)
+        B-->>OC: [REDACTED] Result
+        OC-->>A: Secure Result
+    end
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    AGENT FLOW                               │
-├─────────────────────────────────────────────────────────────┤
-│  User        Berry.Root      Berry.Stem      Tool           │
-│  Message  →  (inject     →   (checkpoint) →  Execution      │
-│              policies)       (agent calls    (exec, read)   │
-│                              before ops)                    │
-├─────────────────────────────────────────────────────────────┤
-│              Berry.Leaf                      Berry.Thorn    │
-│              (logs input)                    (blocks tools) │
-├─────────────────────────────────────────────────────────────┤
-│                         Berry.Pulp                          │
-│                    (redacts outputs)                        │
-└─────────────────────────────────────────────────────────────┘
+
+### The Security Pipeline (Conceptual)
+
+A simplified view of how the layers protect each phase of the process.
+
+```mermaid
+flowchart TD
+    %% Phase 1: Input
+    U([👤 User Input]) --> L[🍃 Leaf: Audit]
+    L --> R[🌱 Root: Prompt Guard]
+    
+    %% Phase 2: Reasoning
+    R --> A{🤖 LLM Agent}
+    
+    %% Phase 3: Pre-Execution Check
+    A <--> S([🌿 Stem: Checkpoint])
+    A --> T[🌵 Thorn: Blocker]
+    
+    %% Phase 4: Execution & Redaction
+    T --> Tool((🛠️ Tool Engine))
+    Tool --> P[🍇 Pulp: Output Scanner]
+    
+    %% Phase 5: Result
+    P --> A
+    A -->|Safe Response| U
+
+    %% Styling for light and dark modes
+    style L fill:#b3e5fc,stroke:#01579b,stroke-width:2px,color:#000
+    style R fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px,color:#000
+    style S fill:#ffe0b2,stroke:#ef6c00,stroke-width:2px,color:#000
+    style T fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
+    style P fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
+    style A fill:#f5f5f5,stroke:#333,stroke-width:2px,color:#000
+    style Tool fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#000
+    style U fill:#fff,stroke:#333,stroke-width:2px,color:#000
 ```
 
-## Installation
+---
+
+## 🛡️ The 5 Defense Layers
+
+| Layer | Type | Technical Role |
+|-------|------|----------------|
+| 🌱 **Berry.Root** | **Policy Injection** | Establishes the security context and instructions for the Agent at the start of every turn. |
+| 🌿 **Berry.Stem** | **Security Gate** | The primary tool-based checkpoint (`berry_check`) that the Agent must call before any risky operation. |
+| 🌵 **Berry.Thorn** | **Active Blocker** | Implements runtime interception of destructive commands and sensitive file access. |
+| 🍇 **Berry.Pulp** | **Data Censor** | Scans and redacts tool outputs and outgoing messages to prevent long-term data leaks. |
+| 🍃 **Berry.Leaf** | **Audit Trail** | Provides non-intrusive logging of all incoming interactions for security auditing. |
+
+---
+
+## 🚀 Installation
 
 ```bash
-# Copy plugin to OpenClaw extensions directory
-openclaw plugins install ./berry-shield
+# Clone the repository
+git clone <repo-url>
+cd berry-shield
 
-# Or link for development
-openclaw plugins install -l ./berry-shield
+# Install into OpenClaw
+openclaw plugins install ./berry-shield
 
 # Enable the plugin
 openclaw plugins enable berry-shield
 ```
 
-## Configuration
+## ⚙️ Configuration
 
-Configure via `~/.openclaw/config.json`:
+Configure Berry Shield in your `~/.openclaw/config.json`:
 
 ```json
 {
@@ -64,217 +128,122 @@ Configure via `~/.openclaw/config.json`:
         "thorn": true,
         "leaf": true,
         "stem": true
-      },
-      "sensitiveFilePaths": [],
-      "destructiveCommands": []
+      }
     }
   }
 }
 ```
 
-### Options
+---
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `mode` | `"enforce"` \| `"audit"` | `"enforce"` | Enforce blocks/redacts, audit only logs |
-| `layers.root` | boolean | `true` | Enable Berry.Root (prompt guard) |
-| `layers.pulp` | boolean | `true` | Enable Berry.Pulp (output scanner) |
-| `layers.thorn` | boolean | `true` | Enable Berry.Thorn (tool blocker) |
-| `layers.leaf` | boolean | `true` | Enable Berry.Leaf (input audit) |
-| `layers.stem` | boolean | `true` | Enable Berry.Stem (security gate) |
-| `sensitiveFilePaths` | string[] | `[]` | Additional file path patterns (regex) |
-| `destructiveCommands` | string[] | `[]` | Additional command patterns (regex) |
+## 🛡️ Security Rule Management (CLI)
 
-### Custom Patterns Example
+The "icing on the cake" of Berry Shield is its dedicated CLI, allowing you to manage security patterns without manually editing JSON files. All changes are stored in your configuration and applied immediately.
 
-```json
-{
-  "plugins": {
-    "berry-shield": {
-      "sensitiveFilePaths": [
-        "\\.my-secrets$",
-        "internal/config\\.json$"
-      ],
-      "destructiveCommands": [
-        "DROP\\s+TABLE",
-        "TRUNCATE\\s+TABLE"
-      ]
-    }
-  }
-}
-```
+### Self-Documentation
+You can explore all available commands and flags directly from your terminal:
 
-## What Gets Protected
-
-### Secrets Detection
-
-- AWS Keys (Access Key ID, Secret Access Key)
-- API Keys (OpenAI, Anthropic, Stripe, GitHub, Slack, SendGrid, NPM)
-- Private Keys (RSA, SSH, PGP certificates)
-- Tokens (JWT, Bearer, OAuth)
-- Generic credentials and connection strings
-
-### PII Detection
-
-- Email addresses
-- Phone numbers (US and international)
-- Social Security Numbers (SSN)
-- Credit card numbers
-- Brazilian CPF/CNPJ
-- IBAN numbers
-
-### Sensitive Files
-
-- `.env`, `.env.local`, `.env.production`
-- `credentials.json`, `secrets.yaml`
-- `.pem`, `.key`, `.p12`, `.pfx`
-- `id_rsa`, `known_hosts`
-- `.aws/credentials`, `.kube/config`
-- `/etc/shadow`, `/etc/passwd`
-
-### Destructive Commands
-
-- `rm`, `rmdir`, `unlink`, `del`
-- `format`, `mkfs`
-- `dd if=`
-
-## The `berry_check` Tool
-
-Berry.Stem registers a tool the agent is instructed to call before dangerous operations:
-
-```typescript
-// Agent calls this before exec or read
-berry_check({ operation: "exec", target: "rm -rf /" })
-// Returns: STATUS: DENIED, REASON: Destructive command detected
-
-berry_check({ operation: "read", target: ".env" })
-// Returns: STATUS: DENIED, REASON: Sensitive file detected
-
-berry_check({ operation: "read", target: "README.md" })
-// Returns: STATUS: ALLOWED
-```
-
-## Logs
-
-Logs are written to the OpenClaw log file:
-
-```
-/tmp/openclaw/openclaw-YYYY-MM-DD.log
-```
-
-Security events are logged in JSON format for easy parsing:
-
-```json
-{
-  "timestamp": "2024-01-15T10:30:00.000Z",
-  "event": "message_received",
-  "sessionKey": "abc123",
-  "sensitiveTypes": ["AWS Access Key"]
-}
-```
-
-## CLI Usage
-
-Berry Shield includes a CLI for managing custom rules safely.
-
-### Add a Secret Rule
 ```bash
-# Add a custom secret pattern
-openclaw bshield add secret --name "MyToken" --pattern "my_token_[a-z0-9]{16}" --placeholder "[MY_TOKEN]"
+# General help
+openclaw bshield --help
 ```
 
-### Add a Sensitive File Rule
 ```bash
-# Block access to specific files
+# Detailed help for specific commands
+openclaw bshield add --help
+```
+
+```bash
+# Detailed help for specific commands
+openclaw bshield add secret --help
+```
+
+### 1. Adding Rules (The `add` Command)
+
+You can add three types of security rules: `secret`, `file`, and `command`.
+
+#### Advanced Redaction (Secrets)
+Use the `--placeholder` flag to define exactly how a secret should appear in the logs/output.
+
+```bash
+# Add a rule for a custom Internal Token with a specific placeholder
+openclaw bshield add secret \
+  --name "InternalToken" \
+  --pattern "INT_[a-z0-9]{32}" \
+  --placeholder "[PROTECTED_INTERNAL_TOKEN]"
+```
+
+#### Targeted Blocking (Files & Commands)
+Block access to specific files or execution of dangerous commands using patterns.
+
+```bash
+# Block specific production config
 openclaw bshield add file --pattern "config/production\.json"
 ```
 
-### Add a Destructive Command Rule
 ```bash
-# Block dangerous commands
-openclaw bshield add command --pattern "drop database"
+# Block all private key extensions
+openclaw bshield add file --pattern "\.pem$"
 ```
 
-### List Rules
 ```bash
-# Show all active rules (built-in + custom)
+# Block dangerous administrative commands
+openclaw bshield add command --pattern "sudo"
+```
+
+### 2. Monitoring & Cleanup (`list` & `remove`)
+
+Keep your security policy lean by listing and removing rules as needed.
+
+```bash
+# List all active rules (built-in and custom)
 openclaw bshield list
 ```
 
-### Remove a Rule
 ```bash
-# Remove a custom rule by name
-openclaw bshield remove MyToken
+# Remove a custom rule by its name
+openclaw bshield remove InternalToken
 ```
 
-### Test a Pattern
-```bash
-# Verify if a string is redacted
-openclaw bshield test "here is my_token_abc123"
-```
+### 3. Safety Verification (`test`)
 
-> **Note:** After adding or removing rules, you may need to restart the OpenClaw service or reload the plugin for changes to take effect.
-
-## Operational Modes
-
-### Enforce Mode (default)
-
-- Blocks destructive commands
-- Blocks sensitive file access
-- Redacts secrets/PII from outputs
-- Logs all security events
-
-### Audit Mode
-
-- Logs all detections without blocking
-- Useful for testing patterns before enforcement
-- No modifications to tool outputs
-
-## Development
+Verify your patterns before deploying them to a live agent session.
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd berry-shield
-
-# Install dependencies (development only)
-npm install
-
-# Link for development
-openclaw plugins install -l ./
+# Test if a specific string triggers redaction
+openclaw bshield test "My token is INT_abc1234567890abcdef1234567890ab"
 ```
 
-## Project Structure
+---
 
-```
-berry-shield/
-├── src/
-│   ├── index.ts              # Plugin entry point
-│   ├── layers/
-│   │   ├── root.ts           # Prompt Guard
-│   │   ├── pulp.ts           # Output Scanner
-│   │   ├── thorn.ts          # Tool Blocker
-│   │   ├── leaf.ts           # Input Audit
-│   │   └── stem.ts           # Security Gate
-│   ├── patterns/
-│   │   └── index.ts          # Regex patterns
-│   ├── types/
-│   │   └── config.ts         # Configuration types
-│   └── utils/
-│       └── redaction.ts      # Redaction utilities
-├── package.json
-├── openclaw.plugin.json
-└── tsconfig.json
+## 🔍 Technical Details
+
+### The `berry_check` Tool (The Gate)
+The Agent is instructed to always call `berry_check` before executing commands or reading files. This provides an active defense that works even when standard hooks are unavailable.
+
+```typescript
+// Agent verification
+berry_check({ operation: "exec", target: "rm -rf /" })
+// Output: STATUS: DENIED | REASON: Destructive command detected
 ```
 
-## Known Limitations
+### Smart Cache
+To reduce overhead, the rule set is only reloaded if the configuration file's modification time changes.
 
-1. **Timing Gap in Berry.Pulp**: The LLM may see tool output BEFORE the `tool_result_persist` hook runs. Berry.Root policies help mitigate this.
+---
 
-2. **Hook Availability**: `before_tool_call` may not be wired in all OpenClaw versions. Berry.Stem provides a fallback mechanism.
+## ⚠️ Known Limitations & Blind Spots
 
-3. **Pattern Matching**: Regex-based detection may have false positives/negatives. Custom patterns can be added via configuration.
+### The "Timing Gap" (Pulp)
+The `Berry.Pulp` layer (Output Scanner) operates on the `tool_result_persist` hook. 
+*   **Limitation**: In some OpenClaw versions, the LLM may receive the raw tool output in its transient memory *before* the redaction is persisted to the session history.
+*   **Mitigation**: **Berry.Stem** and **Berry.Thorn** are the primary defenses here. They prevent the LLM from ever seeing the data by blocking the operation *before* it returns results.
+
+### Hook Availability (Thorn)
+Runtime blocking through `before_tool_call` depends on the OpenClaw core wiring. 
+*   **Reliability**: If this hook is not triggered by your version of OpenClaw, **Berry.Stem** (via the Tool API) remains the most robust fallback for preventing unauthorized actions.
+
+---
 
 ## License
-
 MIT

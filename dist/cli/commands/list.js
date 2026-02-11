@@ -9,8 +9,9 @@ import { SECRET_PATTERNS, PII_PATTERNS, SENSITIVE_FILE_PATTERNS, DESTRUCTIVE_COM
 /**
  * Handler for the list command
  */
-export async function listCommand() {
+export async function listCommand(_config, logger) {
     const custom = loadCustomRules();
+    logger.debug?.("[berry-shield] CLI: Listing security rules");
     console.log("\n🍓 Berry Shield Rules\n");
     // Secrets
     const totalSecrets = SECRET_PATTERNS.length + custom.secrets.length;

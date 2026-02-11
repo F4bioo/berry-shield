@@ -6,33 +6,33 @@
  */
 import { addCustomRule, } from "../storage.js";
 /**
- * Print success message with restart hint (Tailscale style)
+ * Print success message with restart hint
  */
-function printSuccess(type, name, pattern, placeholder) {
-    console.log(`
+function printSuccess(type, name, pattern, placeholder, logger) {
+    const msg = `
 ✓ Added ${type} rule: ${name || pattern}
   Pattern: ${pattern}${placeholder ? `\n  Placeholder: ${placeholder}` : ""}
 
-To apply changes, run:
-
-    sudo systemctl restart openclaw
-
-`);
+    🍓 Berry Shield updated! Changes are applied instantly.
+`;
+    console.log(msg);
+    logger.info(`[berry-shield] CLI: Added ${type} rule: ${name || pattern}`);
 }
 /**
  * Print error message and exit
  */
-function printError(message) {
+function printError(message, logger) {
     console.error(`\n✗ ${message}\n`);
+    logger.error(`[berry-shield] CLI error: ${message}`);
 }
 /**
  * Handler for the add command
  */
-export async function addCommand(type, options) {
+export async function addCommand(type, options, _config, logger) {
     const { name, pattern, placeholder, force } = options;
     const result = addCustomRule(type, { name, pattern, placeholder, force });
     if (!result.success) {
-        printError(result.error || "Unknown error");
+        printError(result.error || "Unknown error", logger);
         return;
     }
     const rule = result.rule;
@@ -43,5 +43,5 @@ export async function addCommand(type, options) {
         displayIdentifier = rule.name;
         displayPlaceholder = rule.placeholder;
     }
-    printSuccess(type, displayIdentifier, rule.pattern, displayPlaceholder);
+    printSuccess(type, displayIdentifier, rule.pattern, displayPlaceholder, logger);
 }

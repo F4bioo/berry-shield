@@ -10,6 +10,7 @@
  * Berry.Stem provides a complementary fallback mechanism.
  */
 import { getAllDestructiveCommandPatterns, getAllSensitiveFilePatterns, } from "../patterns";
+import { findMatches } from "../utils/redaction";
 /**
  * Checks if a command is destructive.
  *
@@ -17,26 +18,9 @@ import { getAllDestructiveCommandPatterns, getAllSensitiveFilePatterns, } from "
  * @param customPatterns - Additional user-defined patterns
  * @returns True if destructive
  */
-function isDestructiveCommand(command, customPatterns) {
-    // Check built-in + custom patterns from dynamic loader
-    for (const pattern of getAllDestructiveCommandPatterns()) {
-        if (pattern.test(command)) {
-            return true;
-        }
-    }
-    // Check custom patterns
-    for (const patternStr of customPatterns) {
-        try {
-            const pattern = new RegExp(patternStr, "i");
-            if (pattern.test(command)) {
-                return true;
-            }
-        }
-        catch {
-            // Invalid regex, skip
-        }
-    }
-    return false;
+function isDestructiveCommand(command) {
+    const patterns = getAllDestructiveCommandPatterns();
+    return findMatches(command, patterns).length > 0;
 }
 /**
  * Checks if a file path is sensitive.
@@ -45,28 +29,11 @@ function isDestructiveCommand(command, customPatterns) {
  * @param customPatterns - Additional user-defined patterns
  * @returns True if sensitive
  */
-function isSensitiveFile(filePath, customPatterns) {
+function isSensitiveFile(filePath) {
     // Normalize path separators
     const normalizedPath = filePath.replace(/\\/g, "/");
-    // Check built-in + custom patterns from dynamic loader
-    for (const pattern of getAllSensitiveFilePatterns()) {
-        if (pattern.test(normalizedPath)) {
-            return true;
-        }
-    }
-    // Check custom patterns
-    for (const patternStr of customPatterns) {
-        try {
-            const pattern = new RegExp(patternStr, "i");
-            if (pattern.test(normalizedPath)) {
-                return true;
-            }
-        }
-        catch {
-            // Invalid regex, skip
-        }
-    }
-    return false;
+    const patterns = getAllSensitiveFilePatterns();
+    return findMatches(normalizedPath, patterns).length > 0;
 }
 /**
  * Extracts command string from tool parameters.
@@ -141,14 +108,14 @@ function extractFilePath(toolName, params) {
 export function registerBerryThorn(api, config) {
     // Skip if layer is disabled
     if (!config.layers.thorn) {
-        api.logger.debug("[berry-shield] Berry.Thorn layer disabled");
+        api.logger.debug?.("[berry-shield] Berry.Thorn layer disabled");
         return;
     }
     api.on("before_tool_call", (event) => {
         const { toolName, params } = event;
         // Check for destructive commands
         const command = extractCommand(toolName, params);
-        if (command && isDestructiveCommand(command, config.destructiveCommands)) {
+        if (command && isDestructiveCommand(command)) {
             const reason = `Destructive command detected: ${command.substring(0, 50)}${command.length > 50 ? "..." : ""}`;
             if (config.mode === "audit") {
                 api.logger.warn(`[berry-shield] Berry.Thorn: AUDIT - ${reason}`);
@@ -161,7 +128,7 @@ export function registerBerryThorn(api, config) {
             };
         }
         // Check if exec command references a sensitive file (e.g., cat .env)
-        if (command && isSensitiveFile(command, config.sensitiveFilePaths)) {
+        if (command && isSensitiveFile(command)) {
             const reason = `Command references sensitive file: ${command.substring(0, 50)}${command.length > 50 ? "..." : ""}`;
             if (config.mode === "audit") {
                 api.logger.warn(`[berry-shield] Berry.Thorn: AUDIT - ${reason}`);
@@ -175,7 +142,7 @@ export function registerBerryThorn(api, config) {
         }
         // Check for sensitive file access
         const filePath = extractFilePath(toolName, params);
-        if (filePath && isSensitiveFile(filePath, config.sensitiveFilePaths)) {
+        if (filePath && isSensitiveFile(filePath)) {
             const reason = `Sensitive file detected: ${filePath}`;
             if (config.mode === "audit") {
                 api.logger.warn(`[berry-shield] Berry.Thorn: AUDIT - ${reason}`);
@@ -191,5 +158,5 @@ export function registerBerryThorn(api, config) {
         return undefined;
     }, { priority: 200 } // High priority - security runs first
     );
-    api.logger.debug("[berry-shield] Berry.Thorn layer registered");
+    api.logger.debug?.("[berry-shield] Berry.Thorn layer registered");
 }

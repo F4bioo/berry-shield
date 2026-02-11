@@ -95,6 +95,46 @@ export function walkAndRedact(obj, patterns) {
     };
 }
 /**
+ * Efficiently finds all security patterns that match the given text or object.
+ * Does NOT modify the input.
+ *
+ * @param obj - The object or string to check
+ * @param patterns - Security patterns or raw RegExps to search for
+ * @returns Array of unique pattern names that matched
+ */
+export function findMatches(obj, patterns) {
+    const matchedNames = new Set();
+    const walk = (current) => {
+        if (!current)
+            return;
+        if (typeof current === "string") {
+            for (const p of patterns) {
+                // Safely handle both SecurityPattern and raw RegExp
+                const regex = p instanceof RegExp ? p : p.pattern;
+                const name = p instanceof RegExp ? "Sensitive Pattern" : p.name;
+                regex.lastIndex = 0;
+                if (regex.test(current)) {
+                    matchedNames.add(name);
+                }
+            }
+            return;
+        }
+        if (Array.isArray(current)) {
+            for (const item of current) {
+                walk(item);
+            }
+            return;
+        }
+        if (obj && typeof current === "object") {
+            for (const value of Object.values(current)) {
+                walk(value);
+            }
+        }
+    };
+    walk(obj);
+    return Array.from(matchedNames);
+}
+/**
  * Redacts all sensitive data from an object using default patterns.
  *
  * @param obj - The object to redact

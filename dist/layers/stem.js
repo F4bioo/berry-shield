@@ -15,6 +15,15 @@
  */
 import { getAllDestructiveCommandPatterns, getAllSensitiveFilePatterns, } from "../patterns";
 /**
+ * Type guard for BerryCheckParams.
+ */
+function isBerryCheckParams(params) {
+    return (params &&
+        typeof params === "object" &&
+        (params.operation === "exec" || params.operation === "read" || params.operation === "write") &&
+        typeof params.target === "string");
+}
+/**
  * Checks if a command is destructive.
  *
  * @param command - The command string to check
@@ -131,11 +140,12 @@ ACTION: Do NOT execute this command. Suggest a safer alternative to the user.`;
 export function registerBerryStem(api, config) {
     // Skip if layer is disabled
     if (!config.layers.stem) {
-        api.logger.debug("[berry-shield] Berry.Stem layer disabled");
+        api.logger.debug?.("[berry-shield] Berry.Stem layer disabled");
         return;
     }
     api.registerTool({
         name: "berry_check",
+        label: "Security Gate (Exec/Read Check)",
         description: "Security gate - call BEFORE exec or file read to verify permission",
         parameters: {
             type: "object",
@@ -152,8 +162,11 @@ export function registerBerryStem(api, config) {
             },
             required: ["operation", "target"],
         },
-        async execute(_id, params) {
-            const { operation, target } = params;
+        async execute(_id, rawParams) {
+            if (!isBerryCheckParams(rawParams)) {
+                throw new Error("Invalid parameters for berry_check");
+            }
+            const { operation, target } = rawParams;
             // Check for destructive commands on exec operations
             if (operation === "exec") {
                 if (isDestructiveCommand(target, config.destructiveCommands)) {
@@ -168,6 +181,7 @@ export function registerBerryStem(api, config) {
                             content: [
                                 { type: "text", text: formatDeniedDestructiveCommand(target) },
                             ],
+                            details: { status: "denied", reason: "destructive command" },
                         };
                     }
                 }
@@ -181,6 +195,7 @@ export function registerBerryStem(api, config) {
                         content: [
                             { type: "text", text: formatDeniedSensitiveFile(target) },
                         ],
+                        details: { status: "denied", reason: "sensitive file reference" },
                     };
                 }
             }
@@ -198,16 +213,18 @@ export function registerBerryStem(api, config) {
                             content: [
                                 { type: "text", text: formatDeniedSensitiveFile(target) },
                             ],
+                            details: { status: "denied", reason: "sensitive file access" },
                         };
                     }
                 }
             }
             // Operation is allowed
-            api.logger.debug(`[berry-shield] Berry.Stem: ALLOWED ${operation} on ${target}`);
+            api.logger.debug?.(`[berry-shield] Berry.Stem: ALLOWED ${operation} on ${target}`);
             return {
                 content: [{ type: "text", text: formatAllowed(operation, target) }],
+                details: { status: "allowed" },
             };
         },
     });
-    api.logger.debug("[berry-shield] Berry.Stem layer registered");
+    api.logger.debug?.("[berry-shield] Berry.Stem layer registered");
 }

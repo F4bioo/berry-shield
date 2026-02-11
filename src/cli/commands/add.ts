@@ -5,6 +5,9 @@
  * Usage: openclaw bshield add <type> --name <name> --pattern <pattern> [--placeholder <text>] [--force]
  */
 
+import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
+type PluginLogger = OpenClawPluginApi["logger"];
+
 import {
     addCustomRule,
     type SecretRule,
@@ -20,37 +23,48 @@ interface AddOptions {
 }
 
 /**
- * Print success message with restart hint (Tailscale style)
+ * Print success message with restart hint
  */
-function printSuccess(type: string, name: string, pattern: string, placeholder?: string): void {
-    console.log(`
+function printSuccess(
+    type: string,
+    name: string,
+    pattern: string,
+    placeholder: string | undefined,
+    logger: PluginLogger
+): void {
+    const msg = `
 ✓ Added ${type} rule: ${name || pattern}
   Pattern: ${pattern}${placeholder ? `\n  Placeholder: ${placeholder}` : ""}
 
-To apply changes, run:
-
-    sudo systemctl restart openclaw
-
-`);
+    🍓 Berry Shield updated! Changes are applied instantly.
+`;
+    console.log(msg);
+    logger.info(`[berry-shield] CLI: Added ${type} rule: ${name || pattern}`);
 }
 
 /**
  * Print error message and exit
  */
-function printError(message: string): void {
+function printError(message: string, logger: PluginLogger): void {
     console.error(`\n✗ ${message}\n`);
+    logger.error(`[berry-shield] CLI error: ${message}`);
 }
 
 /**
  * Handler for the add command
  */
-export async function addCommand(type: string, options: AddOptions): Promise<void> {
+export async function addCommand(
+    type: string,
+    options: AddOptions,
+    _config: OpenClawConfig,
+    logger: PluginLogger
+): Promise<void> {
     const { name, pattern, placeholder, force } = options;
 
     const result = addCustomRule(type, { name, pattern, placeholder, force });
 
     if (!result.success) {
-        printError(result.error || "Unknown error");
+        printError(result.error || "Unknown error", logger);
         return;
     }
 
@@ -65,5 +79,5 @@ export async function addCommand(type: string, options: AddOptions): Promise<voi
         displayPlaceholder = rule.placeholder;
     }
 
-    printSuccess(type, displayIdentifier, rule.pattern, displayPlaceholder);
+    printSuccess(type, displayIdentifier, rule.pattern, displayPlaceholder, logger);
 }
