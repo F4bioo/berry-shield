@@ -21,7 +21,7 @@ import { registerBerryShieldCli } from "./cli";
 export default {
     id: "berry-shield",
     name: "Berry Shield",
-    version: "1.0.0",
+    version: "2026.2.12",
     description: "Security plugin - blocks destructive commands, redacts secrets and PII",
 
     register(api: OpenClawPluginApi) {

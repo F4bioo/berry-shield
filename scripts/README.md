@@ -2,6 +2,8 @@
 
 This directory contains utility scripts for project maintenance and security pattern updates.
 
+---
+
 ## `update-patterns.ts`
 
 This script drives the security intelligence of Berry Shield by connecting the project to the [Gitleaks](https://github.com/gitleaks/gitleaks) community knowledge base.
@@ -29,3 +31,39 @@ npx ts-node --esm scripts/update-patterns.ts
 
 ### License & Credits
 The generated rules are derived from the Gitleaks project (MIT License). The script automatically adds the necessary license headers to the generated file.
+
+---
+
+## `update-version.ts`
+
+This script manages the project's **CalVer** (Calendar Versioning) strategy, ensuring automated and consistent releases synchronized across all files.
+
+### Context (CalVer)
+It enforces a **`YYYY.M.D`** format based on the current date:
+*   **First build of the day**: Clean version (e.g., `2026.2.11`).
+*   **Subsequent builds**: Appends an incremental suffix (e.g., `2026.2.11-1`, `2026.2.11-2`).
+
+### What it does
+1.  **Calculates**: Determines the next logical version based on the system date and previous version.
+2.  **Synchronizes**: Updates all project manifests atomically:
+    *   `package.json` & `package-lock.json` (via `npm version`)
+    *   `src/index.ts` (Source code constant)
+    *   `openclaw.plugin.json` (Plugin manifest)
+
+### How to use
+This script is automatically triggered by the release command:
+
+```bash
+# Recommended: Full release cycle (Update -> Build -> Test)
+npm run release
+
+```
+
+```bash
+# Standalone: Just update file versions
+npm run version:update
+
+```
+
+---
+

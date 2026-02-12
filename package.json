@@ -1,6 +1,6 @@
 {
   "name": "berry-shield",
-  "version": "1.0.0",
+  "version": "2026.2.12",
   "description": "Security plugin for OpenClaw - blocks destructive commands, redacts secrets and PII",
   "type": "module",
   "openclaw": {
@@ -12,7 +12,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "//build": "Compiles the project (safe for local testing)",
     "build": "tsc -p tsconfig.build.json",
+    "//release": "Generates new version, compiles, type-checks, and runs tests",
+    "release": "npm run version:update && npm run build && npm run typecheck && npx vitest run __tests__",
+    "version:update": "npx ts-node --esm scripts/update-version.ts",
     "update-patterns": "npx ts-node --esm scripts/update-patterns.ts"
   },
   "peerDependencies": {

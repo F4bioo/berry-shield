@@ -7,8 +7,9 @@
         "esModuleInterop": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
+        "allowImportingTsExtensions": true,
+        "noEmit": true,
         "declaration": true,
-        "outDir": "./dist",
         "types": [
             "node",
             "vitest/globals"
@@ -21,7 +22,8 @@
     },
     "include": [
         "src/**/*",
-        "__tests__/**/*"
+        "__tests__/**/*",
+        "scripts/**/*"
     ],
     "exclude": [
         "node_modules",
