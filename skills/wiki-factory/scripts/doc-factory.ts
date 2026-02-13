@@ -3,7 +3,7 @@ import { join } from "path";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 
 /**
- * Berry Shield Doc Factory v3 (Super Man Edition)
+ * Berry Shield Doc Factory
  * 
  * Uses a UNIFIED pass to preserve internal links and 
  * runs the Hype-Slayer linter for technical purity.
@@ -38,7 +38,7 @@ async function main() {
         execSync(command, { stdio: "inherit" });
         console.log("\n✅ Base technical documentation generated.");
 
-        // Run the Hype Slayer Linter (Super Man Version)
+        // Run the Hype Slayer
         console.log("\n⚖️  Running Tone-Guard (Hype Slayer Pro)...");
         execSync("npx ts-node --esm skills/wiki-factory/scripts/tone-guard.ts", { stdio: "inherit" });
 
