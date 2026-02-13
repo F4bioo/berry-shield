@@ -39,10 +39,10 @@ function isBroadPattern(pattern: string): boolean {
 /**
  * Interactive Wizard for adding rules
  */
-async function runWizard(initialType: string | undefined): Promise<{ type: string; options: AddOptions } | null> {
+async function runWizard(_initialType: string | undefined): Promise<{ type: string; options: AddOptions } | null> {
     intro(theme.accentBold(`${symbols.brand} Berry Shield Rule Wizard\n`));
 
-    const type = await select({
+    const selectedType = await select({
         message: 'What type of rule do you want to add?',
         options: [
             { value: 'secret', label: 'Secret (API keys, tokens)', hint: 'Redacts patterns from output' },
@@ -52,24 +52,27 @@ async function runWizard(initialType: string | undefined): Promise<{ type: strin
         ],
     });
 
-    if (isCancel(type) || type === 'cancel') {
+    if (isCancel(selectedType) || selectedType === 'cancel') {
         cancel('Operation cancelled.');
         return null;
     }
 
+    const type = selectedType as string;
+
     let name: string | undefined;
     if (type === 'secret') {
-        name = await text({
+        const nameInput = await text({
             message: 'Rule Name (e.g. "openai-key")',
             placeholder: 'my-secret-key',
             validate(value) {
                 if (!value || value.length === 0) return 'Name is required for secrets';
             },
-        }) as string;
-        if (isCancel(name)) { cancel('Operation cancelled.'); return null; }
+        });
+        if (isCancel(nameInput)) { cancel('Operation cancelled.'); return null; }
+        name = nameInput;
     }
 
-    const pattern = await text({
+    const patternInput = await text({
         message: 'Regex Pattern',
         placeholder: type === 'secret' ? 'sk-[a-zA-Z0-9]{48}' : 'config/secrets.json',
         validate(value) {
@@ -77,9 +80,10 @@ async function runWizard(initialType: string | undefined): Promise<{ type: strin
             const validation = validateRegex(value);
             if (!validation.valid) return `Invalid regex: ${validation.error}`;
         },
-    }) as string;
+    });
 
-    if (isCancel(pattern)) { cancel('Operation cancelled.'); return null; }
+    if (isCancel(patternInput)) { cancel('Operation cancelled.'); return null; }
+    const pattern = patternInput;
 
     if (isBroadPattern(pattern)) {
         const confirmBroad = await confirm({
@@ -91,15 +95,16 @@ async function runWizard(initialType: string | undefined): Promise<{ type: strin
 
     let placeholder: string | undefined;
     if (type === 'secret') {
-        placeholder = await text({
+        const placeholderInput = await text({
             message: 'Custom Placeholder (optional)',
             placeholder: '[REDACTED_SECRET]',
             initialValue: '',
-        }) as string;
-        if (isCancel(placeholder)) { cancel('Operation cancelled.'); return null; }
+        });
+        if (isCancel(placeholderInput)) { cancel('Operation cancelled.'); return null; }
+        placeholder = placeholderInput || undefined;
     }
 
-    return { type: type as string, options: { name, pattern, placeholder: placeholder || undefined } };
+    return { type, options: { name, pattern, placeholder } };
 }
 
 function printSuccess(
@@ -149,25 +154,23 @@ export async function addCommand(
     }
 
     const { name, pattern, placeholder, force } = finalOptions;
-    if (!pattern) return;
+    if (!pattern || !finalType) return;
 
-    const result = await addCustomRule(finalType!, { name, pattern, placeholder, force });
+    const result = await addCustomRule(finalType, { name, pattern, placeholder, force });
 
-    if (!result.success) {
+    if (!result.success || !result.rule) {
         printError(result.error || "Unknown error", logger);
         return;
     }
 
-    const rule = result.rule as SecretRule | FileRule | CommandRule;
+    const rule = result.rule;
     let displayIdentifier = rule.pattern;
     let displayPlaceholder: string | undefined = undefined;
 
     if ('name' in rule) {
-        // @ts-ignore
         displayIdentifier = rule.name;
-        // @ts-ignore
         displayPlaceholder = rule.placeholder;
     }
 
-    printSuccess(finalType!, displayIdentifier, rule.pattern, displayPlaceholder, logger);
+    printSuccess(finalType, displayIdentifier, rule.pattern, displayPlaceholder, logger);
 }

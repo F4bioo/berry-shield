@@ -1,6 +1,5 @@
 import { OpenClawPluginCliContext } from "../../types/openclaw-local.js";
-import { BerryShieldPluginConfig } from "../../types/config.js";
-import { DEFAULT_CONFIG } from "../../config/defaults.js";
+import { mergeConfig } from "../../config/utils.js";
 import { loadCustomRules } from "../storage.js";
 import {
     SECRET_PATTERNS,
@@ -17,21 +16,21 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
     const { logger } = context;
 
     try {
-        const shieldConfig = await wrapper.get<BerryShieldPluginConfig>(
-            CONFIG_PATHS.PLUGIN_CONFIG
-        ) || DEFAULT_CONFIG;
+        // Read raw config from wrapper (openclaw.json)
+        const rawPluginConfig = await wrapper.get<unknown>(CONFIG_PATHS.PLUGIN_CONFIG) || {};
+
+        // Merge with defaults using the SAME logic as the plugin runtime
+        const shieldConfig = mergeConfig(rawPluginConfig);
 
         const isEnabled = await wrapper.get<boolean>(
             CONFIG_PATHS.ENABLED
-        );
+        ) ?? false;
 
         const customRules = await loadCustomRules();
         const customCount = customRules.secrets.length + customRules.sensitiveFiles.length + customRules.destructiveCommands.length;
 
-        // Calculate totals (Built-in + Custom)
         const builtInCount = SECRET_PATTERNS.length + PII_PATTERNS.length +
             SENSITIVE_FILE_PATTERNS.length + DESTRUCTIVE_COMMAND_PATTERNS.length;
-        const totalCount = builtInCount + customCount;
 
         // Visual Dashboard
         ui.header("Berry Shield");
@@ -45,8 +44,18 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
         ui.row("Rules", ruleDetails);
 
         ui.header("Security Layers");
-        Object.entries(shieldConfig.layers || {}).forEach(([layer, active]) => {
-            ui.row(layer, active ? "active" : theme.muted("off"));
+
+        // Display layers in a consistent order
+        const layers = [
+            { name: "Root (Prompt Guard)", active: shieldConfig.layers.root },
+            { name: "Pulp (Output Scanner)", active: shieldConfig.layers.pulp },
+            { name: "Thorn (Tool Blocker)", active: shieldConfig.layers.thorn },
+            { name: "Leaf (Input Audit)", active: shieldConfig.layers.leaf },
+            { name: "Stem (Security Gate)", active: shieldConfig.layers.stem },
+        ];
+
+        layers.forEach(layer => {
+            ui.row(layer.name, layer.active ? "active" : theme.muted("off"));
         });
 
         ui.footer("Use 'openclaw bshield add' to create custom rules.");

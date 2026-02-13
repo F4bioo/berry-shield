@@ -5,7 +5,7 @@ import { BerryShieldPluginConfig } from "../types/config.js";
  * Starts in AUDIT mode (log only) with all layers enabled for visibility.
  */
 export const DEFAULT_CONFIG: BerryShieldPluginConfig = {
-    mode: "audit",
+    mode: "enforce",
     layers: {
         pulp: true,
         thorn: true,

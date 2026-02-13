@@ -8,6 +8,7 @@ import { registerBerryThorn } from "./layers/thorn.js";
 import { registerBerryLeaf } from "./layers/leaf.js";
 import { registerBerryStem } from "./layers/stem.js";
 import { registerBerryShieldCli } from "./cli/index.js";
+import { initializePatterns } from "./patterns/index.js";
 
 /**
  * Berry Shield - Security plugin for OpenClaw
@@ -26,13 +27,13 @@ export default {
     version: VERSION,
     description: "Security plugin - blocks destructive commands, redacts secrets and PII",
 
-    register(api: OpenClawPluginApi) {
-        // Get user config and merge with defaults
-        const userConfig = api.config ?? {};
-        const config: BerryShieldPluginConfig = mergeConfig(userConfig as Partial<BerryShieldPluginConfig>);
+    async register(api: OpenClawPluginApi) {
+        // Initialize security patterns from disk
+        await initializePatterns();
 
-        // Count active layers
-        const activeLayers = Object.values(config.layers).filter(Boolean).length;
+        // Get user config (priority to plugin-specific config) and merge with defaults
+        const userConfig = api.pluginConfig ?? api.config ?? {};
+        const config = mergeConfig(userConfig);
 
         // Register all 5 security layers
         registerBerryRoot(api, config);  // Prompt Guard

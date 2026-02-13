@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION } from "../src/constants";
+import { DEFAULT_CONFIG } from "../src/config/defaults";
 
 /**
  * Expected version for contract testing.
@@ -44,4 +45,17 @@ describe("Constants Contract", () => {
         expect(DEFAULTS.WIN_BINARY_EXT).toBe(".cmd");
     });
 
+    describe("Security Standards (Safe-by-Default)", () => {
+        it("should always have 'enforce' as the default mode", () => {
+            expect(DEFAULT_CONFIG.mode).toBe("enforce");
+        });
+
+        it("should have all layers active in DEFAULT_CONFIG", () => {
+            expect(DEFAULT_CONFIG.layers.pulp).toBe(true);
+            expect(DEFAULT_CONFIG.layers.thorn).toBe(true);
+            expect(DEFAULT_CONFIG.layers.stem).toBe(true);
+            expect(DEFAULT_CONFIG.layers.leaf).toBe(true);
+            expect(DEFAULT_CONFIG.layers.root).toBe(true);
+        });
+    });
 });

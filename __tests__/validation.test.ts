@@ -184,3 +184,56 @@ describe("DESTRUCTIVE_COMMAND_PATTERNS", () => {
         });
     });
 });
+
+import { mergeConfig } from "../src/config/utils";
+import { DEFAULT_CONFIG } from "../src/config/defaults";
+
+describe("mergeConfig - Configuration Resilience", () => {
+    it("should return DEFAULT_CONFIG if input is null", () => {
+        expect(mergeConfig(null)).toEqual(DEFAULT_CONFIG);
+    });
+
+    it("should return DEFAULT_CONFIG if input is not an object", () => {
+        expect(mergeConfig("garbage")).toEqual(DEFAULT_CONFIG);
+        expect(mergeConfig(123)).toEqual(DEFAULT_CONFIG);
+        expect(mergeConfig(undefined)).toEqual(DEFAULT_CONFIG);
+    });
+
+    it("should handle case-insensitive layer keys", () => {
+        const input = {
+            layers: {
+                PULP: false,
+                Thorn: true
+            }
+        };
+        const config = mergeConfig(input);
+        expect(config.layers.pulp).toBe(false);
+        expect(config.layers.thorn).toBe(true);
+    });
+
+    it("should ignore non-boolean layer values", () => {
+        const input = {
+            layers: {
+                pulp: "yes", // Should be ignored (keep default true)
+                thorn: false
+            }
+        };
+        const config = mergeConfig(input);
+        expect(config.layers.pulp).toBe(DEFAULT_CONFIG.layers.pulp);
+        expect(config.layers.thorn).toBe(false);
+    });
+
+    it("should handle invalid mode values by falling back to default", () => {
+        const input = { mode: "YOLO" };
+        const config = mergeConfig(input);
+        expect(config.mode).toBe(DEFAULT_CONFIG.mode);
+    });
+
+    it("should filter out non-string paths in sensitiveFilePaths", () => {
+        const input = {
+            sensitiveFilePaths: [123, "valid.txt", null]
+        };
+        const config = mergeConfig(input);
+        expect(config.sensitiveFilePaths).toEqual(["valid.txt"]);
+    });
+});
