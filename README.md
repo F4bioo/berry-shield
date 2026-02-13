@@ -136,9 +136,17 @@ Configure Berry Shield in your `~/.openclaw/config.json`:
 
 ---
 
-## 🛡️ Security Rule Management (CLI)
+## ⚙️ CLI Management
 
-The "icing on the cake" of Berry Shield is its dedicated CLI, allowing you to manage security patterns without manually editing JSON files. All changes are stored in your configuration and applied immediately.
+Berry Shield includes a CLI for managing security rules and monitoring status directly from the terminal.
+
+### 📊 Dashboard & Monitoring
+Quickly check the health and active layers of the plugin.
+
+```bash
+# General status dashboard
+openclaw bshield status
+```
 
 ### Self-Documentation
 You can explore all available commands and flags directly from your terminal:

@@ -9,9 +9,9 @@
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import type { PluginConfig } from "../types/config";
-import { getAllRedactionPatterns } from "../patterns";
-import { walkAndRedact } from "../utils/redaction";
+import type { BerryShieldPluginConfig } from "../types/config.js";
+import { getAllRedactionPatterns } from "../patterns/index.js";
+import { walkAndRedact } from "../utils/redaction.js";
 
 /**
  * Internal audit log entry structure.
@@ -45,7 +45,7 @@ interface InternalAuditLogEntry {
  */
 export function registerBerryLeaf(
     api: OpenClawPluginApi,
-    config: PluginConfig
+    config: BerryShieldPluginConfig
 ): void {
     // Skip if layer is disabled
     if (!config.layers.leaf) {

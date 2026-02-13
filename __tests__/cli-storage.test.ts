@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import * as fs from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
     loadCustomRules,
@@ -8,16 +8,13 @@ import {
     getStoragePath,
 } from "../src/cli/storage";
 
-// Mock fs module
-vi.mock("node:fs", async () => {
-    // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-    const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
+// Mock fs/promises module
+vi.mock("node:fs/promises", async () => {
     return {
-        ...actual,
-        existsSync: vi.fn(),
-        readFileSync: vi.fn(),
-        writeFileSync: vi.fn(),
-        mkdirSync: vi.fn(),
+        access: vi.fn(),
+        readFile: vi.fn(),
+        writeFile: vi.fn(),
+        mkdir: vi.fn(),
     };
 });
 
@@ -46,10 +43,13 @@ describe("CLI Storage", () => {
     });
 
     describe("loadCustomRules", () => {
-        it("returns empty rules when file does not exist", () => {
-            vi.mocked(fs.existsSync).mockReturnValue(false);
+        it("returns empty rules when file does not exist", async () => {
+            // fs.access throws if file doesn't exist
+            const enoentError = new Error("ENOENT");
+            (enoentError as any).code = "ENOENT";
+            vi.mocked(fs.access).mockRejectedValue(enoentError);
 
-            const rules = loadCustomRules();
+            const rules = await loadCustomRules();
 
             expect(rules).toEqual({
                 version: "1.0",
@@ -59,7 +59,7 @@ describe("CLI Storage", () => {
             });
         });
 
-        it("loads rules from existing file", () => {
+        it("loads rules from existing file", async () => {
             const mockRules = {
                 version: "1.0",
                 secrets: [{ name: "test", pattern: "test-.*", placeholder: "[TEST]", addedAt: "now" }],
@@ -67,19 +67,19 @@ describe("CLI Storage", () => {
                 destructiveCommands: [],
             };
 
-            vi.mocked(fs.existsSync).mockReturnValue(true);
-            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(mockRules));
+            vi.mocked(fs.access).mockResolvedValue(undefined); // File exists
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(mockRules));
 
-            const rules = loadCustomRules();
+            const rules = await loadCustomRules();
 
             expect(rules).toEqual(mockRules);
         });
 
-        it("returns empty rules on parse error", () => {
-            vi.mocked(fs.existsSync).mockReturnValue(true);
-            vi.mocked(fs.readFileSync).mockReturnValue("invalid json");
+        it("returns empty rules on parse error", async () => {
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue("invalid json");
 
-            const rules = loadCustomRules();
+            const rules = await loadCustomRules();
 
             expect(rules).toEqual({
                 version: "1.0",
@@ -91,28 +91,32 @@ describe("CLI Storage", () => {
     });
 
     describe("addCustomRule", () => {
-        it("adds secret rule successfully", () => {
-            vi.mocked(fs.existsSync).mockReturnValue(false); // file doesn't exist yet (first run)
-            vi.mocked(fs.writeFileSync).mockImplementation(() => { });
-            vi.mocked(fs.mkdirSync).mockImplementation(() => undefined);
+        it("adds secret rule successfully", async () => {
+            // First load fails (file not found), so starts with empty rules
+            const enoentError = new Error("ENOENT");
+            (enoentError as any).code = "ENOENT";
+            vi.mocked(fs.access).mockRejectedValue(enoentError);
 
-            const result = addCustomRule("secret", {
+            vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+            vi.mocked(fs.mkdir).mockResolvedValue(undefined);
+
+            const result = await addCustomRule("secret", {
                 name: "WhatsApp Secret",
                 pattern: "whsec_[a-zA-Z0-9]{32}",
                 placeholder: "[WHATSAPP_REDACTED]",
             });
 
             expect(result.success).toBe(true);
-            expect(fs.writeFileSync).toHaveBeenCalled();
+            expect(fs.writeFile).toHaveBeenCalled();
 
-            const callArgs = vi.mocked(fs.writeFileSync).mock.calls[0];
+            const callArgs = vi.mocked(fs.writeFile).mock.calls[0];
             const content = JSON.parse(callArgs[1] as string);
             expect(content.secrets).toHaveLength(1);
             expect(content.secrets[0].name).toBe("WhatsApp Secret");
         });
 
-        it("fails for invalid regex", () => {
-            const result = addCustomRule("secret", {
+        it("fails for invalid regex", async () => {
+            const result = await addCustomRule("secret", {
                 name: "Bad Pattern",
                 pattern: "[invalid(regex",
             });
@@ -121,7 +125,7 @@ describe("CLI Storage", () => {
             expect(result.error).toContain("Invalid regex");
         });
 
-        it("fails for duplicate name without force", () => {
+        it("fails for duplicate name without force", async () => {
             const existingRules = {
                 version: "1.0",
                 secrets: [{ name: "existing", pattern: "test.*", placeholder: "[TEST]", addedAt: "now" }],
@@ -129,10 +133,10 @@ describe("CLI Storage", () => {
                 destructiveCommands: [],
             };
 
-            vi.mocked(fs.existsSync).mockReturnValue(true);
-            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(existingRules));
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
 
-            const result = addCustomRule("secret", {
+            const result = await addCustomRule("secret", {
                 name: "existing",
                 pattern: "new-pattern",
             });
@@ -141,7 +145,7 @@ describe("CLI Storage", () => {
             expect(result.error).toContain("already exists");
         });
 
-        it("overwrites duplicate with force flag", () => {
+        it("overwrites duplicate with force flag", async () => {
             const existingRules = {
                 version: "1.0",
                 secrets: [{ name: "existing", pattern: "test.*", placeholder: "[TEST]", addedAt: "now" }],
@@ -149,11 +153,11 @@ describe("CLI Storage", () => {
                 destructiveCommands: [],
             };
 
-            vi.mocked(fs.existsSync).mockReturnValue(true);
-            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(existingRules));
-            vi.mocked(fs.writeFileSync).mockImplementation(() => { });
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
+            vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 
-            const result = addCustomRule("secret", {
+            const result = await addCustomRule("secret", {
                 name: "existing",
                 pattern: "new-pattern",
                 force: true,
@@ -161,7 +165,7 @@ describe("CLI Storage", () => {
 
             expect(result.success).toBe(true);
 
-            const callArgs = vi.mocked(fs.writeFileSync).mock.calls[0];
+            const callArgs = vi.mocked(fs.writeFile).mock.calls[0];
             const content = JSON.parse(callArgs[1] as string);
             expect(content.secrets).toHaveLength(1);
             expect(content.secrets[0].pattern).toBe("new-pattern");
@@ -169,7 +173,7 @@ describe("CLI Storage", () => {
     });
 
     describe("removeCustomRule", () => {
-        it("removes existing rule", () => {
+        it("removes existing rule", async () => {
             const existingRules = {
                 version: "1.0",
                 secrets: [{ name: "to-remove", pattern: "test.*", placeholder: "[TEST]", addedAt: "now" }],
@@ -177,22 +181,22 @@ describe("CLI Storage", () => {
                 destructiveCommands: [],
             };
 
-            vi.mocked(fs.existsSync).mockReturnValue(true);
-            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(existingRules));
-            vi.mocked(fs.writeFileSync).mockImplementation(() => { });
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
+            vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 
-            const result = removeCustomRule("to-remove");
+            const result = await removeCustomRule("to-remove");
 
             expect(result.success).toBe(true);
             expect(result.removed).toBe(true);
             expect(result.type).toBe("secret");
 
-            const callArgs = vi.mocked(fs.writeFileSync).mock.calls[0];
+            const callArgs = vi.mocked(fs.writeFile).mock.calls[0];
             const content = JSON.parse(callArgs[1] as string);
             expect(content.secrets).toHaveLength(0);
         });
 
-        it("reports not found for non-existent rule", () => {
+        it("reports not found for non-existent rule", async () => {
             const existingRules = {
                 version: "1.0",
                 secrets: [],
@@ -200,14 +204,14 @@ describe("CLI Storage", () => {
                 destructiveCommands: [],
             };
 
-            vi.mocked(fs.existsSync).mockReturnValue(true);
-            vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(existingRules));
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
 
-            const result = removeCustomRule("non-existent");
+            const result = await removeCustomRule("non-existent");
 
             expect(result.success).toBe(true);
             expect(result.removed).toBe(false);
-            expect(fs.writeFileSync).not.toHaveBeenCalled();
+            expect(fs.writeFile).not.toHaveBeenCalled();
         });
     });
 });

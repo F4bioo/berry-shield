@@ -11,12 +11,13 @@
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import type { PluginConfig } from "../types/config";
+import type { BerryShieldPluginConfig } from "../types/config.js";
+import { BRAND_SYMBOL } from "../constants.js";
 import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
-} from "../patterns";
-import { findMatches } from "../utils/redaction";
+} from "../patterns/index.js";
+import { findMatches } from "../utils/redaction.js";
 
 /**
  * Checks if a command is destructive.
@@ -133,7 +134,7 @@ function extractFilePath(
  */
 export function registerBerryThorn(
     api: OpenClawPluginApi,
-    config: PluginConfig
+    config: BerryShieldPluginConfig
 ): void {
     // Skip if layer is disabled
     if (!config.layers.thorn) {
@@ -159,7 +160,7 @@ export function registerBerryThorn(
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
-                    blockReason: `🍓 Berry Shield: ${reason}. This command could cause irreversible damage.`,
+                    blockReason: `${BRAND_SYMBOL} Berry Shield: ${reason}. This command could cause irreversible damage.`,
                 };
             }
 
@@ -175,7 +176,7 @@ export function registerBerryThorn(
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
-                    blockReason: `🍓 Berry Shield: ${reason}. This file may contain secrets or credentials.`,
+                    blockReason: `${BRAND_SYMBOL} Berry Shield: ${reason}. This file may contain secrets or credentials.`,
                 };
             }
 
@@ -192,7 +193,7 @@ export function registerBerryThorn(
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
-                    blockReason: `🍓 Berry Shield: ${reason}. This file may contain secrets or credentials.`,
+                    blockReason: `${BRAND_SYMBOL} Berry Shield: ${reason}. This file may contain secrets or credentials.`,
                 };
             }
 

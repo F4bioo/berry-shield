@@ -1,11 +1,13 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import { mergeConfig, type PluginConfig } from "./types/config";
-import { registerBerryRoot } from "./layers/root";
-import { registerBerryPulp } from "./layers/pulp";
-import { registerBerryThorn } from "./layers/thorn";
-import { registerBerryLeaf } from "./layers/leaf";
-import { registerBerryStem } from "./layers/stem";
-import { registerBerryShieldCli } from "./cli";
+import { mergeConfig } from "./config/utils.js";
+import { VERSION } from "./constants.js";
+import { type BerryShieldPluginConfig } from "./types/config.js";
+import { registerBerryRoot } from "./layers/root.js";
+import { registerBerryPulp } from "./layers/pulp.js";
+import { registerBerryThorn } from "./layers/thorn.js";
+import { registerBerryLeaf } from "./layers/leaf.js";
+import { registerBerryStem } from "./layers/stem.js";
+import { registerBerryShieldCli } from "./cli/index.js";
 
 /**
  * Berry Shield - Security plugin for OpenClaw
@@ -21,13 +23,13 @@ import { registerBerryShieldCli } from "./cli";
 export default {
     id: "berry-shield",
     name: "Berry Shield",
-    version: "2026.2.12",
+    version: VERSION,
     description: "Security plugin - blocks destructive commands, redacts secrets and PII",
 
     register(api: OpenClawPluginApi) {
         // Get user config and merge with defaults
         const userConfig = api.config ?? {};
-        const config: PluginConfig = mergeConfig(userConfig as Partial<PluginConfig>);
+        const config: BerryShieldPluginConfig = mergeConfig(userConfig as Partial<BerryShieldPluginConfig>);
 
         // Count active layers
         const activeLayers = Object.values(config.layers).filter(Boolean).length;

@@ -6,9 +6,10 @@
  */
 
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
-type PluginLogger = OpenClawPluginApi["logger"];
-
 import { removeCustomRule } from "../storage.js";
+import { ui } from "../ui/tui.js";
+
+type PluginLogger = OpenClawPluginApi["logger"];
 
 /**
  * Handler for the remove command
@@ -18,18 +19,19 @@ export async function removeCommand(
     _config: OpenClawConfig,
     logger: PluginLogger
 ): Promise<void> {
-    const result = removeCustomRule(name);
+    const result = await removeCustomRule(name);
 
     if (!result.removed) {
-        console.error(`\n✗ Rule '${name}' not found.\n`);
+        ui.header("Operation Failed", "error");
+        ui.row("Error", `Rule '${name}' not found.`);
         logger.error(`[berry-shield] CLI: Rule '${name}' not found`);
         return;
     }
 
-    console.log(`
-✓ Removed ${(result.type || "")} rule: ${name}
+    ui.header("Rule Removed", "success");
+    ui.row("Type", (result.type || "unknown").toUpperCase());
+    ui.row("Name", name);
 
-    🍓 Berry Shield updated! Changes are applied instantly.
-`);
+    ui.footer("Berry Shield updated! Changes are applied instantly.");
     logger.info(`[berry-shield] CLI: Removed ${(result.type || "")} rule: ${name}`);
 }

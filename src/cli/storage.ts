@@ -5,7 +5,7 @@
  * This location is outside the plugin directory so rules persist across reinstalls.
  */
 
-import * as fs from "node:fs";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
 
@@ -62,15 +62,13 @@ function emptyRules(): CustomRules {
 }
 
 /**
- * Load custom rules from disk.
+ * Load custom rules from disk asynchronously.
  * Returns empty rules if file doesn't exist or is corrupted.
  */
-export function loadCustomRules(): CustomRules {
+export async function loadCustomRules(): Promise<CustomRules> {
     try {
-        if (!fs.existsSync(RULES_FILE)) {
-            return emptyRules();
-        }
-        const content = fs.readFileSync(RULES_FILE, "utf-8");
+        await fs.access(RULES_FILE); // Check if file exists
+        const content = await fs.readFile(RULES_FILE, "utf-8");
         const parsed = JSON.parse(content);
 
         // Validate structure
@@ -80,20 +78,22 @@ export function loadCustomRules(): CustomRules {
         }
 
         return parsed as CustomRules;
-    } catch (err) {
-        // File corrupted or unreadable
-        console.error(`⚠ Warning: Could not read custom-rules.json: ${err}`);
+    } catch (err: unknown) {
+        // Return empty rules if file not found or other error
+        if (err instanceof Error && "code" in err && (err as any).code !== "ENOENT") {
+            console.error(`⚠ Warning: Could not read custom-rules.json: ${err.message}`);
+        }
         return emptyRules();
     }
 }
 
 /**
- * Save custom rules to disk.
+ * Save custom rules to disk asynchronously.
  * Creates the config directory if it doesn't exist.
  */
-export function saveCustomRules(rules: CustomRules): void {
-    fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    fs.writeFileSync(RULES_FILE, JSON.stringify(rules, null, 2));
+export async function saveCustomRules(rules: CustomRules): Promise<void> {
+    await fs.mkdir(CONFIG_DIR, { recursive: true });
+    await fs.writeFile(RULES_FILE, JSON.stringify(rules, null, 2));
 }
 
 /**
@@ -138,10 +138,10 @@ export function getStoragePath(): string {
 }
 
 /**
- * Add a custom rule.
+ * Add a custom rule asynchronously.
  * Returns result object indicating success or failure.
  */
-export function addCustomRule(
+export async function addCustomRule(
     type: string,
     options: {
         name?: string;
@@ -149,7 +149,7 @@ export function addCustomRule(
         placeholder?: string;
         force?: boolean;
     }
-): { success: boolean; error?: string; rule?: SecretRule | FileRule | CommandRule } {
+): Promise<{ success: boolean; error?: string; rule?: SecretRule | FileRule | CommandRule }> {
     const { name, pattern, placeholder, force } = options;
 
     // Validate regex
@@ -158,7 +158,7 @@ export function addCustomRule(
         return { success: false, error: `Invalid regex pattern: ${validation.error}` };
     }
 
-    const rules = loadCustomRules();
+    const rules = await loadCustomRules();
     const now = new Date().toISOString();
 
     if (type === "secret") {
@@ -182,7 +182,7 @@ export function addCustomRule(
         };
 
         rules.secrets.push(newRule);
-        saveCustomRules(rules);
+        await saveCustomRules(rules);
         return { success: true, rule: newRule };
 
     } else if (type === "file") {
@@ -198,7 +198,7 @@ export function addCustomRule(
 
         const newRule: FileRule = { pattern, addedAt: now };
         rules.sensitiveFiles.push(newRule);
-        saveCustomRules(rules);
+        await saveCustomRules(rules);
         return { success: true, rule: newRule };
 
     } else if (type === "command") {
@@ -213,7 +213,7 @@ export function addCustomRule(
 
         const newRule: CommandRule = { pattern, addedAt: now };
         rules.destructiveCommands.push(newRule);
-        saveCustomRules(rules);
+        await saveCustomRules(rules);
         return { success: true, rule: newRule };
     }
 
@@ -221,11 +221,10 @@ export function addCustomRule(
 }
 
 /**
- * Remove a custom rule by name (secrets) or pattern (files/commands).
- * For simplicity, we search by name in secrets first, then try to match pattern in others.
+ * Remove a custom rule by name (secrets) or pattern (files/commands) asynchronously.
  */
-export function removeCustomRule(identifier: string): { success: boolean; removed: boolean; type?: string } {
-    const rules = loadCustomRules();
+export async function removeCustomRule(identifier: string): Promise<{ success: boolean; removed: boolean; type?: string }> {
+    const rules = await loadCustomRules();
     let removed = false;
     let type = undefined;
 
@@ -258,7 +257,7 @@ export function removeCustomRule(identifier: string): { success: boolean; remove
     }
 
     if (removed) {
-        saveCustomRules(rules);
+        await saveCustomRules(rules);
         return { success: true, removed: true, type };
     }
 

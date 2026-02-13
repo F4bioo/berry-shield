@@ -4,7 +4,8 @@ import { execSync } from 'node:child_process';
 import { calculateNextVersion } from './version-utils.ts';
 
 const PACKAGE_JSON_PATH = path.resolve(process.cwd(), 'package.json');
-const SRC_INDEX_PATH = path.resolve(process.cwd(), 'src/index.ts');
+const CONSTANTS_PATH = path.resolve(process.cwd(), 'src/constants.ts');
+const CONSTANTS_TEST_PATH = path.resolve(process.cwd(), '__tests__/constants-contract.test.ts');
 
 function main() {
     console.log("🍓 [Berry Shield] CalVer Release Process Initiated");
@@ -37,24 +38,21 @@ function main() {
         process.exit(1);
     }
 
-    // 4. Update src/index.ts
-    if (fs.existsSync(SRC_INDEX_PATH)) {
-        let srcContent = fs.readFileSync(SRC_INDEX_PATH, 'utf-8');
-        // Regex to find 'version: "..."' or 'version: '...''
-        // Group 1: key + whitespace
-        // Group 2: quote style (" or ')
-        // Group 3: version string
-        const betterRegex = /(version:\s*)(['"])(.*?)\2/;
+    // 4. Update src/constants.ts
+    if (fs.existsSync(CONSTANTS_PATH)) {
+        let constantsContent = fs.readFileSync(CONSTANTS_PATH, 'utf-8');
+        // Regex to find 'export const VERSION = "..."' or 'VERSION = '...''
+        const versionRegex = /(VERSION\s*=\s*)(['"])(.*?)\2/;
 
-        if (!betterRegex.test(srcContent)) {
-            console.warn("⚠️  Could not find 'version' property in src/index.ts. Manual update may be required.");
+        if (!versionRegex.test(constantsContent)) {
+            console.warn("⚠️  Could not find 'VERSION' property in src/constants.ts. Manual update may be required.");
         } else {
-            srcContent = srcContent.replace(betterRegex, `$1$2${nextVersion}$2`);
-            fs.writeFileSync(SRC_INDEX_PATH, srcContent, 'utf-8');
-            console.log(`✅ Updated src/index.ts`);
+            constantsContent = constantsContent.replace(versionRegex, `$1$2${nextVersion}$2`);
+            fs.writeFileSync(CONSTANTS_PATH, constantsContent, 'utf-8');
+            console.log(`✅ Updated src/constants.ts`);
         }
     } else {
-        console.warn("⚠️  src/index.ts not found. Skipping code version update.");
+        console.warn("⚠️  src/constants.ts not found. Skipping code version update.");
     }
 
     // 5. Update openclaw.plugin.json
@@ -70,6 +68,20 @@ function main() {
         }
     } else {
         console.warn("ℹ️  openclaw.plugin.json not found. Skipping.");
+    }
+
+    // 6. Update __tests__/constants-contract.test.ts
+    if (fs.existsSync(CONSTANTS_TEST_PATH)) {
+        let testContent = fs.readFileSync(CONSTANTS_TEST_PATH, 'utf-8');
+        const expectedVersionRegex = /(EXPECTED_VERSION\s*=\s*)(['"])(.*?)\2/;
+
+        if (!expectedVersionRegex.test(testContent)) {
+            console.warn("⚠️  Could not find 'EXPECTED_VERSION' property in constants-contract.test.ts.");
+        } else {
+            testContent = testContent.replace(expectedVersionRegex, `$1$2${nextVersion}$2`);
+            fs.writeFileSync(CONSTANTS_TEST_PATH, testContent, 'utf-8');
+            console.log(`✅ Updated __tests__/constants-contract.test.ts`);
+        }
     }
 
     console.log("✨ Version update complete!");

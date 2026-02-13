@@ -1,28 +1,15 @@
-/**
- * Configuration types for Berry Shield plugin.
- */
-/**
- * Default plugin configuration.
- */
-export const DEFAULT_CONFIG = {
-    mode: "enforce",
-    layers: {
-        root: true,
-        pulp: true,
-        thorn: true,
-        leaf: true,
-        stem: true,
-    },
-    sensitiveFilePaths: [],
-    destructiveCommands: [],
-};
+import { BerryShieldPluginConfig, BerryShieldLayersConfig } from "../types/config.js";
+import { DEFAULT_CONFIG } from "./defaults.js";
+
 /**
  * Merges user config with defaults.
  *
  * @param userConfig - Partial user configuration
  * @returns Complete plugin configuration
  */
-export function mergeConfig(userConfig) {
+export function mergeConfig(
+    userConfig: Partial<BerryShieldPluginConfig> & { layers?: Partial<BerryShieldLayersConfig> }
+): BerryShieldPluginConfig {
     return {
         mode: userConfig.mode ?? DEFAULT_CONFIG.mode,
         layers: {

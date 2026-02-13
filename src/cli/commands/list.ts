@@ -6,9 +6,7 @@
  */
 
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
-type PluginLogger = OpenClawPluginApi["logger"];
-
-import { loadCustomRules, getRulesFilePath } from "../storage.js";
+import { loadCustomRules } from "../storage.js";
 import {
     SECRET_PATTERNS,
     PII_PATTERNS,
@@ -16,59 +14,82 @@ import {
     DESTRUCTIVE_COMMAND_PATTERNS,
 } from "../../patterns/index.js";
 
+type PluginLogger = OpenClawPluginApi["logger"];
+
+/**
+ * Validates generic types for checking
+ */
+interface GenericRule {
+    name?: string;
+    pattern?: string;
+    source: "built-in" | "custom";
+    type: "secret" | "pii" | "file" | "command";
+}
+
 /**
  * Handler for the list command
  */
+import { theme } from "../ui/theme.js";
+import { ui } from "../ui/tui.js";
+
 export async function listCommand(
-    _config: OpenClawConfig,
     logger: PluginLogger
 ): Promise<void> {
-    const custom = loadCustomRules();
+    const custom = await loadCustomRules();
     logger.debug?.("[berry-shield] CLI: Listing security rules");
 
-    console.log("\n🍓 Berry Shield Rules\n");
+    const allRules: GenericRule[] = [];
 
     // Secrets
-    const totalSecrets = SECRET_PATTERNS.length + custom.secrets.length;
-    console.log(`SECRETS (${totalSecrets} rules)`);
-
-    for (const pattern of SECRET_PATTERNS) {
-        console.log(`  [built-in] ${pattern.name}`);
-    }
-    for (const rule of custom.secrets) {
-        console.log(`  [custom]   ${rule.name}`);
-    }
-    console.log();
+    SECRET_PATTERNS.forEach(r => allRules.push({ name: r.name, pattern: r.pattern.toString(), source: "built-in", type: "secret" }));
+    custom.secrets.forEach(r => allRules.push({ name: r.name, pattern: r.pattern, source: "custom", type: "secret" }));
 
     // PII
-    console.log(`PII (${PII_PATTERNS.length} rules)`);
-    for (const pattern of PII_PATTERNS) {
-        console.log(`  [built-in] ${pattern.name}`);
-    }
-    console.log();
+    PII_PATTERNS.forEach(r => allRules.push({ name: r.name, pattern: r.pattern.toString(), source: "built-in", type: "pii" }));
 
-    // Sensitive Files
-    const totalFiles = SENSITIVE_FILE_PATTERNS.length + custom.sensitiveFiles.length;
-    console.log(`SENSITIVE FILES (${totalFiles} rules)`);
-    console.log(`  [built-in] ${SENSITIVE_FILE_PATTERNS.length} patterns`);
-    for (const rule of custom.sensitiveFiles) {
-        console.log(`  [custom]   ${rule.pattern}`);
-    }
-    console.log();
+    // Files
+    SENSITIVE_FILE_PATTERNS.forEach(r => allRules.push({ pattern: r.toString(), source: "built-in", type: "file" }));
+    custom.sensitiveFiles.forEach(r => allRules.push({ pattern: r.pattern, source: "custom", type: "file" }));
 
-    // Destructive Commands
-    const totalCmds = DESTRUCTIVE_COMMAND_PATTERNS.length + custom.destructiveCommands.length;
-    console.log(`DESTRUCTIVE COMMANDS (${totalCmds} rules)`);
-    console.log(`  [built-in] ${DESTRUCTIVE_COMMAND_PATTERNS.length} patterns`);
-    for (const rule of custom.destructiveCommands) {
-        console.log(`  [custom]   ${rule.pattern}`);
-    }
-    console.log();
+    // Commands
+    DESTRUCTIVE_COMMAND_PATTERNS.forEach(r => allRules.push({ pattern: r.toString(), source: "built-in", type: "command" }));
+    custom.destructiveCommands.forEach(r => allRules.push({ pattern: r.pattern, source: "custom", type: "command" }));
 
-    // Summary
-    const customTotal = custom.secrets.length + custom.sensitiveFiles.length + custom.destructiveCommands.length;
-    if (customTotal > 0) {
-        console.log(`Custom rules file: ${getRulesFilePath()}`);
-    }
-    console.log();
+    // Group items for display
+    const groups = {
+        "Secrets": allRules.filter(r => r.type === "secret"),
+        "PII Redaction": allRules.filter(r => r.type === "pii"),
+        "Sensitive Files": allRules.filter(r => r.type === "file"),
+        "Destructive Commands": allRules.filter(r => r.type === "command"),
+    };
+
+    Object.entries(groups).forEach(([title, rules]) => {
+        if (rules.length === 0) return;
+
+        ui.header(`${title} (${rules.length})`);
+
+        const external = rules.filter(r => r.source === "custom");
+        const internal = rules.filter(r => r.source === "built-in");
+
+        // Show External (Custom) first
+        external.forEach(rule => {
+            const id = rule.name ? `${rule.name}` : `/${rule.pattern}/`;
+            const displayId = id.length > 55 ? id.substring(0, 52) + "..." : id;
+            ui.row("EXTERNAL", displayId);
+        });
+
+        // Add a small divider if both exist
+        if (external.length > 0 && internal.length > 0) {
+            console.log(theme.dim("   " + "─".repeat(20)));
+        }
+
+        // Show Internal (Built-in)
+        internal.forEach(rule => {
+            const id = rule.name ? `${rule.name}` : `/${rule.pattern}/`;
+            const displayId = id.length > 55 ? id.substring(0, 52) + "..." : id;
+            ui.row("INTERNAL", displayId);
+        });
+    });
+
+    ui.footer();
 }

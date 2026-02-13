@@ -15,11 +15,12 @@
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import type { PluginConfig } from "../types/config";
+import type { BerryShieldPluginConfig } from "../types/config.js";
+import { BRAND_SYMBOL } from "../constants.js";
 import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
-} from "../patterns";
+} from "../patterns/index.js";
 
 interface BerryToolResult {
     content: Array<{ type: "text"; text: string } | { type: "image"; label: string; path: string; mimeType: string }>;
@@ -127,7 +128,7 @@ function isSensitiveFile(filePath: string, customPatterns: string[]): boolean {
  * @returns Formatted response string
  */
 function formatAllowed(operation: OperationType, target: string): string {
-    return `🍓 Berry Shield
+    return `${BRAND_SYMBOL} Berry Shield
 
 STATUS: ALLOWED
 OPERATION: ${operation}
@@ -143,7 +144,7 @@ You may proceed with this operation.`;
  * @returns Formatted response string
  */
 function formatDeniedSensitiveFile(filePath: string): string {
-    return `🍓 Berry Shield
+    return `${BRAND_SYMBOL} Berry Shield
 
 STATUS: DENIED
 REASON: Sensitive file detected
@@ -164,7 +165,7 @@ function formatDeniedDestructiveCommand(command: string): string {
     const displayCommand =
         command.length > 50 ? `${command.substring(0, 50)}...` : command;
 
-    return `🍓 Berry Shield
+    return `${BRAND_SYMBOL} Berry Shield
 
 STATUS: DENIED
 REASON: Destructive command detected
@@ -182,7 +183,7 @@ ACTION: Do NOT execute this command. Suggest a safer alternative to the user.`;
  */
 export function registerBerryStem(
     api: OpenClawPluginApi,
-    config: PluginConfig
+    config: BerryShieldPluginConfig
 ): void {
     // Skip if layer is disabled
     if (!config.layers.stem) {

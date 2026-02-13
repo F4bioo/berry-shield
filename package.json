@@ -12,8 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "//build": "Compiles the project (safe for local testing)",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --external:openclaw/plugin-sdk --target=node20",
+    "build:types": "tsc -p tsconfig.build.json",
     "//release": "Generates new version, compiles, type-checks, and runs tests",
     "release": "npm run version:update && npm run build && npm run typecheck && npx vitest run __tests__",
     "version:update": "npx ts-node --esm scripts/update-version.ts",
@@ -22,9 +22,13 @@
   "peerDependencies": {
     "openclaw": "*"
   },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0"
+  },
   "devDependencies": {
     "@iarna/toml": "^2.2.5",
     "@types/node": "^25.2.2",
+    "esbuild": "^0.27.3",
     "typescript": "^5.3.0",
     "vitest": "^4.0.18"
   }

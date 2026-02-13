@@ -25,7 +25,7 @@ export async function testCommand(
     _config: OpenClawConfig,
     logger: PluginLogger
 ): Promise<void> {
-    const custom = loadCustomRules();
+    const custom = await loadCustomRules();
     logger.debug?.(`[berry-shield] CLI: Testing input: ${input.substring(0, 20)}...`);
     const matches: MatchResult[] = [];
 

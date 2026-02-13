@@ -11,9 +11,9 @@
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import type { PluginConfig } from "../types/config";
-import { getAllRedactionPatterns } from "../patterns";
-import { walkAndRedact } from "../utils/redaction";
+import type { BerryShieldPluginConfig } from "../types/config.js";
+import { getAllRedactionPatterns } from "../patterns/index.js";
+import { walkAndRedact } from "../utils/redaction.js";
 
 /**
  * Registers the Berry.Pulp layer (Output Scanner).
@@ -23,7 +23,7 @@ import { walkAndRedact } from "../utils/redaction";
  */
 export function registerBerryPulp(
     api: OpenClawPluginApi,
-    config: PluginConfig
+    config: BerryShieldPluginConfig
 ): void {
     // Skip if layer is disabled
     if (!config.layers.pulp) {
@@ -31,11 +31,10 @@ export function registerBerryPulp(
         return;
     }
 
-    const patterns = getAllRedactionPatterns();
-
     api.on(
         "tool_result_persist",
         (event) => {
+            const patterns = getAllRedactionPatterns();
             const { content, redactionCount, redactedTypes } = walkAndRedact(event.message, patterns);
 
             if (redactionCount > 0) {
@@ -60,6 +59,7 @@ export function registerBerryPulp(
     api.on(
         "message_sending",
         (event) => {
+            const patterns = getAllRedactionPatterns();
             const { content, redactionCount, redactedTypes } = walkAndRedact(event.content, patterns);
 
             if (redactionCount > 0) {

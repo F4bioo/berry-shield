@@ -6,7 +6,8 @@
  */
 
 import * as fs from "node:fs";
-import { GITLEAKS_PATTERNS } from "./generated";
+import { loadCustomRules, getStoragePath, type CustomRules } from "../cli/storage.js";
+import { GITLEAKS_PATTERNS } from "./generated.js";
 
 /**
  * Pattern definition with regex and replacement placeholder.
@@ -215,103 +216,115 @@ export const DESTRUCTIVE_COMMAND_PATTERNS: RegExp[] = [
     /\bdd\s+if=/i,
 ];
 
-import { loadCustomRules, getStoragePath } from "../cli/storage";
-
 // ============================================================================
-// Smart Cache Logic
+// Async Pattern Loading & Caching
 // ============================================================================
 
 interface PatternCache {
-    lastMtime: number;
     redactionPatterns: SecurityPattern[];
     filePatterns: RegExp[];
     commandPatterns: RegExp[];
 }
 
-let _cache: PatternCache | null = null;
+// Initial cache with only built-in patterns
+let _cache: PatternCache = {
+    redactionPatterns: [...SECRET_PATTERNS, ...PII_PATTERNS],
+    filePatterns: [...SENSITIVE_FILE_PATTERNS],
+    commandPatterns: [...DESTRUCTIVE_COMMAND_PATTERNS],
+};
 
 /**
- * Re-loads and compiles patterns from disk if the file has changed.
+ * Initializes the pattern cache by loading custom rules from disk.
+ * Skips file watching in test environment to avoid handle leaks.
  */
-function refreshPatterns(): PatternCache {
-    const rulesPath = getStoragePath();
+export async function initializePatterns(): Promise<void> {
+    await reloadPatterns();
 
-    let currentMtime = 0;
-    try {
-        if (rulesPath && fs.existsSync(rulesPath)) {
-            currentMtime = fs.statSync(rulesPath).mtimeMs;
-        }
-    } catch {
-        // Ignore stat errors, use 0
-    }
-
-    // Return cache if file hasn't changed
-    if (_cache && _cache.lastMtime === currentMtime) {
-        return _cache;
-    }
-
-    // Load and compile patterns
-    const custom = loadCustomRules();
-
-    const customSecrets: SecurityPattern[] = custom.secrets.map(s => {
-        let pattern = s.pattern;
-        let flags = "gi";
-
-        // Handle PCRE-style case insensitivity (?i)
-        if (pattern.startsWith("(?i)")) {
-            pattern = pattern.substring(4);
-            // "i" is already in default flags, but for clarity/completeness
-            flags = "gi";
-        }
-
+    // Setup watcher for hot-reloading (skip in CI/Test)
+    if (process.env.NODE_ENV !== 'test') {
+        const rulesPath = getStoragePath();
         try {
-            return {
-                name: s.name,
-                category: "secret",
-                pattern: new RegExp(pattern, flags),
-                placeholder: s.placeholder,
-            };
-        } catch (e) {
-            console.error(`[berry-shield] Failed to compile secret pattern '${s.name}': ${e}`);
-            return null;
+            fs.watch(rulesPath, { persistent: false }, async (eventType) => {
+                if (eventType === 'change' || eventType === 'rename') {
+                    await reloadPatterns();
+                }
+            }).on('error', () => {
+                // Ignore errors
+            });
+        } catch {
+            // Ignore watch setup errors
         }
-    }).filter((r): r is SecurityPattern => r !== null);
+    }
+}
 
-    const customFiles = custom.sensitiveFiles.map(f => {
-        try { return new RegExp(f.pattern, "i"); } catch { return null; }
-    }).filter((r): r is RegExp => r !== null);
+/**
+ * Reloads patterns from disk and updates the cache.
+ */
+export async function reloadPatterns(): Promise<void> {
+    try {
+        const custom: CustomRules = await loadCustomRules();
 
-    const customCmds = custom.destructiveCommands.map(c => {
-        try { return new RegExp(c.pattern, "i"); } catch { return null; }
-    }).filter((r): r is RegExp => r !== null);
+        const customSecrets: SecurityPattern[] = custom.secrets.map(s => {
+            // Pattern validation/compilation logic
+            let pattern = s.pattern;
+            let flags = "gi";
 
-    _cache = {
-        lastMtime: currentMtime,
-        redactionPatterns: [...SECRET_PATTERNS, ...customSecrets, ...PII_PATTERNS],
-        filePatterns: [...SENSITIVE_FILE_PATTERNS, ...customFiles],
-        commandPatterns: [...DESTRUCTIVE_COMMAND_PATTERNS, ...customCmds],
-    };
+            if (pattern.startsWith("(?i)")) {
+                pattern = pattern.substring(4);
+                flags = "gi";
+            }
 
-    return _cache;
+            try {
+                return {
+                    name: s.name,
+                    category: "secret",
+                    pattern: new RegExp(pattern, flags),
+                    placeholder: s.placeholder,
+                };
+            } catch (e) {
+                console.error(`[berry-shield] Failed to compile secret pattern '${s.name}': ${e}`);
+                return null;
+            }
+        }).filter((r): r is SecurityPattern => r !== null);
+
+        const customFiles = custom.sensitiveFiles.map(f => {
+            try { return new RegExp(f.pattern, "i"); } catch { return null; }
+        }).filter((r): r is RegExp => r !== null);
+
+        const customCmds = custom.destructiveCommands.map(c => {
+            try { return new RegExp(c.pattern, "i"); } catch { return null; }
+        }).filter((r): r is RegExp => r !== null);
+
+        // Update cache atomically
+        _cache = {
+            redactionPatterns: [...SECRET_PATTERNS, ...customSecrets, ...PII_PATTERNS],
+            filePatterns: [...SENSITIVE_FILE_PATTERNS, ...customFiles],
+            commandPatterns: [...DESTRUCTIVE_COMMAND_PATTERNS, ...customCmds],
+        };
+    } catch (e) {
+        // If reload fails, we keep the previous cache
+        console.error(`[berry-shield] Error reloading patterns: ${e}`);
+    }
 }
 
 /**
  * Combines all redaction patterns (built-in + custom) into a single array.
+ * Returns the cached patterns synchronously.
  */
 export function getAllRedactionPatterns(): SecurityPattern[] {
-    return refreshPatterns().redactionPatterns;
+    return _cache.redactionPatterns;
 }
 
 /**
  * Gets all sensitive file patterns (built-in + custom).
  */
 export function getAllSensitiveFilePatterns(): RegExp[] {
-    return refreshPatterns().filePatterns;
+    return _cache.filePatterns;
 }
 
 /**
  * Gets all destructive command patterns (built-in + custom).
  */
 export function getAllDestructiveCommandPatterns(): RegExp[] {
-    return refreshPatterns().commandPatterns;
+    return _cache.commandPatterns;
 }

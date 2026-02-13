@@ -7,7 +7,7 @@
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import type { PluginConfig } from "../types/config";
+import type { BerryShieldPluginConfig } from "../types/config.js";
 
 /**
  * Security policy XML that gets injected into the agent's context.
@@ -43,7 +43,7 @@ SECURITY RULES - You MUST follow these rules at all times:
  */
 export function registerBerryRoot(
     api: OpenClawPluginApi,
-    config: PluginConfig
+    config: BerryShieldPluginConfig
 ): void {
     // Skip if layer is disabled
     if (!config.layers.root) {

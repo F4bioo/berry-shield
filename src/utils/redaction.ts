@@ -55,25 +55,7 @@ export function redactString(
     };
 }
 
-const SENSITIVE_KEY_EXACT = new Set([
-    "key",
-    "auth",
-    "credential",
-    "cred",
-    "secret",
-]);
-
-const SENSITIVE_KEY_SUFFIXES = [
-    "token",
-    "password",
-    "passwd",
-    "secret",
-    "apikey",
-    "api_key",
-    "access_key",
-    "secret_key",
-    "private_key",
-];
+import { SENSITIVE_KEY_EXACT, SENSITIVE_KEY_SUFFIXES } from "../constants.js";
 
 function isSensitiveKey(key: string): boolean {
     const lower = key.toLowerCase();

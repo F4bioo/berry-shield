@@ -1,7 +1,9 @@
 # Dependencies
 node_modules/
 
-# Build output (keeping dist/ for deployment)
+# Build output
+dist/*
+!dist/index.js
 *.js.map
 *.d.ts
 
@@ -17,11 +19,18 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDEs
 .idea/
 .vscode/
 *.swp
 *.swo
+.history/
 
-# Lock files (optional - some prefer to commit these)
-package-lock.json
+# Test artifacts
+coverage/
+.vitest-result/
+
+# Temporary files
+.temp/
+tmp/
+*.tmp
