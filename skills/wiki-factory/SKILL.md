@@ -35,7 +35,7 @@ Run the factory script to extract AST metadata and generate Markdown files.
 ```bash
 npm run wiki:gen
 ```
-The script is located at `skills/wiki-factory/scripts/doc-factory.ts`.
+The script is located at `skills/wiki-factory/scripts/doc-sanity.ts`.
 
 ### 2. Crafting High-Level Pages
 When asked to create Tutorials, How-to Guides, or Explanations:

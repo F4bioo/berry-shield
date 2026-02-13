@@ -18,7 +18,8 @@
     "release": "npm run version:update && npm run build && npm run typecheck && npx vitest run __tests__",
     "version:update": "npx ts-node --esm scripts/update-version.ts",
     "update-patterns": "npx ts-node --esm scripts/update-patterns.ts",
-    "wiki:gen": "npx ts-node --esm skills/wiki-factory/scripts/doc-factory.ts"
+    "wiki:gen": "npx ts-node --esm skills/wiki-factory/scripts/doc-factory.ts",
+    "wiki:claim": "npx ts-node --esm skills/wiki-factory/scripts/doc-sanity.ts"
   },
   "peerDependencies": {
     "openclaw": "*"
