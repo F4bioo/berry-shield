@@ -20,6 +20,29 @@ export interface RedactionResult<T = unknown> {
 }
 
 /**
+ * Simple unescape for common encoded characters in tool outputs (like curl).
+ */
+function unescapeString(text: string): string {
+    if (!text.includes("\\") && !text.includes("%")) return text;
+
+    try {
+        // Handle basic JSON-like escapes (\", \n, \t, etc)
+        // We use a safe subset to avoid breaking the original string structure
+        return text
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, "\\")
+            .replace(/\\n/g, "\n")
+            .replace(/\\r/g, "\r")
+            .replace(/\\t/g, "\t")
+            .replace(/\\u([0-9a-fA-F]{4})/g, (_, code: string) =>
+                String.fromCharCode(parseInt(code, 16))
+            );
+    } catch {
+        return text;
+    }
+}
+
+/**
  * Applies redaction patterns to a string.
  *
  * @param text - The text to redact
@@ -30,17 +53,20 @@ export function redactString(
     text: string,
     patterns: SecurityPattern[]
 ): RedactionResult<string> {
-    let result = text;
+    const unescaped = unescapeString(text);
     let redactionCount = 0;
     const redactedTypes: string[] = [];
 
+    // We work on the unescaped version for maximum detection
+    let currentResult = unescaped;
+
     for (const pattern of patterns) {
-        // Reset regex lastIndex for global patterns
         pattern.pattern.lastIndex = 0;
 
-        const matches = result.match(pattern.pattern);
+        // Match on the current state of redacted text
+        const matches = currentResult.match(pattern.pattern);
         if (matches && matches.length > 0) {
-            result = result.replace(pattern.pattern, pattern.placeholder);
+            currentResult = currentResult.replace(pattern.pattern, pattern.placeholder);
             redactionCount += matches.length;
             if (!redactedTypes.includes(pattern.name)) {
                 redactedTypes.push(pattern.name);
@@ -48,8 +74,10 @@ export function redactString(
         }
     }
 
+    // If we found secrets in the unescaped version, we return that version (redacted)
+    // If not, we return the original text to preserve exact formatting/escapes if possible
     return {
-        content: result,
+        content: redactionCount > 0 ? currentResult : text,
         redactionCount,
         redactedTypes,
     };
@@ -65,29 +93,35 @@ function isSensitiveKey(key: string): boolean {
 
 /**
  * Recursively walks through an object and redacts sensitive data.
- *
+ * Optimized for performance and memory (Lazy Cloning).
+ * 
  * @param obj - The object to walk and redact
  * @param patterns - Security patterns to apply
+ * @param seen - Tracking for circular references
  * @returns Redaction result with stats
  */
 export function walkAndRedact<T>(
     obj: T,
-    patterns: SecurityPattern[]
+    patterns: SecurityPattern[],
+    seen: WeakSet<object> = new WeakSet()
 ): RedactionResult<T> {
+    // Return primitives unchanged
+    if (obj === null || typeof obj !== "object" && typeof obj !== "string") {
+        return { content: obj, redactionCount: 0, redactedTypes: [] };
+    }
+
     // Handle strings
     if (typeof obj === "string") {
-        // OPTIMIZATION: Check if string looks like JSON before parsing
         const trimmed = obj.trim();
         const isJsonCandidate = (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
             (trimmed.startsWith("[") && trimmed.endsWith("]"));
 
         if (isJsonCandidate) {
             try {
-                const parsed = JSON.parse(obj);
-                // Recursively redact the parsed object
-                const result = walkAndRedact(parsed, patterns);
+                const parsed = JSON.parse(obj) as unknown;
+                // Recursively redact the parsed object (circular refs handled there)
+                const result = walkAndRedact(parsed, patterns, seen);
 
-                // If redactions occurred inside the JSON, re-serialize it
                 if (result.redactionCount > 0) {
                     return {
                         content: JSON.stringify(result.content) as unknown as T,
@@ -100,73 +134,81 @@ export function walkAndRedact<T>(
             }
         }
 
-        return redactString(obj, patterns) as unknown as RedactionResult<T>;
+        const redaction = redactString(obj, patterns);
+        return redaction as unknown as RedactionResult<T>;
     }
+
+    // Circular reference protection for Objects and Arrays
+    if (seen.has(obj)) {
+        return { content: obj, redactionCount: 0, redactedTypes: [] };
+    }
+    seen.add(obj);
 
     // Handle arrays
     if (Array.isArray(obj)) {
         let totalRedactions = 0;
         const allRedactedTypes: string[] = [];
-        const redactedArray = obj.map((item) => {
-            const result = walkAndRedact(item, patterns);
-            totalRedactions += result.redactionCount;
-            for (const type of result.redactedTypes) {
-                if (!allRedactedTypes.includes(type)) {
-                    allRedactedTypes.push(type);
-                }
+        let hasChanges = false;
+
+        const resultArray = obj.map(item => {
+            const result = walkAndRedact(item, patterns, seen);
+            if (result.redactionCount > 0) {
+                totalRedactions += result.redactionCount;
+                hasChanges = true;
+                result.redactedTypes.forEach(t => {
+                    if (!allRedactedTypes.includes(t)) allRedactedTypes.push(t);
+                });
             }
             return result.content;
         });
 
         return {
-            content: redactedArray as unknown as T,
+            content: (hasChanges ? resultArray : obj) as unknown as T,
             redactionCount: totalRedactions,
             redactedTypes: allRedactedTypes,
         };
     }
 
     // Handle objects
-    if (obj && typeof obj === "object") {
-        let totalRedactions = 0;
-        const allRedactedTypes: string[] = [];
-        const redactedObject: Record<string, unknown> = {};
+    const record = obj as Record<string, unknown>;
+    let totalRedactions = 0;
+    const allRedactedTypes: string[] = [];
+    let redactedObject: Record<string, unknown> | null = null;
 
-        for (const [key, value] of Object.entries(obj)) {
-            // Key-Based Redaction: Check if the key itself indicates a secret
-            if (isSensitiveKey(key)) {
-                // Only redact primitives (strings/numbers/booleans) to preserve structure
-                if (!value || typeof value !== "object") {
-                    redactedObject[key] = `[${key.toUpperCase()}_REDACTED]`;
-                    totalRedactions++;
-                    if (!allRedactedTypes.includes(`Key: ${key}`)) {
-                        allRedactedTypes.push(`Key: ${key}`);
-                    }
-                    continue;
-                }
-            }
+    for (const [key, value] of Object.entries(record)) {
+        let currentContent = value;
+        let currentRedactions = 0;
+        const currentTypes: string[] = [];
 
-            const result = walkAndRedact(value, patterns);
-            redactedObject[key] = result.content;
-            totalRedactions += result.redactionCount;
-            for (const type of result.redactedTypes) {
-                if (!allRedactedTypes.includes(type)) {
-                    allRedactedTypes.push(type);
-                }
-            }
+        // Key-Based Redaction
+        if (isSensitiveKey(key) && value !== null && typeof value !== "object") {
+            currentContent = `[${key.toUpperCase()}_REDACTED]`;
+            currentRedactions = 1;
+            currentTypes.push(`Key: ${key}`);
+        } else {
+            const result = walkAndRedact(value, patterns, seen);
+            currentContent = result.content;
+            currentRedactions = result.redactionCount;
+            result.redactedTypes.forEach(t => currentTypes.push(t));
         }
 
-        return {
-            content: redactedObject as unknown as T,
-            redactionCount: totalRedactions,
-            redactedTypes: allRedactedTypes,
-        };
+        if (currentRedactions > 0 || currentContent !== value) {
+            // Lazy initialization of the redacted object
+            if (!redactedObject) {
+                redactedObject = { ...record };
+            }
+            redactedObject[key] = currentContent;
+            totalRedactions += currentRedactions;
+            currentTypes.forEach(t => {
+                if (!allRedactedTypes.includes(t)) allRedactedTypes.push(t);
+            });
+        }
     }
 
-    // Return primitives unchanged
     return {
-        content: obj,
-        redactionCount: 0,
-        redactedTypes: [],
+        content: (redactedObject ? redactedObject : obj) as T,
+        redactionCount: totalRedactions,
+        redactedTypes: allRedactedTypes,
     };
 }
 
@@ -180,7 +222,8 @@ export function walkAndRedact<T>(
  */
 export function findMatches(
     obj: unknown,
-    patterns: SecurityPattern[] | RegExp[]
+    patterns: SecurityPattern[] | RegExp[],
+    seen: WeakSet<object> = new WeakSet()
 ): string[] {
     const matchedNames = new Set<string>();
 
@@ -188,29 +231,31 @@ export function findMatches(
         if (!current) return;
 
         if (typeof current === "string") {
+            const unescaped = unescapeString(current);
             for (const p of patterns) {
-                // Safely handle both SecurityPattern and raw RegExp
                 const regex = p instanceof RegExp ? p : p.pattern;
                 const name = p instanceof RegExp ? "Sensitive Pattern" : p.name;
 
                 regex.lastIndex = 0;
-                if (regex.test(current)) {
+                if (regex.test(unescaped)) {
                     matchedNames.add(name);
                 }
             }
             return;
         }
 
-        if (Array.isArray(current)) {
-            for (const item of current) {
-                walk(item);
-            }
-            return;
-        }
+        if (typeof current === "object") {
+            if (seen.has(current)) return;
+            seen.add(current);
 
-        if (obj && typeof current === "object") {
-            for (const value of Object.values(current as Record<string, unknown>)) {
-                walk(value);
+            if (Array.isArray(current)) {
+                for (const item of current) {
+                    walk(item);
+                }
+            } else {
+                for (const value of Object.values(current as Record<string, unknown>)) {
+                    walk(value);
+                }
             }
         }
     };
