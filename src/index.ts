@@ -11,12 +11,12 @@ import { registerBerryShieldCli } from "./cli/index.js";
 import { initializePatterns } from "./patterns/index.js";
 
 /**
- * Berry Shield - Security plugin for OpenClaw
+ * Berry Shield - Security architecture for OpenClaw
  *
- * 5-layer defense system:
+ * 5-layer security architecture:
  * - Berry.Root: Prompt Guard (injects security policies)
- * - Berry.Pulp: Output Scanner (redacts secrets/PII)
- * - Berry.Thorn: Tool Blocker (blocks dangerous commands)
+ * - Berry.Pulp: Output Scanner (redacts detected secrets/PII)
+ * - Berry.Thorn: Tool Blocker (mitigates flagged commands)
  * - Berry.Leaf: Input Audit (logs for auditing)
  * - Berry.Stem: Security Gate (tool-based checkpoint)
  */
@@ -25,7 +25,7 @@ export default {
     id: "berry-shield",
     name: "Berry Shield",
     version: VERSION,
-    description: "Security plugin - blocks destructive commands, redacts secrets and PII",
+    description: "Security plugin designed to mitigate flagged commands and redact detected secrets/PII",
 
     async register(api: OpenClawPluginApi) {
         // Initialize security patterns from disk

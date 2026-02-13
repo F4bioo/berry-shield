@@ -17,7 +17,8 @@
     "//release": "Generates new version, compiles, type-checks, and runs tests",
     "release": "npm run version:update && npm run build && npm run typecheck && npx vitest run __tests__",
     "version:update": "npx ts-node --esm scripts/update-version.ts",
-    "update-patterns": "npx ts-node --esm scripts/update-patterns.ts"
+    "update-patterns": "npx ts-node --esm scripts/update-patterns.ts",
+    "wiki:gen": "npx ts-node --esm skills/wiki-factory/scripts/doc-factory.ts"
   },
   "peerDependencies": {
     "openclaw": "*"
@@ -29,6 +30,8 @@
     "@iarna/toml": "^2.2.5",
     "@types/node": "^25.2.2",
     "esbuild": "^0.27.3",
+    "typedoc": "^0.28.16",
+    "typedoc-plugin-markdown": "^4.10.0",
     "typescript": "^5.3.0",
     "vitest": "^4.0.18"
   }
