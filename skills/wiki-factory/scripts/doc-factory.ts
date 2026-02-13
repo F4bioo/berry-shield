@@ -58,7 +58,7 @@ async function main() {
             })
             .join("\n");
 
-        const mapContent = `# 🛰️ Orion Map: Wiki Reference Index\n\nUse this index to quickly locate technical reference files.\n\n## Reference Files\n\n${allFiles}\n`;
+        const mapContent = `# Orion Map: Wiki Reference Index\n\nUse this index to quickly locate technical reference files.\n\n## Reference Files\n\n${allFiles}\n`;
         writeFileSync(mapPath, mapContent);
         console.log("✅ Orion Map generated.");
 

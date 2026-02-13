@@ -1,22 +1,28 @@
 /**
- * 🍓 Berry Shield: Doc Sanity (Technical Integrity & Tone)
+ * 🍓 Berry Shield: Doc Sanity (Technical Integrity & Editorial Refinement)
  * Philosophy: Honest, technical, humble. "Show, don't tell."
  * 
  * Heuristics:
  * 1. AST-Doc Sync: Prevents claims of non-existent API symbols.
  * 2. Evidence-Based Logic: Validates security claims against code footprints.
  * 3. Semantic Hedging: Blocks absolute promises (ensures, guarantees) without hedges.
- * 4. Contextual Homeostasis: Awareness of Diátaxis zones (Explanation vs Reference).
+ * 4. Editorial Density: Analyzes hype and emoji frequency per 1000 words.
+ * 5. Sanity Ignores: Supports <!-- doc-sanity:ignore --> comments for edge cases.
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
-import { join, extname, relative, sep } from "path";
+import { join, extname, relative } from "path";
 import ts from "typescript";
 
 // 🍓 Configuration
-
 const DOCS_DIR = process.env.DOCS_DIR ?? "docs/wiki";
 const CODE_DIR = process.env.CODE_DIR ?? "src";
+
+const CONFIG = {
+    hypeDensityThreshold: 2.0,      // Max hits per 1000 words
+    emojiDensityThreshold: 5.0,     // Max emojis per 1000 words
+    exclamationThreshold: 5,        // Max ! per file
+};
 
 const COLOR = {
     LOBSTER: "\x1b[38;2;255;90;45m",
@@ -35,27 +41,63 @@ const SYMBOL = {
     WARN: "⚠️"
 };
 
-const FORBIDDEN_WORDS = [
-    "mastery", "revolutionary", "professional", "perfect", "amazing",
-    "unbreakable", "total security", "game changer", "proprietary", "industry-standard"
+const IGNORE = {
+    line: /<!--\s*doc-sanity:ignore-line\s*-->/i,
+    start: /<!--\s*doc-sanity:ignore-start\s*-->/i,
+    end: /<!--\s*doc-sanity:ignore-end\s*-->/i,
+    literal: /<!--\s*doc-sanity:ignore\s+"([^"]+)"\s*-->/i,
+};
+
+function snippetAround(line: string, startIdx: number, matchLen: number): string {
+    const left = Math.max(0, startIdx - 30);
+    const right = Math.min(line.length, startIdx + matchLen + 30);
+    const prefix = left > 0 ? "…" : "";
+    const suffix = right < line.length ? "…" : "";
+    return `${prefix}${line.slice(left, right)}${suffix}`;
+}
+
+type Rule = {
+    id: string;
+    pattern: RegExp;
+    message: string;
+    suggestion: string;
+};
+
+const SANITY_RULES: Rule[] = [
+    {
+        id: "marketing.superlatives",
+        pattern: /\b(revolutionary|game[-\s]?changer|leading|world[-\s]?class|state[-\s]?of[-\s]?the[-\s]?art|cutting[-\s]?edge|amazing|awesome|incredible)\b/gi,
+        message: "Marketing superlative detected.",
+        suggestion: "Replace with factual descriptions or measured impact."
+    },
+    {
+        id: "marketing.absolute",
+        pattern: /\b(total security|100% secure|hack[-\s]?proof|impenetrable|unbreakable|bulletproof|perfect|flawless)\b/gi,
+        message: "Absolute security claim.",
+        suggestion: "Replace with scoped statements (e.g., 'mitigates X', 'threat model')."
+    },
+    {
+        id: "marketing.buzzwords",
+        pattern: /\b(enterprise[-\s]?grade|military[-\s]?grade|industry[-\s]?leading|next[-\s]?gen|future[-\s]?proof|disrupt|mastery)\b/gi,
+        message: "Vague credibility buzzword.",
+        suggestion: "State concrete properties (standards, audits, tests)."
+    }
 ];
 
 const ABSOLUTE_VERBS = ["ensures", "guarantees", "prevents", "eliminates", "secures", "stops", "blocks"];
-
 const HEDGES = ["aims to", "intends to", "designed to", "attempts to", "typically", "generally", "designed with"];
 
-// Words that triggered false positives in the AST check
 const RESERVED_WORDS = new Set([
     "string", "number", "boolean", "object", "null", "undefined", "true", "false",
     "void", "unknown", "never", "any", "typescript", "npm", "git", "bash", "curl", "json", "const", "let", "var", "rm", "rf",
     "chmod", "patterns", "redaction", "audit", "enforce", "mode", "rules", "rule", "status", "list", "add", "remove", "walk", "obj", "arm", "bin", "logs", "password", "token", "secret", "text", "db", "openclawpluginapi", "openclawpluginclicontext", "openclawplugincontext",
-    "api", "config", "context", "logger", "options",
+    "api", "config", "context", "logger", "options", "init", "toggle", "monitor", "bshield", "openclaw", "vitest", "typedoc", "node", "esm", "ts-node", "esbuild", "npx",
     "set", "map", "weakset", "weakmap", "promise", "error", "regexp", "date", "console", "process", "module", "require"
 ]);
 
-const CLAIM_EVIDENCE_MAP = [
+const EVIDENCE_RULES = [
     {
-        id: "security.redaction",
+        id: "integrity.redaction",
         docClaim: ["redact", "redaction", "sensitive data", "pii"],
         codeEvidence: ["redact", "pattern", "regex", "sensitive", "walkAndRedact"],
         message: "Redaction claims found in docs, but core mitigation logic is missing in code."
@@ -63,7 +105,6 @@ const CLAIM_EVIDENCE_MAP = [
 ];
 
 // 🛡️ Logic & Indexing
-
 function getFiles(dir: string, extFilter: string[]): string[] {
     if (!existsSync(dir)) return [];
     let results: string[] = [];
@@ -106,6 +147,16 @@ function hasExport(node: ts.Node): boolean {
     return (ts.getCombinedModifierFlags(node as ts.Declaration) & ts.ModifierFlags.Export) !== 0;
 }
 
+function countWords(text: string): number {
+    const m = text.match(/\b\w+\b/g);
+    return m ? m.length : 0;
+}
+
+function countEmojis(text: string): number {
+    const m = text.match(/\p{Extended_Pictographic}/gu);
+    return m ? m.length : 0;
+}
+
 // 🛡️ Technical Sanity Auditor
 class SanityAuditor {
     errors: string[] = [];
@@ -124,20 +175,26 @@ class SanityAuditor {
 
     auditFile(filePath: string) {
         const content = readFileSync(filePath, "utf8");
+        if (content.match(/\uFFFD/g) && content.match(/\uFFFD/g)!.length > 10) return; // Binary skip
+
         const lines = content.split("\n");
         const relPath = relative(process.cwd(), filePath);
         const isExplanation = filePath.includes("anatomy") || filePath.includes("engine");
         const isReference = filePath.includes("reference");
 
+        let totalWords = 0;
+        let totalEmoji = 0;
+        let exclamationCount = 0;
+        let sanityHits = 0;
+        let ignoreBlock = false;
+
         // 1. AST-Doc Integrity Link (Symbol Check)
-        // Only run for manual documentation, as reference is auto-generated and inherently synced.
         if (!isReference) {
             const symbolRegex = /`([a-zA-Z_]\w*)`/g;
             let match;
             while ((match = symbolRegex.exec(content)) !== null) {
                 const sym = match[1];
                 if (!RESERVED_WORDS.has(sym.toLowerCase()) && !this.exportedSymbols.has(sym)) {
-                    // Heuristic: only fail if it looks like a camelCase function or PascalCase Class
                     if (/^[a-z][a-zA-Z0-9]+$/.test(sym) || /^[A-Z][A-Z]?[a-z]/.test(sym)) {
                         this.errors.push(`${relPath}: Factual integrity risk. Symbol \`${sym}\` mentioned but not exported in code.`);
                     }
@@ -145,21 +202,41 @@ class SanityAuditor {
             }
         }
 
-        // 2. Line-by-line Tone Analysis
+        // 2. Line-by-line Analysis
         lines.forEach((line, i) => {
             const lower = line.toLowerCase();
             const lineNo = i + 1;
 
-            // Forbidden Marketing
-            FORBIDDEN_WORDS.forEach(word => {
-                if (lower.includes(word)) {
-                    this.errors.push(`${relPath}:${lineNo}: Prohibited marketing term: "${word}"`);
+            if (IGNORE.start.test(line)) { ignoreBlock = true; return; }
+            if (IGNORE.end.test(line)) { ignoreBlock = false; return; }
+            if (ignoreBlock || IGNORE.line.test(line)) return;
+
+            const literalIgnoreMatch = line.match(IGNORE.literal);
+            const literalToIgnore = literalIgnoreMatch?.[1];
+            const effectiveLine = literalToIgnore && literalToIgnore.length > 0
+                ? line.replaceAll(literalToIgnore, " ".repeat(literalToIgnore.length))
+                : line;
+
+            totalWords += countWords(effectiveLine);
+            totalEmoji += countEmojis(effectiveLine);
+            exclamationCount += (effectiveLine.match(/!/g) || []).length;
+
+            // Rules with suggestions
+            SANITY_RULES.forEach(rule => {
+                rule.pattern.lastIndex = 0;
+                let m: RegExpExecArray | null;
+                while ((m = rule.pattern.exec(effectiveLine)) !== null) {
+                    sanityHits++;
+                    const snippet = snippetAround(line, m.index, m[0].length);
+                    this.errors.push(`${relPath}:${lineNo}: [${rule.id}] ${rule.message}\n   ↳ Match: "${m[0]}"\n   ↳ Context: ${snippet}\n   ↳ Suggestion: ${rule.suggestion}`);
+                    if (m.index === rule.pattern.lastIndex) rule.pattern.lastIndex++;
                 }
             });
 
-            // Absolute Promises without Hedges
+            // Absolute Promises
             ABSOLUTE_VERBS.forEach(verb => {
-                if (lower.includes(verb)) {
+                const verbRegex = new RegExp(`\\b${verb}\\b`, "i");
+                if (verbRegex.test(line)) {
                     const hedged = HEDGES.some(h => lower.includes(h));
                     if (!hedged) {
                         this.warnings.push(`${relPath}:${lineNo}: Absolute claim detected ("${verb}"). Consider using a hedge.`);
@@ -169,7 +246,7 @@ class SanityAuditor {
         });
 
         // 3. Evidence-Based Integrity
-        CLAIM_EVIDENCE_MAP.forEach(rule => {
+        EVIDENCE_RULES.forEach(rule => {
             const docMentions = rule.docClaim.some(c => content.toLowerCase().includes(c));
             if (docMentions) {
                 const evidence = rule.codeEvidence.some(e => this.codeContent.includes(e));
@@ -179,22 +256,34 @@ class SanityAuditor {
             }
         });
 
-        // 4. Contextual Homeostasis (Weight Check)
-        const wordCount = content.split(/\s+/).length;
-        const limit = isExplanation ? 1200 : 500;
-        if (wordCount > limit) {
-            this.warnings.push(`${relPath}: High word density (${wordCount} words). Potential "fluff" detected.`);
+        // 4. Evolutionary Metrics (Density Checks)
+        const density = (sanityHits / Math.max(1, totalWords)) * 1000;
+        const emojiDensity = (totalEmoji / Math.max(1, totalWords)) * 1000;
+
+        if (density >= CONFIG.hypeDensityThreshold) {
+            this.warnings.push(`${relPath}: High hype density (${density.toFixed(2)} hits/1000w). Rewrite for technical modesty.`);
+        }
+        if (emojiDensity >= CONFIG.emojiDensityThreshold) {
+            this.warnings.push(`${relPath}: High emoji density (${emojiDensity.toFixed(2)}/1000w). Reduce visual clutter.`);
+        }
+        if (exclamationCount >= CONFIG.exclamationThreshold) {
+            this.warnings.push(`${relPath}: Many exclamation marks (${exclamationCount}). Reads like marketing.`);
+        }
+
+        const wordLimit = isExplanation ? 1200 : 500;
+        if (totalWords > wordLimit) {
+            this.warnings.push(`${relPath}: High word density (${totalWords} words). Target: <${wordLimit}.`);
         }
     }
 
     report() {
         if (this.warnings.length > 0) {
-            console.log(`${SYMBOL.WARN} ${COLOR.YELLOW}Tone Warnings (Hype Density):${COLOR.RESET}`);
+            console.log(`${SYMBOL.WARN} ${COLOR.YELLOW}Sanity Warnings (Density & Tone):${COLOR.RESET}`);
             this.warnings.forEach(w => console.log(`   ↳ ${w}`));
         }
 
         if (this.errors.length > 0) {
-            console.log(`\n${SYMBOL.FAIL} ${COLOR.RED}FAIL: Technical Modesty Violated!${COLOR.RESET}`);
+            console.log(`\n${SYMBOL.FAIL} ${COLOR.RED}FAIL: Technical Sanity Violated!${COLOR.RESET}`);
             this.errors.forEach(e => console.log(`   ↳ ${e}`));
             process.exit(1);
         } else {
@@ -205,9 +294,7 @@ class SanityAuditor {
 }
 
 // 📦 Execution Layer
-
 const auditor = new SanityAuditor();
 const docs = getFiles(DOCS_DIR, [".md"]);
-
 docs.forEach(d => auditor.auditFile(d));
 auditor.report();
