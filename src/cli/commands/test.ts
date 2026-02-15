@@ -10,6 +10,7 @@ type PluginLogger = OpenClawPluginApi["logger"];
 
 import { loadCustomRules } from "../storage.js";
 import { SECRET_PATTERNS, PII_PATTERNS } from "../../patterns/index.js";
+import { matchAgainstPattern } from "../utils/match.js";
 
 interface MatchResult {
     name: string;
@@ -29,11 +30,11 @@ export async function testCommand(
     logger.debug?.(`[berry-shield] CLI: Testing input: ${input.substring(0, 20)}...`);
     const matches: MatchResult[] = [];
 
-    // Test against built-in secret patterns
-    for (const pattern of SECRET_PATTERNS) {
-        // Create fresh regex (reset lastIndex)
-        const regex = new RegExp(pattern.pattern.source, pattern.pattern.flags);
-        if (regex.test(input)) {
+    // Test against built-in patterns and custom rules
+    const builtIn = [...SECRET_PATTERNS, ...PII_PATTERNS];
+
+    for (const pattern of builtIn) {
+        if (matchAgainstPattern(input, pattern.pattern.source)) {
             matches.push({
                 name: pattern.name,
                 source: "built-in",
@@ -42,31 +43,13 @@ export async function testCommand(
         }
     }
 
-    // Test against built-in PII patterns
-    for (const pattern of PII_PATTERNS) {
-        const regex = new RegExp(pattern.pattern.source, pattern.pattern.flags);
-        if (regex.test(input)) {
-            matches.push({
-                name: pattern.name,
-                source: "built-in",
-                placeholder: pattern.placeholder,
-            });
-        }
-    }
-
-    // Test against custom secret patterns
     for (const rule of custom.secrets) {
-        try {
-            const regex = new RegExp(rule.pattern, "gi");
-            if (regex.test(input)) {
-                matches.push({
-                    name: rule.name,
-                    source: "custom",
-                    placeholder: rule.placeholder,
-                });
-            }
-        } catch {
-            // Invalid regex, skip
+        if (matchAgainstPattern(input, rule.pattern)) {
+            matches.push({
+                name: rule.name,
+                source: "custom",
+                placeholder: rule.placeholder,
+            });
         }
     }
 

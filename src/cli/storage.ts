@@ -8,6 +8,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
+import { theme, symbols } from "./ui/theme.js";
 
 // Storage location outside plugin directory
 const CONFIG_DIR = path.join(os.homedir(), ".openclaw", "config", "berry-shield");
@@ -73,7 +74,7 @@ export async function loadCustomRules(): Promise<CustomRules> {
 
         // Validate structure
         if (!parsed.version || !Array.isArray(parsed.secrets)) {
-            console.error("⚠ Warning: Invalid custom-rules.json structure, using defaults");
+            console.error(`   ${symbols.warning} ${theme.warning('Warning:')} Invalid custom-rules.json structure, using defaults`);
             return emptyRules();
         }
 
@@ -81,7 +82,7 @@ export async function loadCustomRules(): Promise<CustomRules> {
     } catch (err: unknown) {
         // Return empty rules if file not found or other error
         if (err instanceof Error && "code" in err && (err as any).code !== "ENOENT") {
-            console.error(`⚠ Warning: Could not read custom-rules.json: ${err.message}`);
+            console.error(`   ${symbols.warning} ${theme.warning('Warning:')} Could not read custom-rules.json: ${err.message}`);
         }
         return emptyRules();
     }
