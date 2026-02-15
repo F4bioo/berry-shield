@@ -2,8 +2,18 @@ import { text, select, confirm, isCancel, cancel } from '@clack/prompts';
 import { theme, symbols } from "./theme.js";
 import { ui } from "./tui.js";
 import {
-    validateRegex
+    addCustomRule,
+    validateRegex,
+    type SecretRule,
+    type FileRule,
+    type CommandRule
 } from "../storage.js";
+import {
+    SECRET_PRESETS,
+    FILE_PRESETS,
+    COMMAND_PRESETS,
+    type RulePreset
+} from "../presets.js";
 
 /**
  * Result of a wizard execution.
@@ -31,28 +41,44 @@ export class RuleWizardSession {
         if (!selectedType) return null;
 
         const type = selectedType;
-        let name: string | undefined;
 
-        if (type === 'secret') {
-            const nameInput = await this.askName();
-            if (nameInput === null) return null;
-            name = nameInput;
+        // Ask for Preset or Custom
+        const preset = await this.askPreset(type);
+
+        let name: string | undefined;
+        let pattern: string | undefined;
+        let placeholder: string | undefined;
+
+        if (preset) {
+            // Pre-fill from preset
+            name = preset.name;
+            pattern = preset.pattern;
+            placeholder = preset.placeholder;
+        } else {
+            // Fallback to manual questions
+            if (type === 'secret') {
+                const nameInput = await this.askName();
+                if (nameInput === null) return null;
+                name = nameInput;
+            }
+
+            const patternInput = await this.askPattern(type);
+            if (patternInput === null) return null;
+            pattern = patternInput;
+
+            if (type === 'secret') {
+                const placeholderInput = await this.askPlaceholder();
+                if (placeholderInput === null) return null;
+                placeholder = placeholderInput || undefined;
+            }
         }
 
-        const pattern = await this.askPattern(type);
-        if (pattern === null) return null;
-
-        if (this.isBroadPattern(pattern)) {
+        if (pattern && this.isBroadPattern(pattern)) {
             const confirmed = await this.confirmBroad();
             if (!confirmed) return null;
         }
 
-        let placeholder: string | undefined;
-        if (type === 'secret') {
-            const placeholderInput = await this.askPlaceholder();
-            if (placeholderInput === null) return null;
-            placeholder = placeholderInput || undefined;
-        }
+        if (!pattern) return null;
 
         return { type, options: { name, pattern, placeholder } };
     }
@@ -71,6 +97,31 @@ export class RuleWizardSession {
         if (typeof result !== 'string') return null;
 
         return result;
+    }
+
+    private async askPreset(type: string): Promise<RulePreset | null> {
+        const presets = type === 'secret' ? SECRET_PRESETS :
+            type === 'file' ? FILE_PRESETS :
+                COMMAND_PRESETS;
+
+        const options = [
+            { value: 'custom', label: theme.accentBold('Custom Pattern'), hint: 'Create your own regex' },
+            ...presets.map(p => ({
+                value: p.name,
+                label: p.name,
+                hint: theme.dim(p.pattern)
+            }))
+        ];
+
+        const result = await select({
+            message: theme.accent('Select a preset') + ' or create custom:',
+            options
+        });
+
+        if (typeof result !== 'string' || result === 'custom') return null;
+
+        const found = presets.find(p => p.name === result);
+        return found || null;
     }
 
     private async askName(): Promise<string | null> {
