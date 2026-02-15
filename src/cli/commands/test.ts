@@ -11,6 +11,8 @@ type PluginLogger = OpenClawPluginApi["logger"];
 import { loadCustomRules } from "../storage.js";
 import { SECRET_PATTERNS, PII_PATTERNS } from "../../patterns/index.js";
 import { matchAgainstPattern } from "../utils/match.js";
+import { ui } from "../ui/tui.js";
+import { theme } from "../ui/theme.js";
 
 interface MatchResult {
     name: string;
@@ -55,13 +57,21 @@ export async function testCommand(
 
     // Display results
     if (matches.length === 0) {
-        console.log(`\n✗ No matches found for input.\n`);
+        ui.header("Pattern Test", "error");
+        ui.row("Result", "No matches found");
+        ui.row("Input", theme.dim(input.length > 64 ? input.slice(0, 61) + "..." : input));
+        ui.footer();
         return;
     }
 
-    console.log(`\n✓ Found ${matches.length} match(es):\n`);
+    ui.header("Pattern Test", "success");
+    ui.row("Result", `${matches.length} match(es) found`);
+    ui.row("Input", theme.dim(input.length > 64 ? input.slice(0, 61) + "..." : input));
+    ui.divider(24);
     for (const match of matches) {
-        console.log(`  [${match.source}] ${match.name}`);
-        console.log(`  Would be redacted → ${match.placeholder}\n`);
+        ui.row(match.source.toUpperCase(), match.name);
+        ui.row("Redaction", match.placeholder);
+        ui.divider(24);
     }
+    ui.footer();
 }

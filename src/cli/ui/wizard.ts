@@ -151,13 +151,13 @@ export class RuleWizardSession {
                 COMMAND_PRESETS;
 
         const options = [
-            { value: 'cancel', label: theme.dim('Cancel'), hint: 'Exit the wizard' },
             { value: 'custom', label: theme.accentBold('Custom Pattern'), hint: 'Create your own regex' },
             ...presets.map(p => ({
                 value: p.name,
                 label: p.name,
                 hint: theme.dim(p.pattern)
-            }))
+            })),
+            { value: 'cancel', label: theme.dim('Cancel'), hint: 'Exit the wizard' },
         ];
 
         const result = await select({

@@ -5,7 +5,7 @@
  * Usage: openclaw bshield list
  */
 
-import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { loadCustomRules } from "../storage.js";
 import {
     SECRET_PATTERNS,
@@ -29,7 +29,6 @@ interface GenericRule {
 /**
  * Handler for the list command
  */
-import { theme } from "../ui/theme.js";
 import { ui } from "../ui/tui.js";
 
 export async function listCommand(
@@ -80,7 +79,7 @@ export async function listCommand(
 
         // Add a small divider if both exist
         if (external.length > 0 && internal.length > 0) {
-            console.log(theme.dim("   " + "─".repeat(20)));
+            ui.divider(20);
         }
 
         // Show Internal (Built-in)

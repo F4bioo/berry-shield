@@ -1,7 +1,6 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { mergeConfig } from "./config/utils.js";
 import { VERSION } from "./constants.js";
-import { type BerryShieldPluginConfig } from "./types/config.js";
 import { registerBerryRoot } from "./layers/root.js";
 import { registerBerryPulp } from "./layers/pulp.js";
 import { registerBerryThorn } from "./layers/thorn.js";
@@ -27,9 +26,9 @@ export default {
     version: VERSION,
     description: "Security plugin designed to mitigate flagged commands and redact detected secrets/PII",
 
-    async register(api: OpenClawPluginApi) {
+    register(api: OpenClawPluginApi) {
         // Initialize security patterns from disk
-        await initializePatterns();
+        initializePatterns();
 
         // Get user config (priority to plugin-specific config) and merge with defaults
         const userConfig = api.pluginConfig ?? api.config ?? {};

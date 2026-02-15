@@ -42,6 +42,32 @@ export const ui = {
         console.log(`   ${paddedLabel} ${value}`);
     },
 
+    /**
+     * Renders a two-column table with dynamic label width.
+     */
+    table(rows: ReadonlyArray<{ label: string; value: string }>, minLabelWidth = 12) {
+        if (rows.length === 0) {
+            return;
+        }
+
+        const computedLabelWidth = Math.max(
+            minLabelWidth,
+            ...rows.map((row) => row.label.length),
+        );
+
+        for (const row of rows) {
+            const paddedLabel = theme.muted(row.label.padEnd(computedLabelWidth));
+            console.log(`   ${paddedLabel} ${row.value}`);
+        }
+    },
+
+    /**
+     * Visual divider for grouped content sections.
+     */
+    divider(width = 20) {
+        console.log(theme.dim("   " + "─".repeat(width)));
+    },
+
 
     /**
      * Berry Shield $version - Tip: $message

@@ -6,6 +6,7 @@
  */
 
 import * as fs from "node:fs/promises";
+import * as fsSync from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { theme, symbols } from "./ui/theme.js";
@@ -62,6 +63,49 @@ function emptyRules(): CustomRules {
     };
 }
 
+function isSystemErrorWithCode(err: unknown): err is { code: string } {
+    return typeof err === "object" && err !== null && "code" in err && typeof (err as { code: unknown }).code === "string";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+}
+
+function isSecretRule(value: unknown): value is SecretRule {
+    if (!isRecord(value)) return false;
+    return typeof value.name === "string"
+        && typeof value.pattern === "string"
+        && typeof value.placeholder === "string"
+        && typeof value.addedAt === "string";
+}
+
+function isFileRule(value: unknown): value is FileRule {
+    if (!isRecord(value)) return false;
+    return typeof value.pattern === "string" && typeof value.addedAt === "string";
+}
+
+function isCommandRule(value: unknown): value is CommandRule {
+    if (!isRecord(value)) return false;
+    return typeof value.pattern === "string" && typeof value.addedAt === "string";
+}
+
+function isCustomRules(value: unknown): value is CustomRules {
+    if (!isRecord(value)) return false;
+    if (typeof value.version !== "string") return false;
+    if (!Array.isArray(value.secrets) || !value.secrets.every(isSecretRule)) return false;
+    if (!Array.isArray(value.sensitiveFiles) || !value.sensitiveFiles.every(isFileRule)) return false;
+    if (!Array.isArray(value.destructiveCommands) || !value.destructiveCommands.every(isCommandRule)) return false;
+    return true;
+}
+
+function parseCustomRulesContent(content: string): CustomRules {
+    const parsed: unknown = JSON.parse(content);
+    if (!isCustomRules(parsed)) {
+        throw new Error("Invalid custom-rules.json structure");
+    }
+    return parsed;
+}
+
 /**
  * Load custom rules from disk asynchronously.
  * Returns empty rules if file doesn't exist or is corrupted.
@@ -70,19 +114,36 @@ export async function loadCustomRules(): Promise<CustomRules> {
     try {
         await fs.access(RULES_FILE); // Check if file exists
         const content = await fs.readFile(RULES_FILE, "utf-8");
-        const parsed = JSON.parse(content);
-
-        // Validate structure
-        if (!parsed.version || !Array.isArray(parsed.secrets)) {
-            console.error(`   ${symbols.warning} ${theme.warning('Warning:')} Invalid custom-rules.json structure, using defaults`);
-            return emptyRules();
-        }
-
-        return parsed as CustomRules;
+        return parseCustomRulesContent(content);
     } catch (err: unknown) {
         // Return empty rules if file not found or other error
-        if (err instanceof Error && "code" in err && (err as any).code !== "ENOENT") {
-            console.error(`   ${symbols.warning} ${theme.warning('Warning:')} Could not read custom-rules.json: ${err.message}`);
+        if (isSystemErrorWithCode(err) && err.code !== "ENOENT") {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Could not read custom-rules.json: ${message}`);
+        }
+        if (err instanceof Error && !isSystemErrorWithCode(err)) {
+            console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Invalid custom-rules.json structure, using defaults`);
+        }
+        return emptyRules();
+    }
+}
+
+/**
+ * Load custom rules from disk synchronously.
+ * Used during plugin bootstrap when register lifecycle must stay synchronous.
+ */
+export function loadCustomRulesSync(): CustomRules {
+    try {
+        fsSync.accessSync(RULES_FILE);
+        const content = fsSync.readFileSync(RULES_FILE, "utf-8");
+        return parseCustomRulesContent(content);
+    } catch (err: unknown) {
+        if (isSystemErrorWithCode(err) && err.code !== "ENOENT") {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Could not read custom-rules.json: ${message}`);
+        }
+        if (err instanceof Error && !isSystemErrorWithCode(err)) {
+            console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Invalid custom-rules.json structure, using defaults`);
         }
         return emptyRules();
     }

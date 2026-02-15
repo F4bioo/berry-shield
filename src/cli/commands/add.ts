@@ -42,6 +42,7 @@ function printSuccess(
 function printError(message: string, logger: PluginLogger): void {
     ui.header("Operation Failed", "error");
     ui.row("Error", message);
+    ui.footer();
     logger.error(`[berry-shield] CLI error: ${message}`);
 }
 
