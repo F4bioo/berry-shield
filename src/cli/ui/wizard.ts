@@ -1,19 +1,14 @@
 import { text, select, confirm, isCancel, cancel } from '@clack/prompts';
 import { theme, symbols } from "./theme.js";
 import { ui } from "./tui.js";
-import {
-    addCustomRule,
-    validateRegex,
-    type SecretRule,
-    type FileRule,
-    type CommandRule
-} from "../storage.js";
+import { validateRegex } from "../storage.js";
 import {
     SECRET_PRESETS,
     FILE_PRESETS,
     COMMAND_PRESETS,
     type RulePreset
 } from "../presets.js";
+import { matchAgainstPattern } from "../utils/match.js";
 
 /**
  * Result of a wizard execution.
@@ -73,12 +68,25 @@ export class RuleWizardSession {
             }
         }
 
-        if (pattern && this.isBroadPattern(pattern)) {
-            const confirmed = await this.confirmBroad();
-            if (!confirmed) return null;
-        }
-
         if (!pattern) return null;
+
+        // Interactive Validation Loop
+        while (true) {
+            const decision = await this.runValidationLoop(pattern);
+            if (decision === 'save') break;
+            if (decision === 'cancel') return null;
+            if (decision === 'edit') {
+                const newPattern = await this.askPattern(type);
+                if (newPattern === null) return null;
+                pattern = newPattern;
+
+                if (this.isBroadPattern(pattern)) {
+                    const confirmed = await this.confirmBroad();
+                    if (!confirmed) return null;
+                }
+            }
+            // If 'test_another', it just loops back and asks runValidationLoop again
+        }
 
         return { type, options: { name, pattern, placeholder } };
     }
@@ -194,5 +202,49 @@ export class RuleWizardSession {
         if (pattern.length < 3) return true;
         if (pattern.includes(".*") && pattern.length < 8) return true;
         return false;
+    }
+
+    private async runValidationLoop(pattern: string): Promise<'save' | 'edit' | 'cancel' | 'test_another'> {
+        const sample = await this.askSample();
+        if (sample === null) return 'cancel';
+
+        try {
+            const isMatch = matchAgainstPattern(sample, pattern);
+
+            if (isMatch) {
+                ui.successMsg(theme.success('Match Found!') + ' The pattern correctly identifies this input.');
+            } else {
+                ui.row(theme.error('No Match'), 'The pattern did ' + theme.bold('not') + ' trigger for this input.');
+            }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            ui.row(theme.error('Error'), message);
+        }
+
+        const action = await select({
+            message: theme.accent('What would you like to do?'),
+            options: [
+                { value: 'save', label: theme.success('Save Rule'), hint: 'Finalize and persist this rule' },
+                { value: 'test_another', label: 'Test another sample', hint: 'Verify with different text' },
+                { value: 'edit', label: theme.accent('Edit Pattern'), hint: 'Adjust the regex' },
+                { value: 'cancel', label: theme.dim('Cancel'), hint: 'Exit without saving' }
+            ]
+        });
+
+        if (isCancel(action) || action === 'cancel') return 'cancel';
+        return action as 'save' | 'edit' | 'cancel' | 'test_another';
+    }
+
+    private async askSample(): Promise<string | null> {
+        const result = await text({
+            message: theme.accent('Test Preview') + ': Enter a sample text to check:',
+            placeholder: 'e.g. sk-1234567890...',
+            validate(value) {
+                if (!value || value.length === 0) return 'Sample text is required for preview';
+            }
+        });
+
+        if (isCancel(result)) return null;
+        return result;
     }
 }
