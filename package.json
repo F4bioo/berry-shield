@@ -22,7 +22,7 @@
     "wiki:claim": "npx ts-node --esm skills/wiki-factory/scripts/doc-sanity.ts"
   },
   "peerDependencies": {
-    "openclaw": "*"
+    "openclaw": "^2026.2.3-1"
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0"

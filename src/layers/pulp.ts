@@ -12,6 +12,7 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
+import { HOOKS } from "../constants.js";
 import { getAllRedactionPatterns } from "../patterns/index.js";
 import { walkAndRedact } from "../utils/redaction.js";
 
@@ -32,7 +33,7 @@ export function registerBerryPulp(
     }
 
     api.on(
-        "tool_result_persist",
+        HOOKS.TOOL_RESULT_PERSIST,
         (event) => {
             const patterns = getAllRedactionPatterns();
             const { content, redactionCount, redactedTypes } = walkAndRedact(event.message, patterns);
@@ -57,7 +58,7 @@ export function registerBerryPulp(
 
     // [Secondary] Message Sending: Redact direct messages (when supported by channel)
     api.on(
-        "message_sending",
+        HOOKS.MESSAGE_SENDING,
         (event) => {
             const patterns = getAllRedactionPatterns();
             const { content, redactionCount, redactedTypes } = walkAndRedact(event.content, patterns);

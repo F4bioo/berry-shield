@@ -8,6 +8,7 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
+import { HOOKS } from "../constants.js";
 
 /**
  * Security policy XML that gets injected into the agent's context.
@@ -52,7 +53,7 @@ export function registerBerryRoot(
     }
 
     api.on(
-        "before_agent_start",
+        HOOKS.BEFORE_AGENT_START,
         (_event) => {
             // Inject security policy into the agent's context
             api.logger.debug?.("[berry-shield] Berry.Root: injecting security policy");

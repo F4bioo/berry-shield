@@ -12,7 +12,7 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
-import { BRAND_SYMBOL } from "../constants.js";
+import { BRAND_SYMBOL, HOOKS } from "../constants.js";
 import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
@@ -143,7 +143,7 @@ export function registerBerryThorn(
     }
 
     api.on(
-        "before_tool_call",
+        HOOKS.BEFORE_TOOL_CALL,
         (event) => {
             const { toolName, params } = event;
 

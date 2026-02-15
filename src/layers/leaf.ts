@@ -10,6 +10,7 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
+import { HOOKS } from "../constants.js";
 import { getAllRedactionPatterns } from "../patterns/index.js";
 import { walkAndRedact } from "../utils/redaction.js";
 
@@ -20,7 +21,7 @@ interface InternalAuditLogEntry {
     /** Timestamp in ISO format */
     timestamp: string;
     /** Event type */
-    event: "message_received";
+    event: typeof HOOKS.MESSAGE_RECEIVED;
     /** Session key */
     sessionKey: string | undefined;
     /** Message source */
@@ -56,7 +57,7 @@ export function registerBerryLeaf(
     const patterns = getAllRedactionPatterns();
 
     api.on(
-        "message_received",
+        HOOKS.MESSAGE_RECEIVED,
         (event, context) => {
             // Normalize event data (OpenClaw passed message might be in 'message' or 'content')
             const message = event.content || "";
@@ -78,7 +79,7 @@ export function registerBerryLeaf(
             // Build audit log entry (JSON structured log)
             const auditEntry: InternalAuditLogEntry = {
                 timestamp: (timestamp ? new Date(timestamp) : new Date()).toISOString(),
-                event: "message_received",
+                event: HOOKS.MESSAGE_RECEIVED,
                 sessionKey,
                 source,
                 senderId: source,

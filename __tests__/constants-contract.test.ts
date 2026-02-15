@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION } from "../src/constants";
+import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOOKS, REQUIRED_SECURITY_HOOKS, AUDIT_HOOKS, COMPAT_POLICY } from "../src/constants";
 import { DEFAULT_CONFIG } from "../src/config/defaults";
 
 /**
@@ -43,6 +43,34 @@ describe("Constants Contract", () => {
     it("should have the correct default binary names", () => {
         expect(DEFAULTS.BINARY_NAME).toBe("openclaw");
         expect(DEFAULTS.WIN_BINARY_EXT).toBe(".cmd");
+    });
+
+    it("should have stable core hook names", () => {
+        expect(HOOKS.BEFORE_AGENT_START).toBe("before_agent_start");
+        expect(HOOKS.MESSAGE_RECEIVED).toBe("message_received");
+        expect(HOOKS.MESSAGE_SENDING).toBe("message_sending");
+        expect(HOOKS.BEFORE_TOOL_CALL).toBe("before_tool_call");
+        expect(HOOKS.TOOL_RESULT_PERSIST).toBe("tool_result_persist");
+    });
+
+    it("should keep required security hooks list synchronized", () => {
+        expect(REQUIRED_SECURITY_HOOKS).toEqual([
+            "before_agent_start",
+            "message_sending",
+            "before_tool_call",
+            "tool_result_persist",
+        ]);
+    });
+
+    it("should keep audit hooks list synchronized", () => {
+        expect(AUDIT_HOOKS).toEqual([
+            "message_received",
+        ]);
+    });
+
+    it("should keep compatibility policy constants stable", () => {
+        expect(COMPAT_POLICY.MIN_OPENCLAW_VERSION).toBe("2026.2.3-1");
+        expect(COMPAT_POLICY.PEER_RANGE).toBe("^2026.2.3-1");
     });
 
     describe("Security Standards (Safe-by-Default)", () => {
