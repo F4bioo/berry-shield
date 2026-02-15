@@ -98,6 +98,16 @@ export async function saveCustomRules(rules: CustomRules): Promise<void> {
 }
 
 /**
+ * Detect if a pattern is potentially too broad (Yellow Flag)
+ */
+export function isBroadPattern(pattern: string): boolean {
+    if (pattern === ".*" || pattern === ".+") return true;
+    if (pattern.length < 3) return true;
+    if (pattern.includes(".*") && pattern.length < 8) return true;
+    return false;
+}
+
+/**
  * Validate a regex pattern string.
  * Returns validation result with optional error message.
  */

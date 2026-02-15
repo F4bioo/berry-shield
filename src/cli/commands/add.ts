@@ -6,7 +6,10 @@
  */
 
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
-import { addCustomRule, validateRegex, type SecretRule, type FileRule, type CommandRule } from "../storage.js";
+import {
+    addCustomRule,
+    isBroadPattern
+} from "../storage.js";
 import { ui } from "../ui/tui.js";
 import { RuleWizardSession } from "../ui/wizard.js";
 
@@ -19,15 +22,6 @@ interface AddOptions {
     force?: boolean;
 }
 
-/**
- * Detect if a pattern is potentially too broad (Yellow Flag)
- */
-function isBroadPattern(pattern: string): boolean {
-    if (pattern === ".*" || pattern === ".+") return true;
-    if (pattern.length < 3) return true;
-    if (pattern.includes(".*") && pattern.length < 8) return true;
-    return false;
-}
 
 function printSuccess(
     type: string,

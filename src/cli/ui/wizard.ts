@@ -1,7 +1,7 @@
 import { text, select, confirm, isCancel, cancel } from '@clack/prompts';
 import { theme, symbols } from "./theme.js";
 import { ui } from "./tui.js";
-import { validateRegex } from "../storage.js";
+import { validateRegex, isBroadPattern } from "../storage.js";
 import {
     SECRET_PRESETS,
     FILE_PRESETS,
@@ -80,7 +80,7 @@ export class RuleWizardSession {
                 if (newPattern === null) return null;
                 pattern = newPattern;
 
-                if (this.isBroadPattern(pattern)) {
+                if (pattern && isBroadPattern(pattern)) {
                     const confirmed = await this.confirmBroad();
                     if (!confirmed) return null;
                 }
@@ -156,7 +156,7 @@ export class RuleWizardSession {
             validate(value) {
                 if (!value || value.length === 0) return 'Pattern is required';
                 const validation = validateRegex(value);
-                if (!validation.valid) return `Invalid regex: ${validation.error}`;
+                if (!validation.valid) return `Invalid regex: ${validation.error} `;
             },
         });
 
@@ -185,7 +185,7 @@ export class RuleWizardSession {
 
     private async confirmBroad(): Promise<boolean> {
         const result = await confirm({
-            message: `${symbols.warning} ${theme.warning('Warning:')} This pattern seems very broad. Continue?`,
+            message: `${symbols.warning} ${theme.warning('Warning:')} This pattern seems very broad.Continue ? `,
             initialValue: false,
         });
 
@@ -197,12 +197,6 @@ export class RuleWizardSession {
         return true;
     }
 
-    private isBroadPattern(pattern: string): boolean {
-        if (pattern === ".*" || pattern === ".+") return true;
-        if (pattern.length < 3) return true;
-        if (pattern.includes(".*") && pattern.length < 8) return true;
-        return false;
-    }
 
     private async runValidationLoop(pattern: string): Promise<'save' | 'edit' | 'cancel' | 'test_another'> {
         const sample = await this.askSample();
