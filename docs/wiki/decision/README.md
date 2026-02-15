@@ -4,8 +4,8 @@ Berry Shield operates on a decision-based security model. It analyzes intercepte
 
 ## Key Decision Concepts
 
-- [[Operation Modes (Audit vs Enforce)]](modes.md): How decisions impact execution flow.
-- [[Pattern Matching & Rules]](patterns.md): Identifying sensitive or flagged content.
+- [Operation Modes (Audit vs Enforce)](modes.md): How decisions impact execution flow.
+- [Pattern Matching & Rules](patterns.md): Identifying sensitive or flagged content.
 
 ## The Decision Flow
 When an action is intercepted by a [Security Layer](../anatomy/README.md), the system follows this logic:
@@ -18,4 +18,4 @@ When an action is intercepted by a [Security Layer](../anatomy/README.md), the s
 4. **Resilience**: The system is intended to fail-closed when a security violation is detected in enforce mode.
 
 ---
-- [[Back to Wiki Index]](../README.md)
+- [Back to Wiki Index](../README.md)

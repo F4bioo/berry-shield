@@ -7,7 +7,7 @@
 
 ## Overview
 
-Berry Shield is a plugin for the OpenClaw ecosystem that provides several layers of observation and control over the Agent's interactions.
+Berry Shield is a **Session Guard** for the OpenClaw ecosystem that provides several layers of observation and control over the Agent's interactions. It focuses on data integrity and conversation safety.
 
 ## 🏰 System Overview
 
@@ -240,16 +240,18 @@ To reduce overhead, the rule set is only reloaded if the configuration file's mo
 
 ---
 
-## ⚠️ Known Limitations & Blind Spots
+---
 
-### The "Timing Gap" (Pulp)
-The `Berry.Pulp` layer (Output Scanner) operates on the `tool_result_persist` hook. 
-*   **Limitation**: In some OpenClaw versions, the LLM may receive the raw tool output in its transient memory *before* the redaction is persisted to the session history.
-*   **Mitigation**: **Berry.Stem** and **Berry.Thorn** are the primary defenses here. They prevent the LLM from ever seeing the data by blocking the operation *before* it returns results.
+## ⚠️ Technical Limitations & SDK Diary
 
-### Hook Availability (Thorn)
-Runtime blocking through `before_tool_call` depends on the OpenClaw core wiring. 
-*   **Reliability**: If this hook is not triggered by your version of OpenClaw, **Berry.Stem** (via the Tool API) remains the most robust fallback for preventing unauthorized actions.
+Berry Shield's effectiveness is tied to the underlying OpenClaw SDK capabilities. We maintain a detailed **[Security Posture & SDK Compatibility Diary](docs/wiki/decision/security-posture.md)** that tracks known bugs and blind spots across OpenClaw versions.
+
+### Key Points for v2026.2.14:
+*   **Hook Reliability**: While `before_tool_call` and `message_sending` are functional in the latest stable, some version-specific bugs (like the ignored `systemPrompt`) may exist.
+*   **Soft Guardrails**: Prompt-based defenses (`Berry.Root`) are advisory and can be bypassed by clever user instructions.
+*   **Timing Gaps**: Redaction happens during persistence, which might create a transient data exposure.
+
+For a version-by-version technical breakdown, please refer to the **[Wiki Diary](docs/wiki/decision/security-posture.md)**.
 
 ---
 

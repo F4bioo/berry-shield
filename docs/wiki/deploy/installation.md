@@ -34,5 +34,5 @@ openclaw bshield status
 ```
 
 ---
-- [[Build Pipeline]](build.md)
-- [[Auditing & Sanity]](auditing.md)
+- [Build Pipeline](build.md)
+- [Auditing & Sanity](auditing.md)

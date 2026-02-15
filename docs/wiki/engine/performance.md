@@ -16,4 +16,4 @@ By cleaning and redacting large tool outputs, Berry Shield helps maintain the qu
 The engine is benchmarked against Node.js runtime limitations on ARM devices. The use of efficient iterations over deep recursion in the `walk` functions is intended to prevent stack overflows and memory exhaustion on 4GB/8GB devices.
 
 ---
-- [[Back to Reference]](../reference/README.md)
+- [Back to Reference](../reference/README.md)

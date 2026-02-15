@@ -19,4 +19,4 @@ graph TD
 - **Tool Operation**: Legitimate developer tools (e.g. `git`, `npm`) might require temporary policy adjustments if they need access to protected paths.
 
 ## Related
-- [[API: registerBerryLeaf]](../reference/layers/leaf/functions/registerBerryLeaf.md)
+- [API: registerBerryLeaf](../reference/layers/leaf/functions/registerBerryLeaf.md)

@@ -30,4 +30,4 @@ graph TD
 The system aims to identify diverse risk patterns, relying on the regex library. For complex or obfuscated attacks, the system is designed to provide defensive layering rather than absolute detection.
 
 ---
-- [[Back to Reference]](../reference/README.md)
+- [Back to Reference](../reference/README.md)

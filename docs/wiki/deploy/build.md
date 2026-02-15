@@ -26,5 +26,5 @@ The release script automates the complete technical audit:
 4.  **Test**: Runs the Vitest suite against the production contract.
 
 ---
-- [[Installation Guide]](installation.md)
-- [[Auditing & Sanity]](auditing.md)
+- [Installation Guide](installation.md)
+- [Auditing & Sanity](auditing.md)

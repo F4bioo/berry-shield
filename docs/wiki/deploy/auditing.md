@@ -25,5 +25,5 @@ When contributing to the Wiki, the following workflow is recommended:
 3.  **Refine**: Fix any symbol mismatches or "hype" warnings reported by the guardian.
 
 ---
-- [[Installation Guide]](installation.md)
-- [[Build Pipeline]](build.md)
+- [Installation Guide](installation.md)
+- [Build Pipeline](build.md)
