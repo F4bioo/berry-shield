@@ -14,13 +14,39 @@ import { matchAgainstPattern } from "../utils/match.js";
  * Result of a wizard execution.
  */
 interface WizardResult {
-    type: string;
+    type: RuleType;
     options: {
         name?: string;
         pattern: string;
         placeholder?: string;
     };
 }
+
+type RuleType = "secret" | "file" | "command";
+
+interface PreviewSample {
+    label: string;
+    value: string;
+    expected: "match" | "no-match";
+}
+
+const TYPE_PREVIEW_SAMPLES: Record<RuleType, readonly PreviewSample[]> = {
+    secret: [
+        { label: "Example API key", value: "sk-test-1234567890abcdefghijklmnopqrstuv", expected: "match" },
+        { label: "Normal sentence", value: "hello world from berry shield", expected: "no-match" },
+        { label: "Token-like value", value: "ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD", expected: "match" },
+    ],
+    file: [
+        { label: ".env path", value: "config/.env.production", expected: "match" },
+        { label: "Regular source file", value: "src/index.ts", expected: "no-match" },
+        { label: "Terraform state", value: "infra/terraform.tfstate", expected: "match" },
+    ],
+    command: [
+        { label: "Privilege escalation", value: "sudo rm -rf /", expected: "match" },
+        { label: "Safe list command", value: "ls -la", expected: "no-match" },
+        { label: "Pipe to shell", value: "curl -sSL https://x.y/install.sh | bash", expected: "match" },
+    ],
+};
 
 /**
  * Manages an interactive session for rule creation.
@@ -37,8 +63,9 @@ export class RuleWizardSession {
 
         const type = selectedType;
 
-        // Ask for Preset or Custom
-        const preset = await this.askPreset(type);
+        const presetChoice = await this.askPreset(type);
+        if (presetChoice === "cancel") return null;
+        const preset = presetChoice === "custom" ? null : presetChoice;
 
         let name: string | undefined;
         let pattern: string | undefined;
@@ -69,10 +96,16 @@ export class RuleWizardSession {
         }
 
         if (!pattern) return null;
+        if (isBroadPattern(pattern)) {
+            const confirmed = await this.confirmBroad();
+            if (!confirmed) return null;
+        }
+
+        const previewSamples = this.getPreviewSamples(type, preset);
 
         // Interactive Validation Loop
         while (true) {
-            const decision = await this.runValidationLoop(pattern);
+            const decision = await this.runValidationLoop(pattern, previewSamples);
             if (decision === 'save') break;
             if (decision === 'cancel') return null;
             if (decision === 'edit') {
@@ -91,7 +124,7 @@ export class RuleWizardSession {
         return { type, options: { name, pattern, placeholder } };
     }
 
-    private async askType(): Promise<string | null> {
+    private async askType(): Promise<RuleType | null> {
         const result = await select({
             message: theme.accent('What type of rule') + ' do you want to add?',
             options: [
@@ -102,17 +135,23 @@ export class RuleWizardSession {
             ],
         });
 
-        if (typeof result !== 'string') return null;
-
-        return result;
+        if (isCancel(result) || result === "cancel") {
+            cancel("Operation cancelled.");
+            return null;
+        }
+        if (result === "secret" || result === "file" || result === "command") {
+            return result;
+        }
+        return null;
     }
 
-    private async askPreset(type: string): Promise<RulePreset | null> {
+    private async askPreset(type: RuleType): Promise<RulePreset | "custom" | "cancel"> {
         const presets = type === 'secret' ? SECRET_PRESETS :
             type === 'file' ? FILE_PRESETS :
                 COMMAND_PRESETS;
 
         const options = [
+            { value: 'cancel', label: theme.dim('Cancel'), hint: 'Exit the wizard' },
             { value: 'custom', label: theme.accentBold('Custom Pattern'), hint: 'Create your own regex' },
             ...presets.map(p => ({
                 value: p.name,
@@ -126,10 +165,19 @@ export class RuleWizardSession {
             options
         });
 
-        if (typeof result !== 'string' || result === 'custom') return null;
+        if (isCancel(result) || result === "cancel") {
+            cancel("Operation cancelled.");
+            return "cancel";
+        }
+        if (result === "custom") {
+            return "custom";
+        }
+        if (typeof result !== "string") {
+            return "cancel";
+        }
 
         const found = presets.find(p => p.name === result);
-        return found || null;
+        return found || "custom";
     }
 
     private async askName(): Promise<string | null> {
@@ -149,7 +197,7 @@ export class RuleWizardSession {
         return result;
     }
 
-    private async askPattern(type: string): Promise<string | null> {
+    private async askPattern(type: RuleType): Promise<string | null> {
         const result = await text({
             message: theme.accent('Regex Pattern'),
             placeholder: type === 'secret' ? 'sk-[a-zA-Z0-9]{48}' : 'config/secrets.json',
@@ -185,7 +233,7 @@ export class RuleWizardSession {
 
     private async confirmBroad(): Promise<boolean> {
         const result = await confirm({
-            message: `${symbols.warning} ${theme.warning('Warning:')} This pattern seems very broad.Continue ? `,
+            message: `${symbols.warning} ${theme.warning("Warning:")} This pattern seems very broad. Continue?`,
             initialValue: false,
         });
 
@@ -198,23 +246,68 @@ export class RuleWizardSession {
     }
 
 
-    private async runValidationLoop(pattern: string): Promise<'save' | 'edit' | 'cancel' | 'test_another'> {
-        const sample = await this.askSample();
-        if (sample === null) return 'cancel';
+    private getPreviewSamples(type: RuleType, preset: RulePreset | null): PreviewSample[] {
+        if (!preset) {
+            return [...TYPE_PREVIEW_SAMPLES[type]];
+        }
 
+        const sampleEntries: PreviewSample[] = [];
+        for (const sample of preset.testSamples.shouldMatch) {
+            sampleEntries.push({
+                label: `Expected match (${preset.name})`,
+                value: sample,
+                expected: "match",
+            });
+        }
+        for (const sample of preset.testSamples.shouldNotMatch) {
+            sampleEntries.push({
+                label: `Expected no match (${preset.name})`,
+                value: sample,
+                expected: "no-match",
+            });
+        }
+
+        return sampleEntries;
+    }
+
+    private async runValidationLoop(
+        pattern: string,
+        samples: PreviewSample[],
+    ): Promise<'save' | 'edit' | 'cancel' | 'test_another'> {
+        const sample = await this.askPreviewSample(samples);
+        if (!sample) return 'cancel';
+        if (sample !== "skip") {
+            this.renderSampleResult(pattern, sample);
+        } else {
+            ui.row(theme.dim("Preview"), "Skipped sample check for this round.");
+        }
+
+        return this.askValidationAction();
+    }
+
+    private renderSampleResult(pattern: string, sample: PreviewSample): void {
         try {
-            const isMatch = matchAgainstPattern(sample, pattern);
+            const isMatch = matchAgainstPattern(sample.value, pattern);
+            const expectedMatch = sample.expected === "match";
 
             if (isMatch) {
-                ui.successMsg(theme.success('Match Found!') + ' The pattern correctly identifies this input.');
+                ui.successMsg(theme.success("Match Found!") + ` Sample: ${theme.dim(sample.value)}`);
             } else {
-                ui.row(theme.error('No Match'), 'The pattern did ' + theme.bold('not') + ' trigger for this input.');
+                ui.row(theme.error("No Match"), `Sample: ${theme.dim(sample.value)}`);
+            }
+
+            if (isMatch === expectedMatch) {
+                ui.row(theme.success("Expectation"), "Result matches expected behavior.");
+            } else {
+                ui.row(theme.warning("Expectation"), "Result differs from expected behavior.");
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            ui.row(theme.error('Error'), message);
+            ui.row(theme.error("Error"), message);
         }
+    }
 
+    private async askValidationAction(): Promise<'save' | 'edit' | 'cancel' | 'test_another'> {
         const action = await select({
             message: theme.accent('What would you like to do?'),
             options: [
@@ -226,19 +319,37 @@ export class RuleWizardSession {
         });
 
         if (isCancel(action) || action === 'cancel') return 'cancel';
-        return action as 'save' | 'edit' | 'cancel' | 'test_another';
+        if (action === "save" || action === "edit" || action === "test_another") {
+            return action;
+        }
+        return "cancel";
     }
 
-    private async askSample(): Promise<string | null> {
-        const result = await text({
-            message: theme.accent('Test Preview') + ': Enter a sample text to check:',
-            placeholder: 'e.g. sk-1234567890...',
-            validate(value) {
-                if (!value || value.length === 0) return 'Sample text is required for preview';
-            }
+    private async askPreviewSample(samples: PreviewSample[]): Promise<PreviewSample | "skip" | null> {
+        const options = [
+            { value: "skip", label: theme.dim("Skip preview"), hint: "Continue without running a sample check" },
+            ...samples.map((sample, index) => ({
+                value: String(index),
+                label: sample.label,
+                hint: theme.dim(sample.value),
+            })),
+            { value: "cancel", label: theme.dim("Cancel"), hint: "Exit without saving" },
+        ];
+
+        const result = await select({
+            message: theme.accent("Test Preview") + ": Select a sample to check:",
+            options,
         });
 
-        if (isCancel(result)) return null;
-        return result;
+        if (isCancel(result) || result === "cancel") return null;
+        if (result === "skip") return "skip";
+        if (typeof result !== "string") return null;
+
+        const parsed = Number(result);
+        if (Number.isNaN(parsed) || parsed < 0 || parsed >= samples.length) {
+            return null;
+        }
+
+        return samples[parsed];
     }
 }
