@@ -24,6 +24,7 @@ export async function removeCommand(
     if (!result.removed) {
         ui.header("Operation Failed", "error");
         ui.row("Error", `Rule '${name}' not found.`);
+        ui.footer();
         logger.error(`[berry-shield] CLI: Rule '${name}' not found`);
         return;
     }

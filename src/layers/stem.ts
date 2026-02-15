@@ -22,11 +22,6 @@ import {
     getAllSensitiveFilePatterns,
 } from "../patterns/index.js";
 
-interface BerryToolResult {
-    content: Array<{ type: "text"; text: string } | { type: "image"; label: string; path: string; mimeType: string }>;
-    details?: any;
-}
-
 /**
  * Operation types for berry_check.
  */
@@ -45,12 +40,14 @@ interface BerryCheckParams {
 /**
  * Type guard for BerryCheckParams.
  */
-function isBerryCheckParams(params: any): params is BerryCheckParams {
+function isBerryCheckParams(params: unknown): params is BerryCheckParams {
+    if (typeof params !== "object" || params === null) {
+        return false;
+    }
+    const maybe = params as { operation?: unknown; target?: unknown };
     return (
-        params &&
-        typeof params === "object" &&
-        (params.operation === "exec" || params.operation === "read" || params.operation === "write") &&
-        typeof params.target === "string"
+        (maybe.operation === "exec" || maybe.operation === "read" || maybe.operation === "write") &&
+        typeof maybe.target === "string"
     );
 }
 

@@ -27,4 +27,4 @@ openclaw bshield mode
 ```
 
 ---
-- [[Back to Reference]](../reference/README.md)
+- [Back to Reference](../reference/README.md)

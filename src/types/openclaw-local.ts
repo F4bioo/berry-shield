@@ -3,11 +3,12 @@ import { OpenClawPluginApi } from "openclaw/plugin-sdk";
 /**
  * Minimal Command interface matching what we use, to avoid version conflicts with SDK.
  */
-interface SafeCommand {
+export interface SafeCommand {
     command(name: string): this;
     description(str: string): this;
     option(flags: string, description?: string): this;
     requiredOption(flags: string, description?: string): this;
+    helpOption(flags?: string | false, description?: string): this;
     action(fn: (...args: any[]) => void | Promise<void>): this;
     addHelpText(position: string, text: string): this;
 }

@@ -9,6 +9,7 @@ const BERRY_PALETTE = {
     accentBright: "#FF7A3D", // Highlighted commands
     muted: "#8B7F77",        // Labels (Grayish)
     success: "#2FBF71",      // Green (Active/Safe)
+    warning: "#FFB000",      // Gold/Amber (Caution)
     error: "#E23D2D",        // Red (Blocked/Error)
     border: "#3C414B",       // Separators (─)
     marker: "#7DD3A5",       // Section Diamonds (◇)
@@ -34,6 +35,7 @@ export const theme = {
     accentBold: (text: string) => `${BOLD}${hexToAnsi(BERRY_PALETTE.accent)}${text}${RESET}`,
     muted: (text: string) => `${hexToAnsi(BERRY_PALETTE.muted)}${text}${RESET}`,
     success: (text: string) => `${hexToAnsi(BERRY_PALETTE.success)}${text}${RESET}`,
+    warning: (text: string) => `${hexToAnsi(BERRY_PALETTE.warning)}${text}${RESET}`,
     error: (text: string) => `${hexToAnsi(BERRY_PALETTE.error)}${text}${RESET}`,
     border: (text: string) => `${hexToAnsi(BERRY_PALETTE.border)}${text}${RESET}`,
     marker: (text: string) => `${hexToAnsi(BERRY_PALETTE.marker)}${text}${RESET}`,
@@ -46,6 +48,7 @@ export const theme = {
 export const symbols = {
     brand: BRAND_SYMBOL,
     success: theme.success("✓"),
+    warning: theme.warning("!"),
     error: theme.error("✗"),
     marker: theme.marker("◇"),
 };

@@ -22,5 +22,5 @@ graph TD
 - **Processing Overhead**: Scanning large payloads or complex objects can increase CPU usage during redaction.
 
 ## Related
-- [[API: registerBerryPulp]](../reference/layers/pulp/functions/registerBerryPulp.md)
-- [[Module: Redaction Utils]](../reference/utils/redaction/README.md)
+- [API: registerBerryPulp](../reference/layers/pulp/functions/registerBerryPulp.md)
+- [Module: Redaction Utils](../reference/utils/redaction/README.md)

@@ -1,8 +1,10 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import * as fs from "node:fs/promises";
+import * as fsSync from "node:fs";
 import * as path from "node:path";
 import {
     loadCustomRules,
+    loadCustomRulesSync,
     addCustomRule,
     removeCustomRule,
     getStoragePath,
@@ -15,6 +17,13 @@ vi.mock("node:fs/promises", async () => {
         readFile: vi.fn(),
         writeFile: vi.fn(),
         mkdir: vi.fn(),
+    };
+});
+
+vi.mock("node:fs", async () => {
+    return {
+        accessSync: vi.fn(),
+        readFileSync: vi.fn(),
     };
 });
 
@@ -87,6 +96,41 @@ describe("CLI Storage", () => {
                 sensitiveFiles: [],
                 destructiveCommands: [],
             });
+        });
+    });
+
+    describe("loadCustomRulesSync", () => {
+        it("returns empty rules when file does not exist", () => {
+            const enoentError = new Error("ENOENT");
+            Object.assign(enoentError, { code: "ENOENT" });
+            vi.mocked(fsSync.accessSync).mockImplementation(() => {
+                throw enoentError;
+            });
+
+            const rules = loadCustomRulesSync();
+
+            expect(rules).toEqual({
+                version: "1.0",
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+            });
+        });
+
+        it("loads rules from existing file", () => {
+            const mockRules = {
+                version: "1.0",
+                secrets: [{ name: "sync-test", pattern: "test-.*", placeholder: "[TEST]", addedAt: "now" }],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+            };
+
+            vi.mocked(fsSync.accessSync).mockImplementation(() => undefined);
+            vi.mocked(fsSync.readFileSync).mockReturnValue(JSON.stringify(mockRules));
+
+            const rules = loadCustomRulesSync();
+
+            expect(rules).toEqual(mockRules);
         });
     });
 

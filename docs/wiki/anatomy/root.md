@@ -21,4 +21,4 @@ graph TD
 - **Initial Latacy**: Validating intent adds a processing step to the initial request.
 
 ## Related
-- [[API: registerBerryRoot]](../reference/layers/root/functions/registerBerryRoot.md)
+- [API: registerBerryRoot](../reference/layers/root/functions/registerBerryRoot.md)

@@ -11,7 +11,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
-import { join, extname, relative } from "path";
+import { join, extname, relative, dirname, resolve, basename } from "path";
 import ts from "typescript";
 
 // 🍓 Configuration
@@ -92,7 +92,8 @@ const RESERVED_WORDS = new Set([
     "void", "unknown", "never", "any", "typescript", "npm", "git", "bash", "curl", "json", "const", "let", "var", "rm", "rf",
     "chmod", "patterns", "redaction", "audit", "enforce", "mode", "rules", "rule", "status", "list", "add", "remove", "walk", "obj", "arm", "bin", "logs", "password", "token", "secret", "text", "db", "openclawpluginapi", "openclawpluginclicontext", "openclawplugincontext",
     "api", "config", "context", "logger", "options", "init", "toggle", "monitor", "bshield", "openclaw", "vitest", "typedoc", "node", "esm", "ts-node", "esbuild", "npx",
-    "set", "map", "weakset", "weakmap", "promise", "error", "regexp", "date", "console", "process", "module", "require"
+    "set", "map", "weakset", "weakmap", "promise", "error", "regexp", "date", "console", "process", "module", "require",
+    "systemprompt", "prependcontext", "before_agent_start", "before_tool_call", "message_sending", "tool_result_persist"
 ]);
 
 const EVIDENCE_RULES = [
@@ -163,11 +164,20 @@ class SanityAuditor {
     warnings: string[] = [];
     exportedSymbols: Set<string>;
     codeContent: string;
+    linkedFiles: Set<string> = new Set();
+    allDocs: Set<string> = new Set();
 
     constructor() {
         const codeFiles = getFiles(CODE_DIR, [".ts", ".tsx"]);
         this.exportedSymbols = buildExportIndex(codeFiles);
         this.codeContent = codeFiles.map(f => readFileSync(f, "utf8").toLowerCase()).join("\n");
+
+        const docFiles = getFiles(DOCS_DIR, [".md"]);
+        docFiles.forEach(f => this.allDocs.add(resolve(f)));
+
+        // Seed entry point
+        const entryPoint = resolve(join(DOCS_DIR, "README.md"));
+        if (existsSync(entryPoint)) this.linkedFiles.add(resolve(entryPoint));
 
         console.log(`\n${COLOR.LOBSTER}${SYMBOL.BERRY} Berry Shield: Doc Sanity Audit Initiated${COLOR.RESET}`);
         console.log(`${COLOR.GRAY}Philosophy: "Show, don't tell."${COLOR.RESET}\n`);
@@ -243,6 +253,65 @@ class SanityAuditor {
                     }
                 }
             });
+
+            // 🛡️ Link Integrity (Broken Links & Placeholders & Syntax)
+            // Enhanced regex to capture potential malformed links with extra characters
+            const linkRegex = /(\[+.*?\]+)\s*(\((.*?)\))/g;
+            let match;
+            while ((match = linkRegex.exec(effectiveLine)) !== null) {
+                const fullBracket = match[1];
+                const fullParens = match[2];
+                const link = match[3];
+
+                // Check for invalid [[Text]](Path) or [Text]](Path) syntax
+                if (fullBracket.startsWith("[[") || fullBracket.endsWith("]]")) {
+                    this.errors.push(`${relPath}:${lineNo}: Invalid link syntax. Detected "${fullBracket}${fullParens}". Use standard [Text](Path) for repository compatibility.`);
+                }
+
+                if (link === "#") {
+                    this.errors.push(`${relPath}:${lineNo}: Broken link detected (placeholder "#").`);
+                    continue;
+                }
+                if (link.startsWith("http") || link.startsWith("mailto:") || link.startsWith("file:") || link.startsWith("#")) continue;
+
+                // 1. Path Consistency & Resolution
+                // Triple Check: Current Dir -> Project Root -> Index Resolution
+                let targetPath = resolve(dirname(filePath), link.split("#")[0]);
+                if (!existsSync(targetPath)) {
+                    const rootRelative = resolve(process.cwd(), link.split("#")[0]);
+                    if (existsSync(rootRelative)) targetPath = rootRelative;
+                }
+
+                // 2. Resolve Directories to README/index
+                if (existsSync(targetPath) && statSync(targetPath).isDirectory()) {
+                    const readme = join(targetPath, "README.md");
+                    const index = join(targetPath, "index.md");
+                    if (existsSync(readme)) targetPath = readme;
+                    else if (existsSync(index)) targetPath = index;
+                }
+
+                // 3. Handle optional .md extensions in links
+                if (!targetPath.endsWith(".md") && existsSync(targetPath + ".md")) {
+                    targetPath += ".md";
+                }
+
+                // Final Validation
+                if (!existsSync(targetPath)) {
+                    this.errors.push(`${relPath}:${lineNo}: Broken link detected. Path "${link}" does not exist.`);
+                } else {
+                    // Check for Case Sensitivity (Critical for GitHub/Linux compatibility)
+                    const baseName = basename(targetPath);
+                    const dirEntries = readdirSync(dirname(targetPath));
+                    if (!dirEntries.includes(baseName)) {
+                        const actualCasing = dirEntries.find(e => e.toLowerCase() === baseName.toLowerCase());
+                        this.errors.push(`${relPath}:${lineNo}: Case-sensitivity mismatch. Link uses "${baseName}" but file on disk is "${actualCasing || 'unknown'}". GitHub/Linux will return 404.`);
+                    }
+
+                    if (targetPath.endsWith(".md")) {
+                        this.linkedFiles.add(resolve(targetPath));
+                    }
+                }
+            }
         });
 
         // 3. Evidence-Based Integrity
@@ -277,17 +346,23 @@ class SanityAuditor {
     }
 
     report() {
+        // Orphan Identification
+        const orphans = [...this.allDocs].filter(d => !this.linkedFiles.has(d));
+        orphans.forEach(o => {
+            this.warnings.push(`${relative(process.cwd(), o)}: Orphan file detected. No other document links to this page.`);
+        });
+
         if (this.warnings.length > 0) {
-            console.log(`${SYMBOL.WARN} ${COLOR.YELLOW}Sanity Warnings (Density & Tone):${COLOR.RESET}`);
+            console.log(`${SYMBOL.WARN} ${COLOR.YELLOW} Sanity Warnings (Density & Tone):${COLOR.RESET}`);
             this.warnings.forEach(w => console.log(`   ↳ ${w}`));
         }
 
         if (this.errors.length > 0) {
-            console.log(`\n${SYMBOL.FAIL} ${COLOR.RED}FAIL: Technical Sanity Violated!${COLOR.RESET}`);
+            console.log(`\n${SYMBOL.FAIL} ${COLOR.RED} FAIL: Technical Sanity Violated!${COLOR.RESET}`);
             this.errors.forEach(e => console.log(`   ↳ ${e}`));
             process.exit(1);
         } else {
-            console.log(`\n${SYMBOL.SUCCESS} ${COLOR.LOBSTER}Technical purity maintained. Fact-based documentation.${COLOR.RESET}`);
+            console.log(`\n${SYMBOL.SUCCESS} ${COLOR.LOBSTER} Technical purity maintained. Fact-based documentation.${COLOR.RESET}`);
             console.log(`${COLOR.GRAY}${SYMBOL.ANCHOR} Honest, Technical, Humble.${COLOR.RESET}\n`);
         }
     }

@@ -4,9 +4,10 @@ The core of Berry Shield is designed for efficiency and high-fidelity protection
 
 ## Core Engine Components
 
-- [[Redaction Engine]](redaction.md): Patterns, Regex, and Gitleaks integration.
-- [[Performance Otimizations]](performance.md): Lazy Cloning and RPi 4 memory management.
-- [[Unescape Sniper]](redaction.md#unescape-sniper): Handling obfuscated or escaped sensitive data.
+- [Redaction Engine](redaction.md): Patterns, Regex, and Gitleaks integration.
+- [Match Engine & ReDoS](match-engine.md): Technical architecture and threat mitigation.
+- [Performance Optimizations](performance.md): Lazy Cloning and RPi 4 memory management.
+- [Unescape Sniper](redaction.md#unescape-sniper): Handling obfuscated or escaped sensitive data.
 
 ## Design Philosophy
 Security execution often introduces latency. The Berry Shield engine aims to minimize this impact through **Context-Aware Processing**:
@@ -15,4 +16,4 @@ Security execution often introduces latency. The Berry Shield engine aims to min
 3. **Clarity**: Cleaning JSON and outputs to improve the LLM's context window.
 
 ---
-- [[Back to Wiki Index]](../README.md)
+- [Back to Wiki Index](../README.md)

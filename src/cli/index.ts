@@ -6,7 +6,7 @@
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import type { OpenClawPluginCliContext } from "../types/openclaw-local.js";
+import type { OpenClawPluginCliContext, SafeCommand } from "../types/openclaw-local.js";
 import { ConfigWrapper } from "../config/wrapper.js";
 import { addCommand } from "./commands/add.js";
 import { removeCommand } from "./commands/remove.js";
@@ -17,7 +17,7 @@ import { statusCommand } from "./commands/status.js";
 import { modeCommand } from "./commands/mode.js";
 import { toggleCommand } from "./commands/toggle.js";
 import { ui } from "./ui/tui.js";
-import { theme, symbols } from "./ui/theme.js";
+import { theme } from "./ui/theme.js";
 
 /**
  * Register the Berry Shield CLI commands with OpenClaw.
@@ -29,6 +29,13 @@ import { theme, symbols } from "./ui/theme.js";
  * - openclaw bshield test <input>
  */
 export function registerBerryShieldCli(api: OpenClawPluginApi): void {
+    const attachSubcommandHelp = <T extends SafeCommand>(command: T): T => {
+        return command
+            .helpOption(false)
+            .helpOption("-h, --help", "display help for command")
+            .addHelpText("after", `\n${ui.formatFooter()}`);
+    };
+
     // Register the CLI with OpenClaw using the official SDK registrar
     api.registerCli(
         (context: OpenClawPluginCliContext) => {
@@ -41,7 +48,8 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .addHelpText('after', `\nFor more info, visit: ${theme.muted("https://github.com/F4bioo/berry-shield")}\n\n${ui.formatFooter()}`);
 
             // Add command
-            bshield
+            attachSubcommandHelp(
+                bshield
                 .command("add [type]")
                 .description("Add a new security rule (interactive wizard if no args)")
                 .option("-n, --name <name>", "Rule name (required for secrets)")
@@ -50,63 +58,78 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .option("-f, --force", "Override existing rule with same name")
                 .action(async (type: string | undefined, options: any) => {
                     await addCommand(type, options, config, logger);
-                });
+                }),
+            );
 
             // Remove command
-            bshield
+            attachSubcommandHelp(
+                bshield
                 .command("remove <name>")
                 .description("Remove a custom rule by name")
                 .action(async (name: string) => {
                     await removeCommand(name, config, logger);
-                });
+                }),
+            );
 
             // List command
-            bshield
+            attachSubcommandHelp(
+                bshield
                 .command("list")
                 .description("List all rules (built-in and custom)")
                 .action(async () => {
                     await listCommand(logger);
-                });
+                }),
+            );
 
             // Test command
-            bshield
+            attachSubcommandHelp(
+                bshield
                 .command("test <input>")
                 .description("Test if input matches any security pattern")
                 .action(async (input: string) => {
                     await testCommand(input, config, logger);
-                });
+                }),
+            );
 
             // Init command
-            bshield
+            attachSubcommandHelp(
+                bshield
                 .command("init")
                 .description("Initialize Berry Shield configuration")
                 .action(async () => {
                     await initCommand(context, wrapper);
-                });
+                }),
+            );
 
             // Status command
-            bshield
+            attachSubcommandHelp(
+                bshield
                 .command("status")
                 .description("Show current status and configuration")
                 .action(async () => {
                     await statusCommand(context, wrapper);
-                });
+                }),
+            );
 
             // Mode command
-            bshield
+            attachSubcommandHelp(
+                bshield
                 .command("mode <mode>")
                 .description("Set operation mode (audit | enforce)")
                 .action(async (mode: string) => {
                     await modeCommand(mode, context, wrapper);
-                });
+                }),
+            );
 
             // Toggle command
-            bshield
+            attachSubcommandHelp(
+                bshield
                 .command("toggle <layer>")
                 .description("Toggle a security layer on/off")
                 .action(async (layer: string) => {
                     await toggleCommand(layer, context, wrapper);
-                });
+                }),
+            );
         },
         { commands: ["bshield"] }
     );

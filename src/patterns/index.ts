@@ -6,7 +6,7 @@
  */
 
 import * as fs from "node:fs";
-import { loadCustomRules, getStoragePath, type CustomRules } from "../cli/storage.js";
+import { loadCustomRules, loadCustomRulesSync, getStoragePath, type CustomRules } from "../cli/storage.js";
 import { GITLEAKS_PATTERNS } from "./generated.js";
 
 /**
@@ -233,28 +233,79 @@ let _cache: PatternCache = {
     commandPatterns: [...DESTRUCTIVE_COMMAND_PATTERNS],
 };
 
+let _watcherInitialized = false;
+
+function compileCustomPatterns(custom: CustomRules): PatternCache {
+    const customSecrets: SecurityPattern[] = custom.secrets.map(s => {
+        let pattern = s.pattern;
+        let flags = "gi";
+
+        if (pattern.startsWith("(?i)")) {
+            pattern = pattern.substring(4);
+            flags = "gi";
+        }
+
+        try {
+            return {
+                name: s.name,
+                category: "secret",
+                pattern: new RegExp(pattern, flags),
+                placeholder: s.placeholder,
+            };
+        } catch (e) {
+            console.error(`[berry-shield] Failed to compile secret pattern '${s.name}': ${e}`);
+            return null;
+        }
+    }).filter((r): r is SecurityPattern => r !== null);
+
+    const customFiles = custom.sensitiveFiles.map(f => {
+        try { return new RegExp(f.pattern, "i"); } catch { return null; }
+    }).filter((r): r is RegExp => r !== null);
+
+    const customCmds = custom.destructiveCommands.map(c => {
+        try { return new RegExp(c.pattern, "i"); } catch { return null; }
+    }).filter((r): r is RegExp => r !== null);
+
+    return {
+        redactionPatterns: [...SECRET_PATTERNS, ...customSecrets, ...PII_PATTERNS],
+        filePatterns: [...SENSITIVE_FILE_PATTERNS, ...customFiles],
+        commandPatterns: [...DESTRUCTIVE_COMMAND_PATTERNS, ...customCmds],
+    };
+}
+
+function startPatternsWatcher(): void {
+    if (process.env.NODE_ENV === "test" || _watcherInitialized) {
+        return;
+    }
+
+    const rulesPath = getStoragePath();
+    try {
+        fs.watch(rulesPath, { persistent: false }, (eventType) => {
+            if (eventType === "change" || eventType === "rename") {
+                void reloadPatterns();
+            }
+        }).on("error", () => {
+            // Ignore errors
+        });
+        _watcherInitialized = true;
+    } catch {
+        // Ignore watch setup errors
+    }
+}
+
 /**
- * Initializes the pattern cache by loading custom rules from disk.
+ * Initializes the pattern cache by loading custom rules from disk synchronously.
  * Skips file watching in test environment to avoid handle leaks.
  */
-export async function initializePatterns(): Promise<void> {
-    await reloadPatterns();
-
-    // Setup watcher for hot-reloading (skip in CI/Test)
-    if (process.env.NODE_ENV !== 'test') {
-        const rulesPath = getStoragePath();
-        try {
-            fs.watch(rulesPath, { persistent: false }, async (eventType) => {
-                if (eventType === 'change' || eventType === 'rename') {
-                    await reloadPatterns();
-                }
-            }).on('error', () => {
-                // Ignore errors
-            });
-        } catch {
-            // Ignore watch setup errors
-        }
+export function initializePatterns(): void {
+    try {
+        const custom = loadCustomRulesSync();
+        _cache = compileCustomPatterns(custom);
+    } catch (e) {
+        console.error(`[berry-shield] Error initializing patterns: ${e}`);
     }
+
+    startPatternsWatcher();
 }
 
 /**
@@ -263,44 +314,7 @@ export async function initializePatterns(): Promise<void> {
 export async function reloadPatterns(): Promise<void> {
     try {
         const custom: CustomRules = await loadCustomRules();
-
-        const customSecrets: SecurityPattern[] = custom.secrets.map(s => {
-            // Pattern validation/compilation logic
-            let pattern = s.pattern;
-            let flags = "gi";
-
-            if (pattern.startsWith("(?i)")) {
-                pattern = pattern.substring(4);
-                flags = "gi";
-            }
-
-            try {
-                return {
-                    name: s.name,
-                    category: "secret",
-                    pattern: new RegExp(pattern, flags),
-                    placeholder: s.placeholder,
-                };
-            } catch (e) {
-                console.error(`[berry-shield] Failed to compile secret pattern '${s.name}': ${e}`);
-                return null;
-            }
-        }).filter((r): r is SecurityPattern => r !== null);
-
-        const customFiles = custom.sensitiveFiles.map(f => {
-            try { return new RegExp(f.pattern, "i"); } catch { return null; }
-        }).filter((r): r is RegExp => r !== null);
-
-        const customCmds = custom.destructiveCommands.map(c => {
-            try { return new RegExp(c.pattern, "i"); } catch { return null; }
-        }).filter((r): r is RegExp => r !== null);
-
-        // Update cache atomically
-        _cache = {
-            redactionPatterns: [...SECRET_PATTERNS, ...customSecrets, ...PII_PATTERNS],
-            filePatterns: [...SENSITIVE_FILE_PATTERNS, ...customFiles],
-            commandPatterns: [...DESTRUCTIVE_COMMAND_PATTERNS, ...customCmds],
-        };
+        _cache = compileCustomPatterns(custom);
     } catch (e) {
         // If reload fails, we keep the previous cache
         console.error(`[berry-shield] Error reloading patterns: ${e}`);

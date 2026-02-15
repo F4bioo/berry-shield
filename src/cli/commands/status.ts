@@ -35,13 +35,16 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
         // Visual Dashboard
         ui.header("Berry Shield");
 
-        const statusLabel = isEnabled ? theme.success("enabled") : theme.muted("disabled");
-        const modeLabel = (shieldConfig.mode || "audit").toLowerCase();
+        const statusLabel = isEnabled ? theme.success("ENABLED") : theme.muted("DISABLED");
+        const mode = (shieldConfig.mode || "audit").toUpperCase();
+        const modeLabel = mode === "ENFORCE" ? theme.success("ENFORCE") : theme.warning("AUDIT");
         const ruleDetails = `Built-in (${builtInCount}) - Custom (${customCount})`;
 
-        ui.row("Status", statusLabel);
-        ui.row("Mode", modeLabel);
-        ui.row("Rules", ruleDetails);
+        ui.table([
+            { label: "Status", value: statusLabel },
+            { label: "Mode", value: modeLabel },
+            { label: "Rules", value: ruleDetails },
+        ]);
 
         ui.header("Security Layers");
 
@@ -54,15 +57,21 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
             { name: "Stem (Security Gate)", active: shieldConfig.layers.stem },
         ];
 
-        layers.forEach(layer => {
-            ui.row(layer.name, layer.active ? "active" : theme.muted("off"));
-        });
+        ui.table(
+            layers.map(layer => ({
+                label: layer.name,
+                value: layer.active ? theme.success("ACTIVE") : theme.muted("OFF"),
+            })),
+        );
 
         ui.footer("Use 'openclaw bshield add' to create custom rules.");
 
-    } catch (error: any) {
-        ui.error(`Failed to get status: ${error.message}`);
-        logger.error(`[berry-shield] CLI error: ${error.message}`);
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        ui.header("Operation Failed", "error");
+        ui.row("Error", `Failed to get status: ${message}`);
+        ui.footer();
+        logger.error(`[berry-shield] CLI error: Failed to get status: ${message}`);
         process.exit(1);
     }
 }

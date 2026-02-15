@@ -21,4 +21,4 @@ graph LR
 - **Filter Precision**: Policy configurations may flag legitimate development traffic or environment variables if not properly scoped.
 
 ## Related
-- [[API: registerBerryThorn]](../reference/layers/thorn/functions/registerBerryThorn.md)
+- [API: registerBerryThorn](../reference/layers/thorn/functions/registerBerryThorn.md)

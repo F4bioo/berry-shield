@@ -26,4 +26,4 @@ graph TD
 ```
 
 ---
-- [[API: Redaction Utils]](../reference/utils/redaction/README.md)
+- [API: Redaction Utils](../reference/utils/redaction/README.md)

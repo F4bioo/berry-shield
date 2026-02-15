@@ -29,5 +29,5 @@ during debugging to avoid command blocking."
 Every view includes a randomized **Expert Tip** that provides architectural context or security advice, ensuring the tool acts as both a shield and a mentor.
 
 ---
-- [[CLI Reference]](cli.md)
-- [[Interactive Wizards]](wizards.md)
+- [CLI Reference](cli.md)
+- [Interactive Wizards](wizards.md)

@@ -2,7 +2,7 @@ import { BerryShieldPluginConfig } from "../types/config.js";
 
 /**
  * Security defaults: Safe-by-default philosophy.
- * Starts in AUDIT mode (log only) with all layers enabled for visibility.
+ * Starts in ENFORCE mode (blocking/redacting) with all layers enabled.
  */
 export const DEFAULT_CONFIG: BerryShieldPluginConfig = {
     mode: "enforce",

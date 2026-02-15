@@ -19,4 +19,4 @@ graph TD
 - **Parsing Complexity**: Complex shell scripts with dynamic variables can be difficult to analyze with 100% precision.
 
 ## Related
-- [[API: registerBerryStem]](../reference/layers/stem/functions/registerBerryStem.md)
+- [API: registerBerryStem](../reference/layers/stem/functions/registerBerryStem.md)
