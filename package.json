@@ -1,6 +1,6 @@
 {
   "name": "berry-shield",
-  "version": "2026.2.12",
+  "version": "2026.2.15",
   "description": "Security plugin for OpenClaw - blocks destructive commands, redacts secrets and PII",
   "type": "module",
   "openclaw": {
@@ -14,8 +14,10 @@
     "typecheck": "tsc --noEmit",
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --external:openclaw/plugin-sdk --target=node20",
     "build:types": "tsc -p tsconfig.build.json",
-    "//release": "Generates new version, compiles, type-checks, and runs tests",
-    "release": "npm run version:update && npm run build && npm run typecheck && npx vitest run __tests__",
+    "//release": "Preflight gates run before bump; postflight re-validates after bump",
+    "release:preflight": "npm run build && npm run typecheck && npx vitest run __tests__ && npm run wiki:claim",
+    "release:postflight": "npm run build && npm run typecheck && npx vitest run __tests__ && npm run wiki:claim",
+    "release": "npm run release:preflight && npm run version:update && npm run release:postflight",
     "version:update": "npx ts-node --esm scripts/update-version.ts",
     "update-patterns": "npx ts-node --esm scripts/update-patterns.ts",
     "wiki:gen": "npx ts-node --esm skills/wiki-factory/scripts/doc-factory.ts",

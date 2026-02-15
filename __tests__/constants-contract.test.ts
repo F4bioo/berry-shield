@@ -6,7 +6,7 @@ import { DEFAULT_CONFIG } from "../src/config/defaults";
  * Expected version for contract testing.
  * This is updated automatically by scripts/update-version.ts during releases.
  */
-const EXPECTED_VERSION = "2026.2.12";
+const EXPECTED_VERSION = "2026.2.15";
 
 /**
  * Contract Test for Constants

@@ -51,10 +51,13 @@ It enforces a **`YYYY.M.D`** format based on the current date:
     *   `openclaw.plugin.json` (Plugin manifest)
 
 ### How to use
-This script is automatically triggered by the release command:
+This script is automatically triggered by the release command.
+Release now has mandatory gates both before and after version bump:
+*   **Preflight**: `build`, `typecheck`, tests, and doc sanity.
+*   **Postflight**: same validations re-run after bump to ensure final artifact integrity.
 
 ```bash
-# Recommended: Full release cycle (Update -> Build -> Test)
+# Recommended: Full release cycle (Preflight -> Update -> Postflight)
 npm run release
 
 ```
