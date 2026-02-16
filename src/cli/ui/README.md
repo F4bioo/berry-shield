@@ -78,7 +78,7 @@ For command screens, follow this order:
 Use a custom footer message only when it adds immediate next-step guidance.
 Otherwise call `ui.footer()` and let the random tip be shown.
 
-## Row vs Table vs Divider
+## Row vs Table vs Divider vs Spacer
 
 Use the right primitive for each output shape:
 
@@ -91,6 +91,9 @@ Use the right primitive for each output shape:
 - `ui.divider(width?)`:
   - lightweight separator inside an already open section
   - avoid using it as a replacement for headers
+- `ui.spacer(lines?)`:
+  - vertical breathing room between message groups
+  - default is `1`, use `2+` only for intentional visual separation
 
 Examples:
 
@@ -117,6 +120,15 @@ ui.row("Result", "2 match(es) found");
 ui.divider(24);
 ui.row("BUILT-IN", "GitHub Token");
 ui.row("Redaction", "[GITHUB_TOKEN_REDACTED]");
+ui.footer();
+```
+
+```ts
+ui.header("Security Mode", "success");
+ui.successMsg("Switched to AUDIT mode.");
+ui.warningMsg("The gateway must be restarted for changes to apply.");
+ui.spacer();
+ui.row("Recommended", "sudo systemctl restart openclaw");
 ui.footer();
 ```
 

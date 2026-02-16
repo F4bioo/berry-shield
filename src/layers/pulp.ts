@@ -12,7 +12,9 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
-import { HOOKS } from "../constants.js";
+import type { AuditRedactEvent } from "../types/audit-event.js";
+import { formatAuditEvent } from "../types/audit-event.js";
+import { AUDIT_DECISIONS, SECURITY_LAYERS, HOOKS } from "../constants.js";
 import { getAllRedactionPatterns } from "../patterns/index.js";
 import { walkAndRedact } from "../utils/redaction.js";
 
@@ -40,8 +42,13 @@ export function registerBerryPulp(
 
             if (redactionCount > 0) {
                 if (config.mode === "audit") {
-                    api.logger.warn(`[berry-shield] AUDIT: would redact ${redactionCount} items in tool result: ${event.toolName}`);
-                    // Return unmodified event in audit mode
+                    const auditEvent: AuditRedactEvent = {
+                        mode: "audit", decision: AUDIT_DECISIONS.WOULD_REDACT, layer: SECURITY_LAYERS.PULP,
+                        hook: HOOKS.TOOL_RESULT_PERSIST, toolName: event.toolName ?? "unknown",
+                        count: redactionCount, types: redactedTypes,
+                        ts: new Date().toISOString(),
+                    };
+                    api.logger.warn(`[berry-shield] Berry.Pulp: ${formatAuditEvent(auditEvent)}`);
                     return event;
                 }
 
@@ -65,7 +72,13 @@ export function registerBerryPulp(
 
             if (redactionCount > 0) {
                 if (config.mode === "audit") {
-                    api.logger.warn(`[berry-shield] Berry.Pulp: AUDIT - would redact ${redactionCount} item(s) [${redactedTypes.join(", ")}] in outgoing message`);
+                    const auditEvent: AuditRedactEvent = {
+                        mode: "audit", decision: AUDIT_DECISIONS.WOULD_REDACT, layer: SECURITY_LAYERS.PULP,
+                        hook: HOOKS.MESSAGE_SENDING, toolName: "message",
+                        count: redactionCount, types: redactedTypes,
+                        ts: new Date().toISOString(),
+                    };
+                    api.logger.warn(`[berry-shield] Berry.Pulp: ${formatAuditEvent(auditEvent)}`);
                     return undefined;
                 }
 

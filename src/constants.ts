@@ -87,3 +87,18 @@ export const COMPAT_POLICY = {
     MIN_OPENCLAW_VERSION: "2026.2.3-1",
     PEER_RANGE: "^2026.2.3-1",
 } as const;
+
+/** Audit event decision labels used by structured logging */
+export const AUDIT_DECISIONS = {
+    WOULD_BLOCK: "would_block",
+    WOULD_REDACT: "would_redact",
+    BLOCKED: "blocked",
+    REDACTED: "redacted",
+} as const;
+
+/** Security layer identifiers used in audit events */
+export const SECURITY_LAYERS = {
+    STEM: "stem",
+    PULP: "pulp",
+    THORN: "thorn",
+} as const;

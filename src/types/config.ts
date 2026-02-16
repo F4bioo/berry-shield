@@ -25,7 +25,7 @@ export interface BerryShieldLayersConfig {
  * Main plugin configuration.
  */
 export interface BerryShieldPluginConfig {
-    /** Operation mode: enforce (block/redact) or audit (log only) */
+    /** Operation mode: enforce (block/redact) or audit (observe and log without blocking or redacting — Shadow Mode) */
     mode: "enforce" | "audit";
     /** Individual layer toggles */
     layers: BerryShieldLayersConfig;

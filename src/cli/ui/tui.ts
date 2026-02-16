@@ -68,6 +68,16 @@ export const ui = {
         console.log(theme.dim("   " + "─".repeat(width)));
     },
 
+    /**
+     * Vertical spacing between content blocks.
+     */
+    spacer(lines = 1) {
+        const safeLines = Number.isInteger(lines) && lines > 0 ? lines : 1;
+        for (let i = 0; i < safeLines; i += 1) {
+            console.log("");
+        }
+    },
+
 
     /**
      * Berry Shield $version - Tip: $message
@@ -90,6 +100,13 @@ export const ui = {
      */
     successMsg(message: string) {
         console.log(`   ${symbols.success} ${message}`);
+    },
+
+    /**
+     * Helper for standardized warning message lines
+     */
+    warningMsg(message: string) {
+        console.log(`   ${symbols.warning} ${message}`);
     },
 
     /**

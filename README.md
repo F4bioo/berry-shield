@@ -13,78 +13,6 @@ Berry Shield is a **Session Guard** for the OpenClaw ecosystem that provides sev
 
 Berry Shield is designed with multiple layers. The idea is that if an interaction isn't caught by one layer, it might be caught by another.
 
-### Visual Lifecycle (Technical Sequence)
-
-This diagram shows how Berry Shield hooks into the official OpenClaw lifecycle to protect your data.
-
-```mermaid
-sequenceDiagram
-    participant U as "👤 User"
-    participant OC as "🛡️ OpenClaw (Hooks)"
-    participant B as "🍓 Berry Shield (Layers)"
-    participant A as "🤖 LLM Agent"
-    participant T as "🛠️ Tool (Terminal/FS)"
-
-    U->>OC: Sends Message
-    OC->>B: message_received (Leaf - Audit)
-    Note over B: Logs activity
-    OC->>B: before_agent_start (Root - Policy)
-    B-->>OC: Prepend Security Policies
-    OC->>A: Start Turn with Policies
-    
-    A->>B: Calls berry_check (Stem - Gate)
-    B-->>A: STATUS: ALLOWED / DENIED
-    
-    A->>OC: Executes Tool (e.g., read_file)
-    OC->>B: before_tool_call (Thorn - Intercept)
-    alt is_blocked
-        B-->>OC: Block Execution
-        OC-->>A: Error: Security Violation
-    else is_allowed
-        OC->>T: Run Operation
-        T-->>OC: Raw result (Secrets inside)
-        OC->>B: tool_result_persist (Pulp - Redact)
-        B-->>OC: [REDACTED] Result
-        OC-->>A: Secure Result
-    end
-```
-
-### The Security Pipeline (Conceptual)
-
-A simplified view of how the layers protect each phase of the process.
-
-```mermaid
-flowchart TD
-    %% Phase 1: Input
-    U([👤 User Input]) --> L[🍃 Leaf: Audit]
-    L --> R[🌱 Root: Prompt Guard]
-    
-    %% Phase 2: Reasoning
-    R --> A{🤖 LLM Agent}
-    
-    %% Phase 3: Pre-Execution Check
-    A <--> S([🌿 Stem: Checkpoint])
-    A --> T[🌵 Thorn: Blocker]
-    
-    %% Phase 4: Execution & Redaction
-    T --> Tool((🛠️ Tool Engine))
-    Tool --> P[🍇 Pulp: Output Scanner]
-    
-    %% Phase 5: Result
-    P --> A
-    A -->|Safe Response| U
-
-    %% Styling for light and dark modes
-    style L fill:#b3e5fc,stroke:#01579b,stroke-width:2px,color:#000
-    style R fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px,color:#000
-    style S fill:#ffe0b2,stroke:#ef6c00,stroke-width:2px,color:#000
-    style T fill:#ffcdd2,stroke:#c62828,stroke-width:2px,color:#000
-    style P fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px,color:#000
-    style A fill:#f5f5f5,stroke:#333,stroke-width:2px,color:#000
-    style Tool fill:#eceff1,stroke:#455a64,stroke-width:2px,color:#000
-    style U fill:#fff,stroke:#333,stroke-width:2px,color:#000
-```
-
 ---
 
 ## 🛡️ The 5 Defense Layers
@@ -256,4 +184,4 @@ For a version-by-version technical breakdown, please refer to the **[Wiki Diary]
 ---
 
 ## License
-MIT
+Berry Shield is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE) file for more information.

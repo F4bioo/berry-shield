@@ -14,6 +14,10 @@
  * before exec/read operations.
  */
 
+import type { AuditBlockEvent } from "../types/audit-event.js";
+import { formatAuditEvent } from "../types/audit-event.js";
+import { AUDIT_DECISIONS, SECURITY_LAYERS } from "../constants.js";
+
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
 import { BRAND_SYMBOL } from "../constants.js";
@@ -223,10 +227,13 @@ export function registerBerryStem(
                 if (isDestructiveCommand(target, config.destructiveCommands)) {
                     api.logger.warn(`[berry-shield] Berry.Stem: DENIED exec - destructive command: ${target.substring(0, 50)}`);
 
-                    // In audit mode, still return DENIED but log differently
                     if (config.mode === "audit") {
-                        api.logger.info("[berry-shield] Berry.Stem: AUDIT mode - would block destructive command");
-                        // Fall through to ALLOWED
+                        const event: AuditBlockEvent = {
+                            mode: "audit", decision: AUDIT_DECISIONS.WOULD_BLOCK, layer: SECURITY_LAYERS.STEM,
+                            reason: "destructive command", target: target.substring(0, 100),
+                            ts: new Date().toISOString(),
+                        };
+                        api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
                     } else {
                         return {
                             content: [
@@ -239,31 +246,37 @@ export function registerBerryStem(
 
                 // Also check if exec command references a sensitive file (e.g., cat .env)
                 if (isSensitiveFile(target, config.sensitiveFilePaths)) {
-                    api.logger.warn(`[berry-shield] Berry.Stem: DENIED exec - command references sensitive file: ${target.substring(0, 50)}`);
-
                     if (config.mode === "audit") {
-                        api.logger.info("[berry-shield] Berry.Stem: AUDIT mode - would block command referencing sensitive file");
+                        const event: AuditBlockEvent = {
+                            mode: "audit", decision: AUDIT_DECISIONS.WOULD_BLOCK, layer: SECURITY_LAYERS.STEM,
+                            reason: "sensitive file reference", target: target.substring(0, 100),
+                            ts: new Date().toISOString(),
+                        };
+                        api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
+                    } else {
+                        api.logger.warn(`[berry-shield] Berry.Stem: DENIED exec - command references sensitive file: ${target.substring(0, 50)}`);
+                        return {
+                            content: [
+                                { type: "text", text: formatDeniedSensitiveFile(target) },
+                            ],
+                            details: { status: "denied", reason: "sensitive file reference" },
+                        };
                     }
-
-                    return {
-                        content: [
-                            { type: "text", text: formatDeniedSensitiveFile(target) },
-                        ],
-                        details: { status: "denied", reason: "sensitive file reference" },
-                    };
                 }
             }
 
             // Check for sensitive files on read/write operations
             if (operation === "read" || operation === "write") {
                 if (isSensitiveFile(target, config.sensitiveFilePaths)) {
-                    api.logger.warn(`[berry-shield] Berry.Stem: DENIED ${operation} - sensitive file: ${target}`);
-
-                    // In audit mode, still return DENIED but log differently
                     if (config.mode === "audit") {
-                        api.logger.info("[berry-shield] Berry.Stem: AUDIT mode - would block sensitive file access");
-                        // Fall through to ALLOWED
+                        const event: AuditBlockEvent = {
+                            mode: "audit", decision: AUDIT_DECISIONS.WOULD_BLOCK, layer: SECURITY_LAYERS.STEM,
+                            reason: "sensitive file access", target,
+                            ts: new Date().toISOString(),
+                        };
+                        api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
                     } else {
+                        api.logger.warn(`[berry-shield] Berry.Stem: DENIED ${operation} - sensitive file: ${target}`);
                         return {
                             content: [
                                 { type: "text", text: formatDeniedSensitiveFile(target) },

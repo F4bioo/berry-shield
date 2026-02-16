@@ -41,6 +41,11 @@ export default {
         registerBerryLeaf(api, config);  // Input Audit
         registerBerryStem(api, config);  // Security Gate
 
+        // Warn when running in audit (Shadow Mode) — data is NOT protected
+        if (config.mode === "audit") {
+            api.logger.warn("\n[berry-shield] ⚠️ Running in AUDIT (Shadow Mode) — actions will NOT be blocked and output will NOT be redacted.");
+        }
+
         // Register CLI commands (bshield)
         registerBerryShieldCli(api);
     },

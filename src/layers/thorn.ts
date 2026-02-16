@@ -12,6 +12,9 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
+import type { AuditBlockEvent } from "../types/audit-event.js";
+import { formatAuditEvent } from "../types/audit-event.js";
+import { AUDIT_DECISIONS, SECURITY_LAYERS } from "../constants.js";
 import { BRAND_SYMBOL, HOOKS } from "../constants.js";
 import {
     getAllDestructiveCommandPatterns,
@@ -153,8 +156,13 @@ export function registerBerryThorn(
                 const reason = `Destructive command detected: ${command.substring(0, 50)}${command.length > 50 ? "..." : ""}`;
 
                 if (config.mode === "audit") {
-                    api.logger.warn(`[berry-shield] Berry.Thorn: AUDIT - ${reason}`);
-                    return undefined; // Don't block in audit mode
+                    const auditEvent: AuditBlockEvent = {
+                        mode: "audit", decision: AUDIT_DECISIONS.WOULD_BLOCK, layer: SECURITY_LAYERS.THORN,
+                        reason: "destructive command", target: command.substring(0, 100),
+                        ts: new Date().toISOString(),
+                    };
+                    api.logger.warn(`[berry-shield] Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
+                    return undefined;
                 }
 
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
@@ -169,8 +177,13 @@ export function registerBerryThorn(
                 const reason = `Command references sensitive file: ${command.substring(0, 50)}${command.length > 50 ? "..." : ""}`;
 
                 if (config.mode === "audit") {
-                    api.logger.warn(`[berry-shield] Berry.Thorn: AUDIT - ${reason}`);
-                    return undefined; // Don't block in audit mode
+                    const auditEvent: AuditBlockEvent = {
+                        mode: "audit", decision: AUDIT_DECISIONS.WOULD_BLOCK, layer: SECURITY_LAYERS.THORN,
+                        reason: "sensitive file reference", target: command.substring(0, 100),
+                        ts: new Date().toISOString(),
+                    };
+                    api.logger.warn(`[berry-shield] Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
+                    return undefined;
                 }
 
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
@@ -186,8 +199,13 @@ export function registerBerryThorn(
                 const reason = `Sensitive file detected: ${filePath}`;
 
                 if (config.mode === "audit") {
-                    api.logger.warn(`[berry-shield] Berry.Thorn: AUDIT - ${reason}`);
-                    return undefined; // Don't block in audit mode
+                    const auditEvent: AuditBlockEvent = {
+                        mode: "audit", decision: AUDIT_DECISIONS.WOULD_BLOCK, layer: SECURITY_LAYERS.THORN,
+                        reason: "sensitive file access", target: filePath,
+                        ts: new Date().toISOString(),
+                    };
+                    api.logger.warn(`[berry-shield] Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
+                    return undefined;
                 }
 
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOOKS, REQUIRED_SECURITY_HOOKS, AUDIT_HOOKS, COMPAT_POLICY } from "../src/constants";
+import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOOKS, REQUIRED_SECURITY_HOOKS, AUDIT_HOOKS, COMPAT_POLICY, AUDIT_DECISIONS, SECURITY_LAYERS } from "../src/constants";
 import { DEFAULT_CONFIG } from "../src/config/defaults";
 
 /**
@@ -85,5 +85,18 @@ describe("Constants Contract", () => {
             expect(DEFAULT_CONFIG.layers.leaf).toBe(true);
             expect(DEFAULT_CONFIG.layers.root).toBe(true);
         });
+    });
+
+    it("should have stable audit decision labels", () => {
+        expect(AUDIT_DECISIONS.WOULD_BLOCK).toBe("would_block");
+        expect(AUDIT_DECISIONS.WOULD_REDACT).toBe("would_redact");
+        expect(AUDIT_DECISIONS.BLOCKED).toBe("blocked");
+        expect(AUDIT_DECISIONS.REDACTED).toBe("redacted");
+    });
+
+    it("should have stable security layer identifiers", () => {
+        expect(SECURITY_LAYERS.STEM).toBe("stem");
+        expect(SECURITY_LAYERS.PULP).toBe("pulp");
+        expect(SECURITY_LAYERS.THORN).toBe("thorn");
     });
 });
