@@ -70,3 +70,25 @@ npm run version:update
 
 ---
 
+## Wiki Automation (`scripts/wiki/`)
+
+This directory contains the "Wiki Factory" tools, used to maintain the project's technical documentation following the Diátaxis framework and the Zero-Hype directive.
+
+### Tools
+1.  **`doc-factory.ts`**: Automatically extracts metadata and documentation from the source code.
+2.  **`doc-sanity.ts`**: Validates the integrity of the Wiki (broken links, structure, and technical accuracy).
+
+### How to use
+```bash
+# Generate technical documentation
+npm run wiki:gen
+
+# Validate wiki integrity
+npm run wiki:claim
+```
+
+> See also:
+> * [Wiki Tools Reference](wiki/README.md)
+> * [Wiki Content Reference](../docs/wiki/README.md)
+
+---

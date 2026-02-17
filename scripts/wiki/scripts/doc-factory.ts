@@ -40,7 +40,7 @@ async function main() {
 
         // Run Technical Integrity Audit
         console.log("\n⚖️  Running Technical Integrity Audit...");
-        execSync("npx ts-node --esm skills/wiki-factory/scripts/doc-sanity.ts", { stdio: "inherit" });
+        execSync("npx ts-node --esm scripts/wiki/scripts/doc-sanity.ts", { stdio: "inherit" });
 
         // Generate Orion Map (Agent Index)
         console.log("\n🛰️  Generating Orion Map for AI Agents...");

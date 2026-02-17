@@ -20,8 +20,8 @@
     "release": "npm run release:preflight && npm run version:update && npm run release:postflight",
     "version:update": "npx ts-node --esm scripts/update-version.ts",
     "update-patterns": "npx ts-node --esm scripts/update-patterns.ts",
-    "wiki:gen": "npx ts-node --esm skills/wiki-factory/scripts/doc-factory.ts",
-    "wiki:claim": "npx ts-node --esm skills/wiki-factory/scripts/doc-sanity.ts"
+    "wiki:gen": "npx ts-node --esm scripts/wiki/scripts/doc-factory.ts",
+    "wiki:claim": "npx ts-node --esm scripts/wiki/scripts/doc-sanity.ts"
   },
   "peerDependencies": {
     "openclaw": "^2026.2.3-1"
