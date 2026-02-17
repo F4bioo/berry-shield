@@ -15,6 +15,7 @@ import type { BerryShieldPluginConfig } from "../types/config.js";
 import type { AuditBlockEvent } from "../types/audit-event.js";
 import { formatAuditEvent } from "../types/audit-event.js";
 import { AUDIT_DECISIONS, SECURITY_LAYERS } from "../constants.js";
+import { appendAuditEvent } from "../audit/writer.js";
 import { BRAND_SYMBOL, HOOKS } from "../constants.js";
 import {
     getAllDestructiveCommandPatterns,
@@ -162,9 +163,16 @@ export function registerBerryThorn(
                         ts: new Date().toISOString(),
                     };
                     api.logger.warn(`[berry-shield] Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
+                    appendAuditEvent(auditEvent);
                     return undefined;
                 }
 
+                const auditEvent: AuditBlockEvent = {
+                    mode: "enforce", decision: AUDIT_DECISIONS.BLOCKED, layer: SECURITY_LAYERS.THORN,
+                    reason: "destructive command", target: command.substring(0, 100),
+                    ts: new Date().toISOString(),
+                };
+                appendAuditEvent(auditEvent);
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
@@ -183,9 +191,16 @@ export function registerBerryThorn(
                         ts: new Date().toISOString(),
                     };
                     api.logger.warn(`[berry-shield] Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
+                    appendAuditEvent(auditEvent);
                     return undefined;
                 }
 
+                const auditEvent: AuditBlockEvent = {
+                    mode: "enforce", decision: AUDIT_DECISIONS.BLOCKED, layer: SECURITY_LAYERS.THORN,
+                    reason: "sensitive file reference", target: command.substring(0, 100),
+                    ts: new Date().toISOString(),
+                };
+                appendAuditEvent(auditEvent);
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
@@ -205,9 +220,16 @@ export function registerBerryThorn(
                         ts: new Date().toISOString(),
                     };
                     api.logger.warn(`[berry-shield] Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
+                    appendAuditEvent(auditEvent);
                     return undefined;
                 }
 
+                const auditEvent: AuditBlockEvent = {
+                    mode: "enforce", decision: AUDIT_DECISIONS.BLOCKED, layer: SECURITY_LAYERS.THORN,
+                    reason: "sensitive file access", target: filePath,
+                    ts: new Date().toISOString(),
+                };
+                appendAuditEvent(auditEvent);
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,

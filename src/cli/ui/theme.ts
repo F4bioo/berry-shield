@@ -49,6 +49,7 @@ export const symbols = {
     brand: BRAND_SYMBOL,
     success: theme.success("✓"),
     warning: theme.warning("!"),
+    failure: theme.error("✗"),
     error: theme.error("✗"),
     marker: theme.marker("◇"),
 };

@@ -112,6 +112,94 @@ describe("SENSITIVE_FILE_PATTERNS", () => {
         it("matches openclaw.json with path", () => {
             expect(testPath("/home/user/.openclaw/openclaw.json")).toBe(true);
         });
+
+        it("matches ssh host private keys", () => {
+            expect(testPath("/etc/ssh/ssh_host_rsa_key")).toBe(true);
+            expect(testPath("/etc/ssh/ssh_host_ed25519_key")).toBe(true);
+        });
+
+        it("matches docker config auth file", () => {
+            expect(testPath("/home/user/.docker/config.json")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.docker\\config.json")).toBe(true);
+        });
+
+        it("matches GPG private key directory", () => {
+            expect(testPath("/home/user/.gnupg/private-keys-v1.d")).toBe(true);
+            expect(testPath("/home/user/.gnupg/private-keys-v1.d/ABC123.key")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.gnupg\\private-keys-v1.d\\ABC123.key")).toBe(true);
+        });
+
+        it("matches vault token file", () => {
+            expect(testPath("/home/user/.vault-token")).toBe(true);
+        });
+
+        it("matches terraform credentials file", () => {
+            expect(testPath("/home/user/.terraform.d/credentials.tfrc.json")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.terraform.d\\credentials.tfrc.json")).toBe(true);
+        });
+
+        it("matches rclone config file", () => {
+            expect(testPath("/home/user/.config/rclone/rclone.conf")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.config\\rclone\\rclone.conf")).toBe(true);
+        });
+
+        it("matches aws config file", () => {
+            expect(testPath("/home/user/.aws/config")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.aws\\config")).toBe(true);
+        });
+
+        it("matches sops and age key files", () => {
+            expect(testPath("/home/user/.config/sops/age/keys.txt")).toBe(true);
+            expect(testPath("/home/user/.config/age/keys.txt")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.config\\sops\\age\\keys.txt")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.config\\age\\keys.txt")).toBe(true);
+        });
+
+        it("matches pypirc credentials file", () => {
+            expect(testPath("/home/user/.pypirc")).toBe(true);
+        });
+
+        it("matches GitHub CLI hosts file", () => {
+            expect(testPath("/home/user/.config/gh/hosts.yml")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.config\\gh\\hosts.yml")).toBe(true);
+        });
+
+        it("matches gcloud local credential stores", () => {
+            expect(testPath("/home/user/.config/gcloud/credentials.db")).toBe(true);
+            expect(testPath("/home/user/.config/gcloud/access_tokens.db")).toBe(true);
+            expect(testPath("/home/user/.config/gcloud/legacy_credentials")).toBe(true);
+            expect(testPath("/home/user/.config/gcloud/legacy_credentials/user@example.com/adc.json")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.config\\gcloud\\credentials.db")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.config\\gcloud\\access_tokens.db")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.config\\gcloud\\legacy_credentials\\user@example.com\\adc.json")).toBe(true);
+        });
+
+        it("matches azure access token file", () => {
+            expect(testPath("/home/user/.config/azure/accessTokens.json")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.config\\azure\\accessTokens.json")).toBe(true);
+        });
+
+        it("matches helm and poetry auth files", () => {
+            expect(testPath("/home/user/.config/helm/registry/config.json")).toBe(true);
+            expect(testPath("/home/user/.config/pypoetry/auth.toml")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.config\\helm\\registry\\config.json")).toBe(true);
+            expect(testPath("C:\\Users\\user\\.config\\pypoetry\\auth.toml")).toBe(true);
+        });
+
+        it("matches keyrings directories", () => {
+            expect(testPath("/home/user/.local/share/keyrings")).toBe(true);
+            expect(testPath("/home/user/.local/share/keyrings/login.keyring")).toBe(true);
+            expect(testPath("/Users/alice/Library/Keychains/login.keychain-db")).toBe(true);
+        });
+
+        it("matches Windows Credentials directories", () => {
+            expect(testPath("C:\\Users\\user\\AppData\\Roaming\\Microsoft\\Credentials")).toBe(true);
+            expect(testPath("C:\\Users\\user\\AppData\\Local\\Microsoft\\Credentials\\1234")).toBe(true);
+        });
+
+        it("matches /etc/gshadow", () => {
+            expect(testPath("/etc/gshadow")).toBe(true);
+        });
     });
 
     describe("safe files", () => {

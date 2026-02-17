@@ -15,6 +15,7 @@ import type { BerryShieldPluginConfig } from "../types/config.js";
 import type { AuditRedactEvent } from "../types/audit-event.js";
 import { formatAuditEvent } from "../types/audit-event.js";
 import { AUDIT_DECISIONS, SECURITY_LAYERS, HOOKS } from "../constants.js";
+import { appendAuditEvent } from "../audit/writer.js";
 import { getAllRedactionPatterns } from "../patterns/index.js";
 import { walkAndRedact } from "../utils/redaction.js";
 
@@ -49,9 +50,17 @@ export function registerBerryPulp(
                         ts: new Date().toISOString(),
                     };
                     api.logger.warn(`[berry-shield] Berry.Pulp: ${formatAuditEvent(auditEvent)}`);
+                    appendAuditEvent(auditEvent);
                     return event;
                 }
 
+                const auditEvent: AuditRedactEvent = {
+                    mode: "enforce", decision: AUDIT_DECISIONS.REDACTED, layer: SECURITY_LAYERS.PULP,
+                    hook: HOOKS.TOOL_RESULT_PERSIST, toolName: event.toolName ?? "unknown",
+                    count: redactionCount, types: redactedTypes,
+                    ts: new Date().toISOString(),
+                };
+                appendAuditEvent(auditEvent);
                 api.logger.warn(`[berry-shield] Redacted ${redactionCount} items [${redactedTypes.join(", ")}] from tool result: ${event.toolName}`);
 
                 // Return modified message. 'content' is the redacted version of event.message.
@@ -79,9 +88,17 @@ export function registerBerryPulp(
                         ts: new Date().toISOString(),
                     };
                     api.logger.warn(`[berry-shield] Berry.Pulp: ${formatAuditEvent(auditEvent)}`);
+                    appendAuditEvent(auditEvent);
                     return undefined;
                 }
 
+                const auditEvent: AuditRedactEvent = {
+                    mode: "enforce", decision: AUDIT_DECISIONS.REDACTED, layer: SECURITY_LAYERS.PULP,
+                    hook: HOOKS.MESSAGE_SENDING, toolName: "message",
+                    count: redactionCount, types: redactedTypes,
+                    ts: new Date().toISOString(),
+                };
+                appendAuditEvent(auditEvent);
                 api.logger.warn(`[berry-shield] Berry.Pulp: redacted ${redactionCount} item(s) [${redactedTypes.join(", ")}] in outgoing message`);
                 return { content: content };
             }

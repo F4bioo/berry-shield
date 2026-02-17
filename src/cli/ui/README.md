@@ -72,7 +72,7 @@ Do not create one-off symbols inside commands.
 For command screens, follow this order:
 
 1. `ui.header(...)`
-2. `ui.row(...)` and/or `ui.successMsg(...)` / `ui.error(...)`
+2. `ui.row(...)` and/or `ui.successMsg(...)` / `ui.failureMsg(...)`
 3. `ui.footer(...)`
 
 Use a custom footer message only when it adds immediate next-step guidance.
@@ -160,18 +160,18 @@ ui.row("Name", "my-rule");
 ui.footer("Berry Shield updated! Changes are applied instantly.");
 ```
 
-## Error Template
+## Failure Template
 
-Use `ui.error(...)` for direct failure messaging.
-Use `ui.header(..., "error")` + rows only when you need structured error details.
+Use `ui.failureMsg(...)` for direct failure messaging.
+Use `ui.header(..., "error")` + rows only when you need structured failure details.
 
-Simple error:
+Simple failure:
 
 ```ts
-ui.error("Invalid mode. Use 'audit' or 'enforce'.");
+ui.failureMsg("Invalid mode. Use 'audit' or 'enforce'.");
 ```
 
-Structured error:
+Structured failure:
 
 ```ts
 ui.header("Operation Failed", "error");
@@ -201,7 +201,7 @@ options: [
 ## Do and Don't
 
 Do:
-- Use `ui.header`, `ui.row`, `ui.footer`, `ui.successMsg`, `ui.error`.
+- Use `ui.header`, `ui.row`, `ui.footer`, `ui.successMsg`, `ui.warningMsg`, `ui.failureMsg`.
 - Keep command outputs predictable and scan-friendly.
 - Keep command wording and capitalization consistent.
 - Route new visual tokens through `theme.ts`.

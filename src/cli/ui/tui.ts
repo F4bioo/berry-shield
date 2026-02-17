@@ -23,8 +23,9 @@ export const ui = {
     header(title: string, type: "info" | "success" | "error" = "info") {
         const termWidth = process.stdout.columns || 80;
 
+        // Keep section headers visually neutral (diamond).
+        // Success/error state should be expressed in content rows (successMsg/warningMsg/error).
         let marker = ` ${symbols.marker} `;
-        if (type === "success") marker = ` ${symbols.success} `;
         if (type === "error") marker = ` ${symbols.error} `;
 
         const formattedTitle = theme.accentBold(title);
@@ -110,9 +111,9 @@ export const ui = {
     },
 
     /**
-     * Error message with the same style
+     * Helper for standardized failure message lines
      */
-    error(message: string) {
-        console.log(`\n   ${symbols.brand} ${theme.error("Error:")} ${message}\n`);
-    }
+    failureMsg(message: string) {
+        console.log(`   ${symbols.failure} ${theme.error("Error:")} ${message}`);
+    },
 };

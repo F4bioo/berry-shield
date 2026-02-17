@@ -8,6 +8,7 @@ import { registerBerryLeaf } from "./layers/leaf.js";
 import { registerBerryStem } from "./layers/stem.js";
 import { registerBerryShieldCli } from "./cli/index.js";
 import { initializePatterns } from "./patterns/index.js";
+import { initAuditWriter } from "./audit/writer.js";
 
 /**
  * Berry Shield - Security architecture for OpenClaw
@@ -29,6 +30,7 @@ export default {
     register(api: OpenClawPluginApi) {
         // Initialize security patterns from disk
         initializePatterns();
+        initAuditWriter();
 
         // Get user config (priority to plugin-specific config) and merge with defaults
         const userConfig = api.pluginConfig ?? api.config ?? {};

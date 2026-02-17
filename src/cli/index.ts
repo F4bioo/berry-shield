@@ -16,6 +16,7 @@ import { initCommand } from "./commands/init.js";
 import { statusCommand } from "./commands/status.js";
 import { modeCommand } from "./commands/mode.js";
 import { toggleCommand } from "./commands/toggle.js";
+import { reportCommand } from "./commands/report.js";
 import { ui } from "./ui/tui.js";
 import { theme } from "./ui/theme.js";
 
@@ -128,6 +129,17 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .description("Toggle a security layer on/off")
                 .action(async (layer: string) => {
                     await toggleCommand(layer, context, wrapper);
+                }),
+            );
+
+            // Report command
+            attachSubcommandHelp(
+                bshield
+                .command("report")
+                .description("Show global audit report from persisted events")
+                .option("--clear", "Clear the persisted audit log")
+                .action(async (options: { clear?: boolean }) => {
+                    await reportCommand(options, logger);
                 }),
             );
         },

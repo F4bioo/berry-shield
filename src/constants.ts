@@ -102,3 +102,13 @@ export const SECURITY_LAYERS = {
     PULP: "pulp",
     THORN: "thorn",
 } as const;
+
+/** Audit log persistence configuration */
+export const AUDIT_LOG = {
+    DIR: "logs/berry-shield",
+    FILE: "audit.jsonl",
+    FLUSH_INTERVAL_MS: 10_000,
+    FLUSH_BATCH_SIZE: 20,
+    MAX_BUFFER_SIZE: 200,
+    MAX_FILE_SIZE: 5 * 1024 * 1024,
+} as const;

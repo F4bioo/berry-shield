@@ -17,6 +17,7 @@
 import type { AuditBlockEvent } from "../types/audit-event.js";
 import { formatAuditEvent } from "../types/audit-event.js";
 import { AUDIT_DECISIONS, SECURITY_LAYERS } from "../constants.js";
+import { appendAuditEvent } from "../audit/writer.js";
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
@@ -234,7 +235,14 @@ export function registerBerryStem(
                             ts: new Date().toISOString(),
                         };
                         api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
+                        appendAuditEvent(event);
                     } else {
+                        const event: AuditBlockEvent = {
+                            mode: "enforce", decision: AUDIT_DECISIONS.BLOCKED, layer: SECURITY_LAYERS.STEM,
+                            reason: "destructive command", target: target.substring(0, 100),
+                            ts: new Date().toISOString(),
+                        };
+                        appendAuditEvent(event);
                         return {
                             content: [
                                 { type: "text", text: formatDeniedDestructiveCommand(target) },
@@ -253,8 +261,15 @@ export function registerBerryStem(
                             ts: new Date().toISOString(),
                         };
                         api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
+                        appendAuditEvent(event);
                     } else {
                         api.logger.warn(`[berry-shield] Berry.Stem: DENIED exec - command references sensitive file: ${target.substring(0, 50)}`);
+                        const event: AuditBlockEvent = {
+                            mode: "enforce", decision: AUDIT_DECISIONS.BLOCKED, layer: SECURITY_LAYERS.STEM,
+                            reason: "sensitive file reference", target: target.substring(0, 100),
+                            ts: new Date().toISOString(),
+                        };
+                        appendAuditEvent(event);
                         return {
                             content: [
                                 { type: "text", text: formatDeniedSensitiveFile(target) },
@@ -275,8 +290,15 @@ export function registerBerryStem(
                             ts: new Date().toISOString(),
                         };
                         api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
+                        appendAuditEvent(event);
                     } else {
                         api.logger.warn(`[berry-shield] Berry.Stem: DENIED ${operation} - sensitive file: ${target}`);
+                        const event: AuditBlockEvent = {
+                            mode: "enforce", decision: AUDIT_DECISIONS.BLOCKED, layer: SECURITY_LAYERS.STEM,
+                            reason: "sensitive file access", target,
+                            ts: new Date().toISOString(),
+                        };
+                        appendAuditEvent(event);
                         return {
                             content: [
                                 { type: "text", text: formatDeniedSensitiveFile(target) },
