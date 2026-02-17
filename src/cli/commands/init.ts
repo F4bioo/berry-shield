@@ -17,9 +17,10 @@ export async function initCommand(context: OpenClawPluginCliContext, wrapper: Co
         );
 
         if (currentConfig) {
-            ui.header("Berry Shield Initialization");
-            ui.successMsg("Configuration already exists.");
-            ui.footer();
+            ui.scaffold({
+                header: (s) => s.header("Berry Shield Initialization"),
+                content: (s) => s.successMsg("Configuration already exists."),
+            });
             return;
         }
 
@@ -30,15 +31,17 @@ export async function initCommand(context: OpenClawPluginCliContext, wrapper: Co
         // 3. Ensure plugin is enabled
         await wrapper.set(CONFIG_PATHS.ENABLED, true);
 
-        ui.header("Berry Shield Initialization", "success");
-        ui.successMsg("Initialized successfully with default settings.");
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Berry Shield Initialization"),
+            content: (s) => s.successMsg("Initialized successfully with default settings."),
+        });
 
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        ui.header("Operation Failed", "error");
-        ui.row("Error", `Failed to initialize: ${message}`);
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Operation Failed"),
+            content: (s) => s.failureMsg(`Failed to initialize: ${message}`),
+        });
         logger.error(`[berry-shield] CLI error: Failed to initialize: ${message}`);
         process.exit(1);
     }

@@ -16,17 +16,35 @@ const TIPS = [
     "Redaction replaces sensitive data with markers to ensure privacy.",
 ];
 
+type HeaderSlot = {
+    header: (title: string) => void;
+};
+
+type ContentSlot = {
+    section: (title: string) => void;
+    row: (label: string, value: string) => void;
+    table: (rows: ReadonlyArray<{ label: string; value: string }>, minLabelWidth?: number) => void;
+    divider: (width?: number) => void;
+    spacer: (lines?: number) => void;
+    successMsg: (message: string) => void;
+    warningMsg: (message: string) => void;
+    failureMsg: (message: string) => void;
+};
+
+type BottomSlot = {
+    footer: (customMessage?: string) => void;
+};
+
 export const ui = {
     /**
    * ◇ Title ────────────────────────────────────────────
    */
-    header(title: string, type: "info" | "success" | "error" = "info") {
+    header(title: string) {
         const termWidth = process.stdout.columns || 80;
 
         // Keep section headers visually neutral (diamond).
-        // Success/error state should be expressed in content rows (successMsg/warningMsg/error).
-        let marker = ` ${symbols.marker} `;
-        if (type === "error") marker = ` ${symbols.error} `;
+        // Success/failure state should be expressed in content rows.
+        const marker = ` ${symbols.marker} `;
 
         const formattedTitle = theme.accentBold(title);
         const lineLength = Math.max(0, termWidth - title.length - 6);
@@ -41,6 +59,13 @@ export const ui = {
     row(label: string, value: string) {
         const paddedLabel = theme.muted(label.padEnd(12));
         console.log(`   ${paddedLabel} ${value}`);
+    },
+
+    /**
+     * Section subtitle inside scaffold content.
+     */
+    section(title: string) {
+        console.log(`   ${symbols.marker} ${theme.accent(title)}`);
     },
 
     /**
@@ -76,6 +101,47 @@ export const ui = {
         const safeLines = Number.isInteger(lines) && lines > 0 ? lines : 1;
         for (let i = 0; i < safeLines; i += 1) {
             console.log("");
+        }
+    },
+
+    /**
+     * Standard command screen composition.
+     * - header: optional
+     * - content: required
+     * - bottom: optional (defaults to ui.footer())
+     */
+    scaffold(options: {
+        header?: (h: HeaderSlot) => void;
+        content: (c: ContentSlot) => void;
+        bottom?: (f: BottomSlot) => void;
+    }) {
+        const headerSlot: HeaderSlot = {
+            header: (title) => this.header(title),
+        };
+        const contentSlot: ContentSlot = {
+            section: (title) => this.section(title),
+            row: (label, value) => this.row(label, value),
+            table: (rows, minLabelWidth = 12) => this.table(rows, minLabelWidth),
+            divider: (width = 20) => this.divider(width),
+            spacer: (lines = 1) => this.spacer(lines),
+            successMsg: (message) => this.successMsg(message),
+            warningMsg: (message) => this.warningMsg(message),
+            failureMsg: (message) => this.failureMsg(message),
+        };
+        const bottomSlot: BottomSlot = {
+            footer: (customMessage) => this.footer(customMessage),
+        };
+
+        if (options.header) {
+            options.header(headerSlot);
+        }
+
+        options.content(contentSlot);
+
+        if (options.bottom) {
+            options.bottom(bottomSlot);
+        } else {
+            this.footer();
         }
     },
 

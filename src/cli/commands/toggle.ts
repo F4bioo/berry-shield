@@ -10,9 +10,10 @@ export async function toggleCommand(layer: string, context: OpenClawPluginCliCon
     const validLayers = Object.keys(DEFAULT_CONFIG.layers);
 
     if (!validLayers.includes(layer)) {
-        ui.header("Operation Failed", "error");
-        ui.row("Error", `Invalid layer '${layer}'. Available layers: ${validLayers.join(", ")}`);
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Operation Failed"),
+            content: (s) => s.failureMsg(`Invalid layer '${layer}'. Available layers: ${validLayers.join(", ")}`),
+        });
         process.exit(1);
     }
 
@@ -26,15 +27,17 @@ export async function toggleCommand(layer: string, context: OpenClawPluginCliCon
 
         await wrapper.set(path, newValue);
 
-        ui.header("Layer Toggle", "success");
-        ui.successMsg(`Layer '${layer}' is now ${newValue ? theme.success("ENABLED") : theme.muted("DISABLED")}`);
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Layer Toggle"),
+            content: (s) => s.successMsg(`Layer '${layer}' is now ${newValue ? theme.success("ENABLED") : theme.muted("DISABLED")}`),
+        });
 
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        ui.header("Operation Failed", "error");
-        ui.row("Error", `Failed to toggle layer: ${message}`);
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Operation Failed"),
+            content: (s) => s.failureMsg(`Failed to toggle layer: ${message}`),
+        });
         logger.error(`[berry-shield] CLI error: Failed to toggle layer: ${message}`);
         process.exit(1);
     }

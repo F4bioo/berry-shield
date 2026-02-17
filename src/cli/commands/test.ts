@@ -57,21 +57,27 @@ export async function testCommand(
 
     // Display results
     if (matches.length === 0) {
-        ui.header("Pattern Test", "error");
-        ui.row("Result", "No matches found");
-        ui.row("Input", theme.dim(input.length > 64 ? input.slice(0, 61) + "..." : input));
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Pattern Test"),
+            content: (s) => {
+                s.failureMsg("No matches found");
+                s.row("Input", theme.dim(input.length > 64 ? input.slice(0, 61) + "..." : input));
+            },
+        });
         return;
     }
 
-    ui.header("Pattern Test", "success");
-    ui.row("Result", `${matches.length} match(es) found`);
-    ui.row("Input", theme.dim(input.length > 64 ? input.slice(0, 61) + "..." : input));
-    ui.divider(24);
-    for (const match of matches) {
-        ui.row(match.source.toUpperCase(), match.name);
-        ui.row("Redaction", match.placeholder);
-        ui.divider(24);
-    }
-    ui.footer();
+    ui.scaffold({
+        header: (s) => s.header("Pattern Test"),
+        content: (s) => {
+            s.successMsg(`${matches.length} match(es) found`);
+            s.row("Input", theme.dim(input.length > 64 ? input.slice(0, 61) + "..." : input));
+            s.divider(24);
+            for (const match of matches) {
+                s.row(match.source.toUpperCase(), match.name);
+                s.row("Redaction", match.placeholder);
+                s.divider(24);
+            }
+        },
+    });
 }

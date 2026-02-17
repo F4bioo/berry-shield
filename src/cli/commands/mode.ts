@@ -7,22 +7,25 @@ export async function modeCommand(mode: string, context: OpenClawPluginCliContex
     const { logger } = context;
 
     if (mode !== "audit" && mode !== "enforce") {
-        ui.header("Operation Failed", "error");
-        ui.row("Error", "Invalid mode. Use 'audit' or 'enforce'.");
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Operation Failed"),
+            content: (s) => s.failureMsg("Invalid mode. Use 'audit' or 'enforce'."),
+        });
         process.exit(1);
     }
 
     try {
         await wrapper.set(`${CONFIG_PATHS.PLUGIN_CONFIG}.mode`, mode);
-        ui.header("Security Mode", "success");
-        ui.successMsg(`Switched to ${mode.toUpperCase()} mode.`);
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Security Mode"),
+            content: (s) => s.successMsg(`Switched to ${mode.toUpperCase()} mode.`),
+        });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        ui.header("Operation Failed", "error");
-        ui.row("Error", `Failed to set mode: ${message}`);
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Operation Failed"),
+            content: (s) => s.failureMsg(`Failed to set mode: ${message}`),
+        });
         logger.error(`[berry-shield] CLI error: Failed to set mode: ${message}`);
         process.exit(1);
     }

@@ -30,19 +30,24 @@ function printSuccess(
     placeholder: string | undefined,
     logger: PluginLogger
 ): void {
-    ui.header(`Added ${type.toUpperCase()} Rule`, "success");
-    ui.row("Name/ID", name || pattern);
-    ui.row("Pattern", pattern);
-    if (placeholder) ui.row("Redaction", placeholder);
-
-    ui.footer("Berry Shield updated! Changes are applied instantly.");
+    ui.scaffold({
+        header: (s) => s.header(`Added ${type.toUpperCase()} Rule`),
+        content: (s) => {
+            s.successMsg("Rule added successfully.");
+            s.row("Name/ID", name || pattern);
+            s.row("Pattern", pattern);
+            if (placeholder) s.row("Redaction", placeholder);
+        },
+        bottom: (s) => s.footer("Berry Shield updated! Changes are applied instantly."),
+    });
     logger.info(`[berry-shield] CLI: Added ${type} rule: ${name || pattern}`);
 }
 
 function printError(message: string, logger: PluginLogger): void {
-    ui.header("Operation Failed", "error");
-    ui.row("Error", message);
-    ui.footer();
+    ui.scaffold({
+        header: (s) => s.header("Operation Failed"),
+        content: (s) => s.failureMsg(message),
+    });
     logger.error(`[berry-shield] CLI error: ${message}`);
 }
 

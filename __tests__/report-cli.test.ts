@@ -4,20 +4,24 @@ const {
     readAuditEventsMock,
     clearAuditLogMock,
     headerMock,
+    sectionMock,
     tableMock,
     rowMock,
     footerMock,
     warningMsgMock,
     successMsgMock,
+    failureMsgMock,
 } = vi.hoisted(() => ({
     readAuditEventsMock: vi.fn(),
     clearAuditLogMock: vi.fn(),
     headerMock: vi.fn(),
+    sectionMock: vi.fn(),
     tableMock: vi.fn(),
     rowMock: vi.fn(),
     footerMock: vi.fn(),
     warningMsgMock: vi.fn(),
     successMsgMock: vi.fn(),
+    failureMsgMock: vi.fn(),
 }));
 
 vi.mock("../src/audit/reader", () => ({
@@ -28,12 +32,31 @@ vi.mock("../src/audit/reader", () => ({
 vi.mock("../src/cli/ui/tui.js", () => ({
     ui: {
         header: headerMock,
+        section: sectionMock,
         table: tableMock,
         row: rowMock,
         footer: footerMock,
         warningMsg: warningMsgMock,
         successMsg: successMsgMock,
+        failureMsg: failureMsgMock,
         spacer: vi.fn(),
+        scaffold: ({ header, content, bottom }: any) => {
+            const helpers = {
+                header: headerMock,
+                section: sectionMock,
+                table: tableMock,
+                row: rowMock,
+                footer: footerMock,
+                warningMsg: warningMsgMock,
+                successMsg: successMsgMock,
+                failureMsg: failureMsgMock,
+                spacer: vi.fn(),
+            };
+            if (header) header(helpers);
+            content(helpers);
+            if (bottom) bottom(helpers);
+            else footerMock();
+        },
     },
 }));
 
@@ -65,6 +88,8 @@ describe("reportCommand", () => {
 
         expect(tableMock).toHaveBeenCalled();
         expect(rowMock).toHaveBeenCalled();
+        expect(sectionMock).toHaveBeenCalledWith("Summary");
+        expect(sectionMock).toHaveBeenCalledWith("Details");
         expect(footerMock).toHaveBeenCalled();
     });
 
@@ -77,4 +102,3 @@ describe("reportCommand", () => {
         expect(successMsgMock).toHaveBeenCalledWith("Audit log cleared (3 event(s)).");
     });
 });
-

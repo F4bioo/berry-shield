@@ -71,17 +71,31 @@ Do not create one-off symbols inside commands.
 
 For command screens, follow this order:
 
-1. `ui.header(...)`
-2. `ui.row(...)` and/or `ui.successMsg(...)` / `ui.failureMsg(...)`
-3. `ui.footer(...)`
+1. `ui.scaffold({ ... })`
+2. `header` (optional): only top-level screen title
+3. `content` (required): `section/row/table/divider/spacer/success/warning/failure`
+4. `bottom` (optional): `footer` (falls back to default footer when omitted)
 
 Use a custom footer message only when it adds immediate next-step guidance.
-Otherwise call `ui.footer()` and let the random tip be shown.
+Otherwise omit `bottom` and let scaffold call default footer.
 
-## Row vs Table vs Divider vs Spacer
+## Scaffold Slot Contract
+
+`scaffold` uses typed slots by design:
+
+- `header(h)`: only `h.header(...)`
+- `content(c)`: only content primitives (`section/row/table/divider/spacer/successMsg/warningMsg/failureMsg`)
+- `bottom(f)`: only `f.footer(...)`
+
+This prevents accidental misuse like calling `header` or `footer` inside `content`.
+
+## Section vs Row vs Table vs Divider vs Spacer
 
 Use the right primitive for each output shape:
 
+- `ui.section(title)`:
+  - subtitle inside scaffold content
+  - use for internal group headers (`Summary`, `Details`, `Security Layers`)
 - `ui.row(label, value)`:
   - one-off key/value lines
   - short sections with few items
@@ -98,38 +112,52 @@ Use the right primitive for each output shape:
 Examples:
 
 ```ts
-ui.header("Rule Removed", "success");
-ui.row("Type", "SECRET");
-ui.row("Name", "my-rule");
-ui.footer();
+ui.scaffold({
+  header: (h) => h.header("Rule Removed"),
+  content: (c) => {
+    c.successMsg("Rule removed successfully.");
+    c.row("Type", "SECRET");
+    c.row("Name", "my-rule");
+  },
+});
 ```
 
 ```ts
-ui.header("Security Layers");
-ui.table([
-  { label: "Root (Prompt Guard)", value: theme.success("ACTIVE") },
-  { label: "Pulp (Output Scanner)", value: theme.success("ACTIVE") },
-  { label: "Thorn (Tool Blocker)", value: theme.muted("OFF") },
-]);
-ui.footer();
+ui.scaffold({
+  header: (h) => h.header("Berry Shield"),
+  content: (c) => {
+    c.section("Security Layers");
+    c.table([
+      { label: "Root (Prompt Guard)", value: theme.success("ACTIVE") },
+      { label: "Pulp (Output Scanner)", value: theme.success("ACTIVE") },
+      { label: "Thorn (Tool Blocker)", value: theme.muted("OFF") },
+    ]);
+  },
+});
 ```
 
 ```ts
-ui.header("Pattern Test", "success");
-ui.row("Result", "2 match(es) found");
-ui.divider(24);
-ui.row("BUILT-IN", "GitHub Token");
-ui.row("Redaction", "[GITHUB_TOKEN_REDACTED]");
-ui.footer();
+ui.scaffold({
+  header: (h) => h.header("Pattern Test"),
+  content: (c) => {
+    c.successMsg("2 match(es) found");
+    c.divider(24);
+    c.row("BUILT-IN", "GitHub Token");
+    c.row("Redaction", "[GITHUB_TOKEN_REDACTED]");
+  },
+});
 ```
 
 ```ts
-ui.header("Security Mode", "success");
-ui.successMsg("Switched to AUDIT mode.");
-ui.warningMsg("The gateway must be restarted for changes to apply.");
-ui.spacer();
-ui.row("Recommended", "sudo systemctl restart openclaw");
-ui.footer();
+ui.scaffold({
+  header: (h) => h.header("Security Mode"),
+  content: (c) => {
+    c.successMsg("Switched to AUDIT mode.");
+    c.warningMsg("The gateway must be restarted for changes to apply.");
+    c.spacer();
+    c.row("Recommended", "sudo systemctl restart openclaw");
+  },
+});
 ```
 
 ## Help Screens
@@ -154,29 +182,41 @@ Notes:
 Use for successful operations that change state.
 
 ```ts
-ui.header("Rule Removed", "success");
-ui.row("Type", "SECRET");
-ui.row("Name", "my-rule");
-ui.footer("Berry Shield updated! Changes are applied instantly.");
+ui.scaffold({
+  header: (h) => h.header("Rule Removed"),
+  content: (c) => {
+    c.successMsg("Rule removed successfully.");
+    c.row("Type", "SECRET");
+    c.row("Name", "my-rule");
+  },
+  bottom: (f) => f.footer("Berry Shield updated! Changes are applied instantly."),
+});
 ```
 
 ## Failure Template
 
 Use `ui.failureMsg(...)` for direct failure messaging.
-Use `ui.header(..., "error")` + rows only when you need structured failure details.
+Keep `header` neutral; signal state in content.
 
 Simple failure:
 
 ```ts
-ui.failureMsg("Invalid mode. Use 'audit' or 'enforce'.");
+ui.scaffold({
+  header: (h) => h.header("Operation Failed"),
+  content: (c) => c.failureMsg("Invalid mode. Use 'audit' or 'enforce'."),
+});
 ```
 
 Structured failure:
 
 ```ts
-ui.header("Operation Failed", "error");
-ui.row("Error", "Rule 'x' not found.");
-ui.footer();
+ui.scaffold({
+  header: (h) => h.header("Operation Failed"),
+  content: (c) => {
+    c.failureMsg("Rule 'x' not found.");
+    c.row("Hint", "Use 'openclaw bshield list' to inspect rules.");
+  },
+});
 ```
 
 ## Wizard and Select Menus
@@ -201,10 +241,11 @@ options: [
 ## Do and Don't
 
 Do:
-- Use `ui.header`, `ui.row`, `ui.footer`, `ui.successMsg`, `ui.warningMsg`, `ui.failureMsg`.
+- Use `ui.scaffold` and slot helpers (`header`, `section`, `row`, `table`, `successMsg`, `warningMsg`, `failureMsg`, `footer`).
 - Keep command outputs predictable and scan-friendly.
 - Keep command wording and capitalization consistent.
 - Route new visual tokens through `theme.ts`.
+- Keep top-level title in `header`; keep internal grouping in `section`.
 
 Don't:
 - Mix raw `console.log` with TUI layout in command screens.

@@ -62,33 +62,40 @@ export async function listCommand(
         "Destructive Commands": allRules.filter(r => r.type === "command"),
     };
 
-    Object.entries(groups).forEach(([title, rules]) => {
-        if (rules.length === 0) return;
+    const visibleGroups = Object.entries(groups).filter(([, rules]) => rules.length > 0);
 
-        ui.header(`${title} (${rules.length})`);
+    ui.scaffold({
+        header: (h) => h.header("Security Rules"),
+        content: (s) => {
+            visibleGroups.forEach(([title, rules], index) => {
+                if (index > 0) {
+                    s.spacer();
+                }
 
-        const external = rules.filter(r => r.source === "custom");
-        const internal = rules.filter(r => r.source === "built-in");
+                s.section(`${title} (${rules.length})`);
 
-        // Show External (Custom) first
-        external.forEach(rule => {
-            const id = rule.name ? `${rule.name}` : `/${rule.pattern}/`;
-            const displayId = id.length > 55 ? id.substring(0, 52) + "..." : id;
-            ui.row("EXTERNAL", displayId);
-        });
+                const external = rules.filter(r => r.source === "custom");
+                const internal = rules.filter(r => r.source === "built-in");
 
-        // Add a small divider if both exist
-        if (external.length > 0 && internal.length > 0) {
-            ui.divider(20);
-        }
+                // Show External (Custom) first
+                external.forEach(rule => {
+                    const id = rule.name ? `${rule.name}` : `/${rule.pattern}/`;
+                    const displayId = id.length > 55 ? id.substring(0, 52) + "..." : id;
+                    s.row("EXTERNAL", displayId);
+                });
 
-        // Show Internal (Built-in)
-        internal.forEach(rule => {
-            const id = rule.name ? `${rule.name}` : `/${rule.pattern}/`;
-            const displayId = id.length > 55 ? id.substring(0, 52) + "..." : id;
-            ui.row("INTERNAL", displayId);
-        });
+                // Add a small divider if both exist
+                if (external.length > 0 && internal.length > 0) {
+                    s.divider(20);
+                }
+
+                // Show Internal (Built-in)
+                internal.forEach(rule => {
+                    const id = rule.name ? `${rule.name}` : `/${rule.pattern}/`;
+                    const displayId = id.length > 55 ? id.substring(0, 52) + "..." : id;
+                    s.row("INTERNAL", displayId);
+                });
+            });
+        },
     });
-
-    ui.footer();
 }

@@ -22,17 +22,22 @@ export async function removeCommand(
     const result = await removeCustomRule(name);
 
     if (!result.removed) {
-        ui.header("Operation Failed", "error");
-        ui.row("Error", `Rule '${name}' not found.`);
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Operation Failed"),
+            content: (s) => s.failureMsg(`Rule '${name}' not found.`),
+        });
         logger.error(`[berry-shield] CLI: Rule '${name}' not found`);
         return;
     }
 
-    ui.header("Rule Removed", "success");
-    ui.row("Type", (result.type || "unknown").toUpperCase());
-    ui.row("Name", name);
-
-    ui.footer("Berry Shield updated! Changes are applied instantly.");
+    ui.scaffold({
+        header: (s) => s.header("Rule Removed"),
+        content: (s) => {
+            s.successMsg("Rule removed successfully.");
+            s.row("Type", (result.type || "unknown").toUpperCase());
+            s.row("Name", name);
+        },
+        bottom: (s) => s.footer("Berry Shield updated! Changes are applied instantly."),
+    });
     logger.info(`[berry-shield] CLI: Removed ${(result.type || "")} rule: ${name}`);
 }

@@ -32,21 +32,10 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
         const builtInCount = SECRET_PATTERNS.length + PII_PATTERNS.length +
             SENSITIVE_FILE_PATTERNS.length + DESTRUCTIVE_COMMAND_PATTERNS.length;
 
-        // Visual Dashboard
-        ui.header("Berry Shield");
-
         const statusLabel = isEnabled ? theme.success("ENABLED") : theme.muted("DISABLED");
         const mode = (shieldConfig.mode || "audit").toUpperCase();
         const modeLabel = mode === "ENFORCE" ? theme.success("ENFORCE") : theme.warning("AUDIT");
         const ruleDetails = `Built-in (${builtInCount}) - Custom (${customCount})`;
-
-        ui.table([
-            { label: "Status", value: statusLabel },
-            { label: "Mode", value: modeLabel },
-            { label: "Rules", value: ruleDetails },
-        ]);
-
-        ui.header("Security Layers");
 
         // Display layers in a consistent order
         const layers = [
@@ -57,20 +46,33 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
             { name: "Stem (Security Gate)", active: shieldConfig.layers.stem },
         ];
 
-        ui.table(
-            layers.map(layer => ({
-                label: layer.name,
-                value: layer.active ? theme.success("ACTIVE") : theme.muted("OFF"),
-            })),
-        );
+        ui.scaffold({
+            header: (s) => s.header("Berry Shield"),
+            content: (s) => {
+                s.table([
+                    { label: "Status", value: statusLabel },
+                    { label: "Mode", value: modeLabel },
+                    { label: "Rules", value: ruleDetails },
+                ]);
 
-        ui.footer("Use 'openclaw bshield add' to create custom rules.");
+                s.spacer();
+                s.section("Security Layers");
+                s.table(
+                    layers.map(layer => ({
+                        label: layer.name,
+                        value: layer.active ? theme.success("ACTIVE") : theme.muted("OFF"),
+                    })),
+                );
+            },
+            bottom: (s) => s.footer("Use 'openclaw bshield add' to create custom rules."),
+        });
 
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        ui.header("Operation Failed", "error");
-        ui.row("Error", `Failed to get status: ${message}`);
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Operation Failed"),
+            content: (s) => s.failureMsg(`Failed to get status: ${message}`),
+        });
         logger.error(`[berry-shield] CLI error: Failed to get status: ${message}`);
         process.exit(1);
     }

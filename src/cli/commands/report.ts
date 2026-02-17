@@ -45,47 +45,53 @@ export async function reportCommand(options: ReportOptions, logger: PluginLogger
     try {
         if (options.clear) {
             const { cleared } = await clearAuditLog();
-            ui.header("Global Report", "success");
-            ui.successMsg(`Audit log cleared (${cleared} event(s)).`);
-            ui.footer("Best-effort clear: in-flight buffered events may be written after this command.");
+            ui.scaffold({
+                header: (s) => s.header("Global Report"),
+                content: (s) => s.successMsg(`Audit log cleared (${cleared} event(s)).`),
+                bottom: (s) => s.footer("Best-effort clear: in-flight buffered events may be written after this command."),
+            });
             return;
         }
 
         const events = await readAuditEvents();
         if (events.length === 0) {
-            ui.header("Global Report");
-            ui.warningMsg("No audit events found.");
-            ui.footer("Generate activity, then run 'openclaw bshield report' again.");
+            ui.scaffold({
+                header: (s) => s.header("Global Report"),
+                content: (s) => s.warningMsg("No audit events found."),
+                bottom: (s) => s.footer("Generate activity, then run 'openclaw bshield report' again."),
+            });
             return;
         }
 
         const summary = buildSummary(events);
         const recentEvents = events.slice(-8);
 
-        ui.header("Global Report");
-        ui.table([
-            { label: "Events", value: theme.bold(String(events.length)) },
-            { label: "Period", value: formatPeriod(events) },
-        ]);
+        ui.scaffold({
+            header: (s) => s.header("Global Report"),
+            content: (s) => {
+                s.table([
+                    { label: "Events", value: theme.bold(String(events.length)) },
+                    { label: "Period", value: formatPeriod(events) },
+                ]);
 
-        ui.spacer();
-        ui.header("Summary");
-        ui.table(summary);
+                s.spacer();
+                s.section("Summary");
+                s.table(summary);
 
-        ui.spacer();
-        ui.header("Details");
-        for (const event of recentEvents) {
-            ui.row(event.layer, `${event.decision} | ${eventDetail(event)}`);
-        }
-
-        ui.footer();
+                s.spacer();
+                s.section("Details");
+                for (const event of recentEvents) {
+                    s.row(event.layer, `${event.decision} | ${eventDetail(event)}`);
+                }
+            },
+        });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        ui.header("Operation Failed", "error");
-        ui.row("Error", `Failed to generate report: ${message}`);
-        ui.footer();
+        ui.scaffold({
+            header: (s) => s.header("Operation Failed"),
+            content: (s) => s.failureMsg(`Failed to generate report: ${message}`),
+        });
         logger.error(`[berry-shield] CLI error: Failed to generate report: ${message}`);
         process.exit(1);
     }
 }
-
