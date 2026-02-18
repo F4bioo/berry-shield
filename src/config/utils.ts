@@ -1,7 +1,7 @@
 import {
     BerryShieldPluginConfig,
     BerryShieldLayersConfig,
-    BerryShieldPolicyInjectionMode,
+    BerryShieldPolicyProfile,
 } from "../types/config.js";
 import { DEFAULT_CONFIG } from "./defaults.js";
 
@@ -51,13 +51,13 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
         ? (rawPolicy.retention as Record<string, unknown>)
         : {};
 
-    const injectionMode = (
-        rawPolicy.injectionMode === "always_full"
-        || rawPolicy.injectionMode === "session_full_plus_reminder"
-        || rawPolicy.injectionMode === "session_full_only"
+    const profile = (
+        rawPolicy.profile === "strict"
+        || rawPolicy.profile === "balanced"
+        || rawPolicy.profile === "minimal"
     )
-        ? rawPolicy.injectionMode as BerryShieldPolicyInjectionMode
-        : DEFAULT_CONFIG.policy.injectionMode;
+        ? rawPolicy.profile as BerryShieldPolicyProfile
+        : DEFAULT_CONFIG.policy.profile;
 
     const maxEntries = (typeof rawRetention.maxEntries === "number" && Number.isFinite(rawRetention.maxEntries) && rawRetention.maxEntries > 0)
         ? Math.floor(rawRetention.maxEntries)
@@ -66,6 +66,26 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
     const ttlSeconds = (typeof rawRetention.ttlSeconds === "number" && Number.isFinite(rawRetention.ttlSeconds) && rawRetention.ttlSeconds > 0)
         ? Math.floor(rawRetention.ttlSeconds)
         : DEFAULT_CONFIG.policy.retention.ttlSeconds;
+
+    const rawAdaptive = (rawPolicy.adaptive && typeof rawPolicy.adaptive === "object")
+        ? (rawPolicy.adaptive as Record<string, unknown>)
+        : {};
+
+    const staleAfterMinutes = (typeof rawAdaptive.staleAfterMinutes === "number" && Number.isFinite(rawAdaptive.staleAfterMinutes) && rawAdaptive.staleAfterMinutes > 0)
+        ? Math.floor(rawAdaptive.staleAfterMinutes)
+        : DEFAULT_CONFIG.policy.adaptive.staleAfterMinutes;
+
+    const escalationTurns = (typeof rawAdaptive.escalationTurns === "number" && Number.isFinite(rawAdaptive.escalationTurns) && rawAdaptive.escalationTurns > 0)
+        ? Math.floor(rawAdaptive.escalationTurns)
+        : DEFAULT_CONFIG.policy.adaptive.escalationTurns;
+
+    const heartbeatEveryTurns = (typeof rawAdaptive.heartbeatEveryTurns === "number" && Number.isFinite(rawAdaptive.heartbeatEveryTurns) && rawAdaptive.heartbeatEveryTurns >= 0)
+        ? Math.floor(rawAdaptive.heartbeatEveryTurns)
+        : DEFAULT_CONFIG.policy.adaptive.heartbeatEveryTurns;
+
+    const allowGlobalEscalation = typeof rawAdaptive.allowGlobalEscalation === "boolean"
+        ? rawAdaptive.allowGlobalEscalation
+        : DEFAULT_CONFIG.policy.adaptive.allowGlobalEscalation;
 
     return {
         mode,
@@ -77,7 +97,13 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
             stem: normalizedLayers.stem ?? DEFAULT_CONFIG.layers.stem,
         },
         policy: {
-            injectionMode,
+            profile,
+            adaptive: {
+                staleAfterMinutes,
+                escalationTurns,
+                heartbeatEveryTurns,
+                allowGlobalEscalation,
+            },
             retention: {
                 maxEntries,
                 ttlSeconds,

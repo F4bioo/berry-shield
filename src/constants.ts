@@ -23,6 +23,7 @@ export const ENV_VARS = {
 export const CONFIG_PATHS = {
     PLUGIN_ROOT: `plugins.entries.${PLUGIN_ID}`,
     PLUGIN_CONFIG: `plugins.entries.${PLUGIN_ID}.config`,
+    POLICY_CONFIG: `plugins.entries.${PLUGIN_ID}.config.policy`,
     ENABLED: `plugins.entries.${PLUGIN_ID}.enabled`,
 };
 

@@ -1,11 +1,43 @@
-# Deploy - Installation, Build & Audit
+﻿---
+summary: "Deployment index for installation tracks, build pipeline, and validation gates"
+read_when:
+  - You need to install Berry Shield in a real environment
+  - You need to choose between source-truth and release-truth deployment
+  - You need pre-release validation and audit gates
+title: "Deploy Reference"
+---
 
-Guide for setting up Berry Shield in a production-ready environment and maintaining technical sanity across the codebase.
+# `Deploy reference`
 
-## Navigation
-- **[Installation](installation.md)**: Prerequisites and setup steps for the OpenClaw plugin.
-- **[Build Pipeline](build.md)**: Compile, bundle, and type-check procedures.
-- **[Auditing & Sanity](auditing.md)**: Running the `Doc Sanity` auditor to maintain technical purity.
+This domain explains how to deploy Berry Shield safely and repeatably.
+It covers installation tracks, build/release gates, and validation workflow.
 
-## Philosophy
-Deploying Berry Shield is not just about moving code; it is about establishing a **sanitized environment**. The build pipeline is designed to be rigorous, ensuring that only verified, type-safe code reaches the production stage.
+## Deployment tracks
+
+Berry supports two operational tracks:
+
+- Source-truth track: run exactly what is in this repository (build from source).
+- Release-truth track: consume published package artifact once registry release is available.
+
+If published package is not yet available, use source-truth track.
+
+## Pages
+
+- [installation](installation.md): installation paths and post-install verification
+- [build](build.md): build, typecheck, test, and release gates
+- [auditing](auditing.md): wiki sanity and documentation quality gates
+
+## Recommended deployment sequence
+
+1. Choose installation track (source-truth or release-truth).
+2. Build and install the plugin artifact.
+3. Restart gateway runtime and initialize plugin config.
+4. Run tests and wiki sanity gates.
+5. Verify runtime mode/status/report.
+
+## Related pages
+
+- [wiki index](../README.md)
+- [operation index](../operation/README.md)
+- [CLI init](../operation/cli/init.md)
+- [CLI status](../operation/cli/status.md)

@@ -2,25 +2,26 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { registerBerryRoot } from "../../src/layers/root";
 import { HOOKS } from "../../src/constants";
 import type { BerryShieldPluginConfig } from "../../src/types/config";
+import { resetSharedPolicyStateManagerForTests } from "../../src/policy/runtime-state";
 
-type RootHandler = (event: unknown, ctx: { sessionId?: string; sessionKey?: string }) => { prependContext?: string } | void;
+type RootHandler = (event: unknown, ctx: { sessionId?: string; sessionKey?: string; messageProvider?: string }) => { prependContext?: string } | void;
 type SessionEndHandler = (event: { sessionId: string }) => void;
 
 function createConfig(
-    injectionMode: BerryShieldPluginConfig["policy"]["injectionMode"] = "session_full_plus_reminder",
+    profile: BerryShieldPluginConfig["policy"]["profile"] = "balanced",
     rootEnabled = true,
 ): BerryShieldPluginConfig {
     return {
         mode: "enforce",
-        layers: {
-            root: rootEnabled,
-            pulp: true,
-            thorn: true,
-            leaf: true,
-            stem: true,
-        },
+        layers: { root: rootEnabled, pulp: true, thorn: true, leaf: true, stem: true },
         policy: {
-            injectionMode,
+            profile,
+            adaptive: {
+                staleAfterMinutes: 30,
+                escalationTurns: 3,
+                heartbeatEveryTurns: 0,
+                allowGlobalEscalation: false,
+            },
             retention: {
                 maxEntries: 100,
                 ttlSeconds: 60,
@@ -36,15 +37,8 @@ function createApi() {
     return {
         handlers,
         api: {
-            on: vi.fn((hook: string, handler: (...args: any[]) => any) => {
-                handlers.set(hook, handler);
-            }),
-            logger: {
-                debug: vi.fn(),
-                warn: vi.fn(),
-                info: vi.fn(),
-                error: vi.fn(),
-            },
+            on: vi.fn((hook: string, handler: (...args: any[]) => any) => handlers.set(hook, handler)),
+            logger: { debug: vi.fn(), warn: vi.fn(), info: vi.fn(), error: vi.fn() },
         },
     };
 }
@@ -56,13 +50,14 @@ function getRootHandler(handlers: Map<string, (...args: any[]) => any>): RootHan
 }
 
 function getSessionEndHandler(handlers: Map<string, (...args: any[]) => any>): SessionEndHandler {
-    const handler = handlers.get("session_end");
+    const handler = handlers.get(HOOKS.SESSION_END);
     if (!handler) throw new Error("session_end handler not registered");
     return handler as SessionEndHandler;
 }
 
-describe("Berry.Root injection strategy", () => {
+describe("Berry.Root adaptive injection strategy", () => {
     beforeEach(() => {
+        resetSharedPolicyStateManagerForTests();
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     });
@@ -73,63 +68,79 @@ describe("Berry.Root injection strategy", () => {
 
     it("does not register when root layer is disabled", () => {
         const { api } = createApi();
-        registerBerryRoot(api as any, createConfig("session_full_plus_reminder", false));
-
+        registerBerryRoot(api as any, createConfig("balanced", false));
         expect(api.on).not.toHaveBeenCalled();
     });
 
-    it("injects full policy on every turn in always_full mode", () => {
+    it("strict profile injects full policy on every turn", () => {
         const { api, handlers } = createApi();
-        registerBerryRoot(api as any, createConfig("always_full"));
+        registerBerryRoot(api as any, createConfig("strict"));
         const handler = getRootHandler(handlers);
 
-        const first = handler({}, { sessionId: "session-a" });
-        const second = handler({}, { sessionId: "session-a" });
+        const first = handler({}, { sessionId: "s1" });
+        const second = handler({}, { sessionId: "s1" });
 
         expect(first?.prependContext).toContain("SECURITY RULES - You MUST follow these rules at all times:");
         expect(second?.prependContext).toContain("SECURITY RULES - You MUST follow these rules at all times:");
     });
 
-    it("injects full then short in session_full_plus_reminder mode", () => {
+    it("balanced profile injects full then none by default", () => {
         const { api, handlers } = createApi();
-        registerBerryRoot(api as any, createConfig("session_full_plus_reminder"));
+        registerBerryRoot(api as any, createConfig("balanced"));
         const handler = getRootHandler(handlers);
 
-        const first = handler({}, { sessionId: "session-a" });
-        const second = handler({}, { sessionId: "session-a" });
-
-        expect(first?.prependContext).toContain("SECURITY RULES - You MUST follow these rules at all times:");
-        expect(second?.prependContext).toContain("SECURITY REMINDER: You MUST call `berry_check` before any exec/read operation.");
-    });
-
-    it("injects full then nothing in session_full_only mode", () => {
-        const { api, handlers } = createApi();
-        registerBerryRoot(api as any, createConfig("session_full_only"));
-        const handler = getRootHandler(handlers);
-
-        const first = handler({}, { sessionId: "session-a" });
-        const second = handler({}, { sessionId: "session-a" });
+        const first = handler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
+        const second = handler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
 
         expect(first?.prependContext).toContain("SECURITY RULES - You MUST follow these rules at all times:");
         expect(second).toBeUndefined();
     });
 
-    it("injects full for a new session even if previous session is active", () => {
+    it("minimal profile stays silent by default", () => {
         const { api, handlers } = createApi();
-        registerBerryRoot(api as any, createConfig("session_full_plus_reminder"));
+        registerBerryRoot(api as any, createConfig("minimal"));
         const handler = getRootHandler(handlers);
 
-        handler({}, { sessionId: "session-a" });
-        const secondSame = handler({}, { sessionId: "session-a" });
-        const firstOther = handler({}, { sessionId: "session-b" });
+        const first = handler({}, { sessionId: "s1" });
+        const second = handler({}, { sessionId: "s1" });
 
-        expect(secondSame?.prependContext).toContain("SECURITY REMINDER");
-        expect(firstOther?.prependContext).toContain("SECURITY RULES - You MUST follow these rules at all times:");
+        expect(first).toBeUndefined();
+        expect(second).toBeUndefined();
     });
 
-    it("falls back to always_full and warns when session id is missing", () => {
+    it("returns short reminder after stale inactivity", () => {
         const { api, handlers } = createApi();
-        registerBerryRoot(api as any, createConfig("session_full_only"));
+        const config = createConfig("balanced");
+        config.policy.adaptive.staleAfterMinutes = 1;
+        config.policy.retention.ttlSeconds = 3600;
+        registerBerryRoot(api as any, config);
+        const handler = getRootHandler(handlers);
+
+        handler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
+        vi.advanceTimersByTime(61_000);
+        const afterStale = handler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
+
+        expect(afterStale?.prependContext).toContain("SECURITY REMINDER: You MUST call `berry_check` before any exec/read operation.");
+    });
+
+    it("minimal profile keeps silent after stale inactivity without heartbeat", () => {
+        const { api, handlers } = createApi();
+        const config = createConfig("minimal");
+        config.policy.adaptive.staleAfterMinutes = 1;
+        config.policy.retention.ttlSeconds = 3600;
+        registerBerryRoot(api as any, config);
+        const handler = getRootHandler(handlers);
+
+        handler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
+        vi.advanceTimersByTime(61_000);
+        const afterStale = handler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
+
+        expect(afterStale).toBeUndefined();
+    });
+
+    it("falls back to full policy when session id is missing", () => {
+        const { api, handlers } = createApi();
+        registerBerryRoot(api as any, createConfig("minimal"));
         const handler = getRootHandler(handlers);
 
         const first = handler({}, {});
@@ -140,37 +151,29 @@ describe("Berry.Root injection strategy", () => {
         expect(api.logger.warn).toHaveBeenCalled();
     });
 
-    it("re-injects full policy after ttl expiration", () => {
+    it("provider swap re-injects full policy", () => {
         const { api, handlers } = createApi();
-        const config = createConfig("session_full_plus_reminder");
-        config.policy.retention.ttlSeconds = 1;
-        registerBerryRoot(api as any, config);
+        registerBerryRoot(api as any, createConfig("balanced"));
         const handler = getRootHandler(handlers);
 
-        const first = handler({}, { sessionId: "session-a" });
-        const second = handler({}, { sessionId: "session-a" });
+        handler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
+        handler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
+        const swapped = handler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "anthropic" });
 
-        vi.advanceTimersByTime(1_001);
-        const afterTtl = handler({}, { sessionId: "session-a" });
-
-        expect(first?.prependContext).toContain("SECURITY RULES - You MUST follow these rules at all times:");
-        expect(second?.prependContext).toContain("SECURITY REMINDER");
-        expect(afterTtl?.prependContext).toContain("SECURITY RULES - You MUST follow these rules at all times:");
+        expect(swapped?.prependContext).toContain("SECURITY RULES - You MUST follow these rules at all times:");
     });
 
     it("clears session state on session_end", () => {
         const { api, handlers } = createApi();
-        registerBerryRoot(api as any, createConfig("session_full_plus_reminder"));
+        registerBerryRoot(api as any, createConfig("balanced"));
         const rootHandler = getRootHandler(handlers);
         const sessionEndHandler = getSessionEndHandler(handlers);
 
-        const first = rootHandler({}, { sessionId: "session-a" });
-        const second = rootHandler({}, { sessionId: "session-a" });
-        sessionEndHandler({ sessionId: "session-a" });
-        const afterEnd = rootHandler({}, { sessionId: "session-a" });
+        rootHandler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
+        rootHandler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
+        sessionEndHandler({ sessionId: "s1" });
+        const afterEnd = rootHandler({}, { sessionId: "s1", sessionKey: "s1", messageProvider: "openai" });
 
-        expect(first?.prependContext).toContain("SECURITY RULES - You MUST follow these rules at all times:");
-        expect(second?.prependContext).toContain("SECURITY REMINDER");
         expect(afterEnd?.prependContext).toContain("SECURITY RULES - You MUST follow these rules at all times:");
     });
 });

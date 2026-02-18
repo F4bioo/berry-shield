@@ -1,62 +1,110 @@
-# Your First Secure Session
-
-This tutorial guides you through activating and verifying active protection in Berry Shield. Berry Shield is **Safe-by-Default**, ensuring it starts in blocking mode to protect your project immediately.
-
-## Objective
-Verify that Berry Shield intercepts and redacts sensitive data before it reaches the AI context.
-
+﻿---
+summary: "Run your first end-to-end Berry Shield validation session"
+read_when:
+  - You need a safe first-run checklist
+  - You want to validate enforce and audit behavior
+  - You want to verify report output after real checks
+title: "Your First Secure Session"
 ---
 
-## Step 1: Verify System Status
-Berry Shield starts in `enforce` mode with all security layers active. In this mode, violations are **blocked/redacted** immediately.
+# `Your First Secure Session`
+
+This tutorial walks through a minimal but complete validation cycle.
+You will verify mode, generate controlled security events, and confirm reporting.
+
+## Prerequisites
+
+- Berry Shield installed and enabled in OpenClaw
+- Shell access to run `openclaw bshield ...`
+- A running OpenClaw session where `berry_check` is available
+
+## Step 1: Confirm status
+
+Check current mode and active layers.
 
 ```bash
 openclaw bshield status
 ```
-*Requirement: `Operation Mode: ENFORCE`*
 
-## Step 2: Add a Protection Rule
-Add a rule to detect a simulated API key pattern. This allows you to test the shield without using real secrets.
+Expected:
+- Status is `ENABLED`
+- Security layers are `ACTIVE`
 
-```bash
-openclaw bshield add secret --name "MyDevKey" --pattern "DEV-[0-9]{5}-KEY"
-```
+## Step 2: Start from a clean report
 
-## Step 3: Verify Active Redaction
-Test the protection by attempting to output a string that matches your new rule.
-
-**Scenario:** Input a message containing the simulated key.
-> "The key is DEV-55555-KEY"
-
-**Result:** Berry Shield will intercept the output. The AI will receive the redacted version:
-`[berry-shield] Berry.Pulp: REDACTED 1 item(s) [MyDevKey] in outgoing message`
-
-The observer or the chat interface will only see the safe placeholder, e.g., `[REDACTED_PII]`.
-
-## Step 4: Real-Time Monitoring
-Open the TUI Dashboard to monitor block events as they happen.
+Clear persisted audit events before testing.
 
 ```bash
-openclaw bshield status --tui
+openclaw bshield report --clear
 ```
 
----
+Expected:
+- Clear confirmation message with removed event count
 
-> [!CAUTION]
-> **CRITICAL SECURITY RISK: The "Audit Mode" Trap**
->
-> The `audit` mode (`openclaw bshield mode audit`) is extremely dangerous in live sessions with AI agents.
->
-> **The Data Leak Vector:**
-> In `audit` mode, Berry Shield's security hooks (`before_tool_call`, `after_tool_call`, `message_sending`) **suspended their blocking logic**. Violation messages will appear in your terminal, but the **raw sensitive data will reach the AI context**.
->
-> **Internal Tool Exploitation:**
-> Even if you don't read files directly, the AI can use internal SDK tools like `gateway config.get` to pull your entire system configuration (including other API keys and tokens) directly into its context.
->
-> **The Danger:**
-> Once a secret is in the AI's short-term memory, it can be exfiltrated via **Prompt Injection** or simple tool manipulation (e.g., writing the context to a public file or sending it via a notification tool).
->
->- **Policy**: Only use `audit` mode unless you are in a controlled environment with **purged secrets** and dummy data. **Enforce Mode** is the primary state designed to provide technical redaction and protection.
+## Step 3: Validate enforce blocking
 
----
-- [Back to Wiki Index](../README.md)
+Set enforce mode explicitly so subsequent checks use active blocking behavior.
+
+```bash
+openclaw bshield mode enforce
+```
+
+Then, in your OpenClaw chat session, request a safe denial test:
+
+Example prompt:
+`Run berry_check with operation=read and target=/etc/shadow. Do not read file contents.`
+
+Expected:
+- `berry_check` returns `STATUS: DENIED`
+- No sensitive content is read
+
+## Step 4: Confirm enforce report entries
+
+Run the report immediately after the denied test to confirm event persistence.
+
+```bash
+openclaw bshield report
+```
+
+Expected:
+- The enforce decision count increases in Summary
+- Details include `stem | sensitive file access` for the tested target
+
+## Step 5: Validate audit shadow behavior
+
+Switch to audit mode to observe shadow decisions without enforce-time blocking.
+
+```bash
+openclaw bshield mode audit
+```
+
+Repeat the same `berry_check` request in chat (`/etc/shadow`).
+
+Expected:
+- Tool result is not hard-blocked by audit posture
+- Event is logged as `would_block`
+
+## Step 6: Confirm audit report entries
+
+Run report again after the audit test to verify shadow logging behavior.
+
+```bash
+openclaw bshield report
+```
+
+Expected:
+- `would_block` count increases
+- Details show shadow decisions instead of enforce decisions
+
+## Troubleshooting
+
+- If mode changes do not appear immediately, re-check with `openclaw bshield status`.
+- If report looks empty right after activity, wait a moment and run report again.
+- If an event is missing, verify you exercised a path covered by current rules.
+
+## Related pages
+
+- [tutorial index](README.md)
+- [decision modes](../decision/modes.md)
+- [CLI mode command](../operation/cli/mode.md)
+- [CLI report command](../operation/cli/report.md)

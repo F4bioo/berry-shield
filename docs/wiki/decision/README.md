@@ -1,21 +1,46 @@
-# Decision Mechanism: Deny & Allow
+﻿---
+summary: "Decision reference index for Berry Shield mode logic, matching behavior, and security posture"
+read_when:
+  - Reviewing how Berry Shield decides allow/block/redact outcomes
+  - Updating mode and policy behavior documentation
+title: "Decision Reference"
+---
 
-Berry Shield operates on a decision-based security model. It analyzes intercepted actions and determines whether to permit, audit, or mitigate them based on the active configuration.
+# `Decision reference`
 
-## Key Decision Concepts
+This page is the entry point for Berry Shield decision logic documentation.
+If decision behavior changes, update this index and linked pages.
 
-- [Operation Modes (Audit vs Enforce)](modes.md): How decisions impact execution flow.
-- [Pattern Matching & Rules](patterns.md): Identifying sensitive or flagged content.
+## Security posture snapshot
 
-## The Decision Flow
-When an action is intercepted by a [Security Layer](../anatomy/README.md), the system follows this logic:
+Berry Shield decision logic is strong at application-layer mitigation, but it is not host isolation.
 
-1. **Extraction**: Relevant data (input string, shell command, or file path) is isolated.
-2. **Matching**: The data is validated against the internal pattern library.
-3. **Mode Check**:
-   - If in **Audit** mode: The action is logged and allowed to proceed.
-   - If in **Enforce** mode: The action is flagged, and an error is returned to the agent.
-4. **Resilience**: The system is intended to fail-closed when a security violation is detected in enforce mode.
+Known constraints to keep in mind:
+- Some protections depend on OpenClaw hook availability/invocation on the deployed runtime version.
+- Context injection paths influence model behavior, but are not hard execution control.
+- Persistence-time hooks can have timing gaps relative to in-turn model exposure.
+
+See full posture and limits:
+- [security posture](posture.md)
+
+## Decision pages
+
+- [modes](modes.md) (audit/enforce behavior and relation to policy profile)
+- [patterns](patterns.md) (pattern categories and matching pipeline)
+- [security posture](posture.md) (scope boundaries and SDK constraints)
+
+## Decision flow (high-level)
+
+1. Incoming operation is intercepted by a layer.
+2. Relevant data is extracted for matching.
+3. Pattern/rule matching evaluates risk.
+4. Runtime mode and policy context determine outcome.
+5. Layer returns allow, block, redact, or audit event path.
+
+## Notes
+
+- Decision docs must be aligned with runtime behavior, not intended behavior.
+- Claims about security behavior must be scoped and evidence-based.
 
 ---
 - [Back to Wiki Index](../README.md)

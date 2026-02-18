@@ -22,6 +22,16 @@ const CONFIG = {
     hypeDensityThreshold: 2.0,      // Max hits per 1000 words
     emojiDensityThreshold: 5.0,     // Max emojis per 1000 words
     exclamationThreshold: 5,        // Max ! per file
+    frontmatter: {
+        title: { min: 3, max: 90 },
+        summary: { min: 24, max: 220 },
+        readWhen: {
+            minItems: 2,
+            maxItems: 8,
+            itemMin: 8,
+            itemMax: 180
+        }
+    }
 };
 
 const COLOR = {
@@ -63,6 +73,13 @@ type Rule = {
     suggestion: string;
 };
 
+type FrontmatterData = {
+    raw: string;
+    title?: string;
+    summary?: string;
+    readWhen: string[];
+};
+
 const SANITY_RULES: Rule[] = [
     {
         id: "marketing.superlatives",
@@ -93,6 +110,7 @@ const RESERVED_WORDS = new Set([
     "chmod", "patterns", "redaction", "audit", "enforce", "mode", "rules", "rule", "status", "list", "add", "remove", "walk", "obj", "arm", "bin", "logs", "password", "token", "secret", "text", "db", "openclawpluginapi", "openclawpluginclicontext", "openclawplugincontext",
     "api", "config", "context", "logger", "options", "init", "toggle", "monitor", "bshield", "openclaw", "vitest", "typedoc", "node", "esm", "ts-node", "esbuild", "npx",
     "set", "map", "weakset", "weakmap", "promise", "error", "regexp", "date", "console", "process", "module", "require",
+    "policy", "profile", "strict", "balanced", "minimal", "expected", "result", "outcome",
     "systemprompt", "prependcontext", "before_agent_start", "before_tool_call", "message_sending", "tool_result_persist"
 ]);
 
@@ -158,6 +176,68 @@ function countEmojis(text: string): number {
     return m ? m.length : 0;
 }
 
+function lineAtIndex(text: string, index: number): number {
+    return text.slice(0, index).split("\n").length;
+}
+
+function findPrevNonEmptyLine(lines: string[], startLine: number): { lineNo: number; text: string } | null {
+    for (let i = startLine - 1; i >= 1; i--) {
+        const text = lines[i - 1].trim();
+        if (text.length > 0) return { lineNo: i, text };
+    }
+    return null;
+}
+
+function findNextNonEmptyLines(lines: string[], startLine: number, maxCount: number): Array<{ lineNo: number; text: string }> {
+    const result: Array<{ lineNo: number; text: string }> = [];
+    for (let i = startLine + 1; i <= lines.length && result.length < maxCount; i++) {
+        const text = lines[i - 1].trim();
+        if (text.length > 0) result.push({ lineNo: i, text });
+    }
+    return result;
+}
+
+function parseFrontmatter(content: string): FrontmatterData | null {
+    const normalized = content.replace(/\uFEFF/g, "").replace(/\r\n/g, "\n");
+    if (!normalized.startsWith("---\n")) return null;
+
+    const endIdx = normalized.indexOf("\n---\n", 4);
+    if (endIdx < 0) return null;
+
+    const raw = normalized.slice(4, endIdx);
+    const lines = raw.split("\n");
+    const readWhen: string[] = [];
+
+    let inReadWhen = false;
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (/^read_when\s*:\s*$/.test(trimmed)) {
+            inReadWhen = true;
+            continue;
+        }
+
+        if (inReadWhen) {
+            const item = line.match(/^\s*-\s+(.+?)\s*$/);
+            if (item) {
+                readWhen.push(item[1].trim());
+                continue;
+            }
+            if (trimmed.length > 0) inReadWhen = false;
+        }
+    }
+
+    const titleMatch = raw.match(/^\s*title\s*:\s*["']?(.+?)["']?\s*$/m);
+    const summaryMatch = raw.match(/^\s*summary\s*:\s*["']?(.+?)["']?\s*$/m);
+
+    return {
+        raw,
+        title: titleMatch?.[1]?.trim(),
+        summary: summaryMatch?.[1]?.trim(),
+        readWhen
+    };
+}
+
 // 🛡️ Technical Sanity Auditor
 class SanityAuditor {
     errors: string[] = [];
@@ -191,6 +271,53 @@ class SanityAuditor {
         const relPath = relative(process.cwd(), filePath);
         const isExplanation = filePath.includes("anatomy") || filePath.includes("engine");
         const isReference = filePath.includes("reference");
+        const strictCliContract = /<!--\s*doc-sanity:cli-contract:strict\s*-->/i.test(content);
+
+        // -1. Frontmatter contract (except generated reference docs)
+        if (!isReference) {
+            const fm = parseFrontmatter(content);
+            if (!fm) {
+                this.errors.push(`${relPath}: Missing YAML frontmatter. Required fields: summary, read_when, title.`);
+            } else {
+                const { frontmatter } = CONFIG;
+
+                if (!fm.title || fm.title.length < frontmatter.title.min || fm.title.length > frontmatter.title.max) {
+                    this.errors.push(
+                        `${relPath}: Invalid frontmatter.title length (${fm.title?.length ?? 0}). Expected ${frontmatter.title.min}-${frontmatter.title.max} characters.`
+                    );
+                }
+
+                if (!fm.summary || fm.summary.length < frontmatter.summary.min || fm.summary.length > frontmatter.summary.max) {
+                    this.errors.push(
+                        `${relPath}: Invalid frontmatter.summary length (${fm.summary?.length ?? 0}). Expected ${frontmatter.summary.min}-${frontmatter.summary.max} characters.`
+                    );
+                }
+
+                if (
+                    fm.readWhen.length < frontmatter.readWhen.minItems ||
+                    fm.readWhen.length > frontmatter.readWhen.maxItems
+                ) {
+                    this.errors.push(
+                        `${relPath}: Invalid frontmatter.read_when item count (${fm.readWhen.length}). Expected ${frontmatter.readWhen.minItems}-${frontmatter.readWhen.maxItems} items.`
+                    );
+                }
+
+                fm.readWhen.forEach((item, idx) => {
+                    if (item.length < frontmatter.readWhen.itemMin || item.length > frontmatter.readWhen.itemMax) {
+                        this.errors.push(
+                            `${relPath}: Invalid frontmatter.read_when[${idx}] length (${item.length}). Expected ${frontmatter.readWhen.itemMin}-${frontmatter.readWhen.itemMax} characters.`
+                        );
+                    }
+                });
+
+                const firstH1 = lines.find(l => /^#\s+.+/.test(l.trim()));
+                if (!firstH1) {
+                    this.errors.push(`${relPath}: Missing H1 heading. A page title is required after frontmatter.`);
+                } else if (!/^#\s+`.+`$/.test(firstH1.trim())) {
+                    this.errors.push(`${relPath}: First H1 must use backticks. Expected format: # \`...\``);
+                }
+            }
+        }
 
         let totalWords = 0;
         let totalEmoji = 0;
@@ -198,11 +325,63 @@ class SanityAuditor {
         let sanityHits = 0;
         let ignoreBlock = false;
 
+        // 0. Bash block policy for OpenClaw CLI docs
+        const bashFenceRegex = /```bash\s*\n([\s\S]*?)```/g;
+        let bashMatch: RegExpExecArray | null;
+        while ((bashMatch = bashFenceRegex.exec(content)) !== null) {
+            const bashBody = bashMatch[1];
+            const lineNo = lineAtIndex(content, bashMatch.index);
+            const cmdMatches = bashBody.match(/^\s*openclaw bshield\b/gm) ?? [];
+
+            // Only enforce the strict contract when this bash block is clearly Berry CLI.
+            if (cmdMatches.length > 0) {
+                if (cmdMatches.length > 1) {
+                    this.errors.push(
+                        `${relPath}:${lineNo}: Bash block contains ${cmdMatches.length} 'openclaw bshield' commands. Use one command per \`\`\`bash block.`
+                    );
+                }
+
+                // Require a heading above each CLI command block.
+                let hasValidHeading = false;
+                for (let i = lineNo - 1; i >= Math.max(1, lineNo - 6); i--) {
+                    const candidate = lines[i - 1].trim();
+                    if (candidate.length === 0) continue;
+                    if (/^#{2,4}\s+.{8,}$/.test(candidate)) {
+                        hasValidHeading = true;
+                    }
+                }
+                if (!hasValidHeading) {
+                    const msg = `${relPath}:${lineNo}: CLI bash block should have a heading above it (minimum 8 characters).`;
+                    if (strictCliContract) this.errors.push(msg);
+                    else this.warnings.push(msg);
+                }
+
+                // Require contextual sentence above command block.
+                const prev = findPrevNonEmptyLine(lines, lineNo);
+                if (!prev || /^#{1,6}\s+/.test(prev.text) || prev.text.length < 24) {
+                    const msg = `${relPath}:${lineNo}: CLI bash block should include a contextual line above it (minimum 24 characters, not only a heading).`;
+                    if (strictCliContract) this.errors.push(msg);
+                    else this.warnings.push(msg);
+                }
+
+                // Require explicit expected/result line below command block.
+                const blockEndLine = lineAtIndex(content, bashMatch.index + bashMatch[0].length);
+                const nextLines = findNextNonEmptyLines(lines, blockEndLine, 4).map(x => x.text);
+                const hasOutcome = nextLines.some(l => /^(Expected|Result|Usage Example):/i.test(l) || /^\*Usage Example:\*/i.test(l));
+                if (!hasOutcome) {
+                    const msg = `${relPath}:${lineNo}: CLI bash block should be followed by 'Expected:', 'Result:', or 'Usage Example:' line.`;
+                    if (strictCliContract) this.errors.push(msg);
+                    else this.warnings.push(msg);
+                }
+            }
+        }
+
         // 1. AST-Doc Integrity Link (Symbol Check)
         if (!isReference) {
+            const contentForSymbolCheck = content.replace(/^#\s+`[^`]+`\s*$/m, "");
             const symbolRegex = /`([a-zA-Z_]\w*)`/g;
             let match;
-            while ((match = symbolRegex.exec(content)) !== null) {
+            while ((match = symbolRegex.exec(contentForSymbolCheck)) !== null) {
                 const sym = match[1];
                 if (!RESERVED_WORDS.has(sym.toLowerCase()) && !this.exportedSymbols.has(sym)) {
                     if (/^[a-z][a-zA-Z0-9]+$/.test(sym) || /^[A-Z][A-Z]?[a-z]/.test(sym)) {

@@ -1,64 +1,251 @@
 import { describe, expect, it } from "vitest";
 import { PolicyStateManager } from "../../src/utils/policy-state";
+import type { BerryShieldPolicyConfig } from "../../src/types/config";
+
+function createPolicy(overrides?: Partial<BerryShieldPolicyConfig>): BerryShieldPolicyConfig {
+    return {
+        profile: "balanced",
+        adaptive: {
+            staleAfterMinutes: 30,
+            escalationTurns: 3,
+            heartbeatEveryTurns: 0,
+            allowGlobalEscalation: false,
+        },
+        retention: {
+            maxEntries: 10,
+            ttlSeconds: 60,
+        },
+        ...overrides,
+    };
+}
 
 describe("PolicyStateManager", () => {
-    it("keeps session active within ttl and expires after ttl", () => {
+    it("returns full on first turn and none on subsequent balanced turns", () => {
         let nowTs = 1_000;
-        const manager = new PolicyStateManager(
-            { maxEntries: 10, ttlSeconds: 60 },
-            () => nowTs
-        );
+        const manager = new PolicyStateManager({ maxEntries: 10, ttlSeconds: 60 }, () => nowTs);
+        const policy = createPolicy();
 
-        manager.markInjected("session-a");
-        expect(manager.hasActiveSession("session-a")).toBe(true);
+        const first = manager.consumeTurnDecision({
+            sessionKey: "a",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+        manager.markInjected("a");
 
-        nowTs += 60_000;
-        expect(manager.hasActiveSession("session-a")).toBe(true);
+        const second = manager.consumeTurnDecision({
+            sessionKey: "a",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
 
-        nowTs += 1;
-        expect(manager.hasActiveSession("session-a")).toBe(false);
-        expect(manager.size()).toBe(0);
+        expect(first).toBe("full");
+        expect(second).toBe("none");
     });
 
-    it("prunes expired entries", () => {
+    it("forces full when session identity is missing", () => {
+        const manager = new PolicyStateManager({ maxEntries: 10, ttlSeconds: 60 });
+        const decision = manager.consumeTurnDecision({
+            sessionKey: "global_session",
+            hasSessionIdentity: false,
+            provider: undefined,
+            policy: createPolicy(),
+        });
+        expect(decision).toBe("full");
+    });
+
+    it("minimal profile is silent on first turn by default", () => {
+        const manager = new PolicyStateManager({ maxEntries: 10, ttlSeconds: 60 });
+        const policy = createPolicy({ profile: "minimal" });
+
+        const first = manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+
+        expect(first).toBe("none");
+    });
+
+    it("escalates to full after denied signal", () => {
+        const manager = new PolicyStateManager({ maxEntries: 10, ttlSeconds: 60 });
+        const policy = createPolicy();
+
+        manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+        manager.markInjected("s1");
+
+        manager.markDenied("s1", 2);
+        const firstEscalated = manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+        const secondEscalated = manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+        const afterEscalation = manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+
+        expect(firstEscalated).toBe("full");
+        expect(secondEscalated).toBe("full");
+        expect(afterEscalation).toBe("none");
+    });
+
+    it("does not trigger global escalation when session key is missing", () => {
+        const manager = new PolicyStateManager({ maxEntries: 10, ttlSeconds: 60 });
+        const policy = createPolicy();
+
+        manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+        manager.markInjected("s1");
+
+        manager.markDenied(undefined, 2, false);
+        const decision = manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+
+        expect(decision).toBe("none");
+    });
+
+    it("supports explicit global escalation when enabled", () => {
+        const manager = new PolicyStateManager({ maxEntries: 10, ttlSeconds: 60 });
+        const policy = createPolicy({
+            adaptive: {
+                staleAfterMinutes: 30,
+                escalationTurns: 3,
+                heartbeatEveryTurns: 0,
+                allowGlobalEscalation: true,
+            },
+        });
+
+        manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+        manager.markInjected("s1");
+
+        manager.markDenied(undefined, 1, true);
+        const decision = manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+
+        expect(decision).toBe("full");
+    });
+
+    it("returns short on stale sessions", () => {
         let nowTs = 0;
-        const manager = new PolicyStateManager(
-            { maxEntries: 10, ttlSeconds: 10 },
-            () => nowTs
-        );
+        const manager = new PolicyStateManager({ maxEntries: 10, ttlSeconds: 120 }, () => nowTs);
+        const policy = createPolicy({
+            adaptive: {
+                staleAfterMinutes: 1,
+                escalationTurns: 3,
+                heartbeatEveryTurns: 0,
+                allowGlobalEscalation: false,
+            },
+        });
 
-        manager.markInjected("a"); // t=0
-        nowTs = 5_000;
-        manager.markInjected("b"); // t=5000
-        nowTs = 20_000;
-        manager.markInjected("c"); // t=20000, triggers prune
+        manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+        manager.markInjected("s1");
 
-        const stats = manager.prune();
-        expect(stats.removedExpired).toBe(0);
-        expect(manager.hasActiveSession("a")).toBe(false);
-        expect(manager.hasActiveSession("b")).toBe(false);
-        expect(manager.hasActiveSession("c")).toBe(true);
-        expect(manager.size()).toBe(1);
+        nowTs = 61_000;
+        const staleDecision = manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+
+        expect(staleDecision).toBe("short");
     });
 
-    it("keeps newest entries when size exceeds maxEntries", () => {
-        let nowTs = 1;
-        const manager = new PolicyStateManager(
-            { maxEntries: 2, ttlSeconds: 10_000 },
-            () => nowTs
-        );
+    it("minimal profile does not emit short on stale session without heartbeat", () => {
+        let nowTs = 0;
+        const manager = new PolicyStateManager({ maxEntries: 10, ttlSeconds: 120 }, () => nowTs);
+        const policy = createPolicy({
+            profile: "minimal",
+            adaptive: {
+                staleAfterMinutes: 1,
+                escalationTurns: 3,
+                heartbeatEveryTurns: 0,
+                allowGlobalEscalation: false,
+            },
+        });
 
-        manager.markInjected("a"); // 1
-        nowTs = 2;
-        manager.markInjected("b"); // 2
-        nowTs = 10;
-        manager.markInjected("a"); // refresh a => 10
-        nowTs = 11;
-        manager.markInjected("c"); // 11, prune oldest by timestamp
+        manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+        manager.markInjected("s1");
 
-        expect(manager.hasActiveSession("a")).toBe(true);
-        expect(manager.hasActiveSession("b")).toBe(false);
-        expect(manager.hasActiveSession("c")).toBe(true);
-        expect(manager.size()).toBe(2);
+        nowTs = 61_000;
+        const staleDecision = manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+
+        expect(staleDecision).toBe("none");
+    });
+
+    it("triggers full on provider/model swap", () => {
+        const manager = new PolicyStateManager({ maxEntries: 10, ttlSeconds: 120 });
+        const policy = createPolicy();
+
+        manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+        manager.markInjected("s1");
+        manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "openai",
+            policy,
+        });
+
+        const changed = manager.consumeTurnDecision({
+            sessionKey: "s1",
+            hasSessionIdentity: true,
+            provider: "anthropic",
+            policy,
+        });
+        expect(changed).toBe("full");
     });
 });

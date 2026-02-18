@@ -22,12 +22,12 @@ export interface BerryShieldLayersConfig {
 }
 
 /**
- * Policy injection mode for Berry.Root.
+ * Adaptive profile for Berry.Root behavior.
  */
-export type BerryShieldPolicyInjectionMode =
-    | "always_full"
-    | "session_full_plus_reminder"
-    | "session_full_only";
+export type BerryShieldPolicyProfile =
+    | "strict"
+    | "balanced"
+    | "minimal";
 
 /**
  * In-memory retention controls for policy session state.
@@ -40,11 +40,27 @@ export interface BerryShieldPolicyRetentionConfig {
 }
 
 /**
+ * Adaptive behavior knobs for policy injection.
+ */
+export interface BerryShieldPolicyAdaptiveConfig {
+    /** Session considered stale after this inactivity window (minutes) */
+    staleAfterMinutes: number;
+    /** Number of turns to force FULL policy after a risk signal */
+    escalationTurns: number;
+    /** Optional heartbeat cadence for reminder injections (0 disables) */
+    heartbeatEveryTurns: number;
+    /** Allows global escalation when session identity is missing (not recommended) */
+    allowGlobalEscalation: boolean;
+}
+
+/**
  * Policy injection configuration for Berry.Root.
  */
 export interface BerryShieldPolicyConfig {
-    /** Strategy that controls when Full/Short policy is injected */
-    injectionMode: BerryShieldPolicyInjectionMode;
+    /** Adaptive profile used by new behavior */
+    profile: BerryShieldPolicyProfile;
+    /** Adaptive tuning values */
+    adaptive: BerryShieldPolicyAdaptiveConfig;
     /** Memory limits for policy state tracking */
     retention: BerryShieldPolicyRetentionConfig;
 }

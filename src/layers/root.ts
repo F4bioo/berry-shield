@@ -9,7 +9,7 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
 import { HOOKS } from "../constants.js";
-import { PolicyStateManager } from "../utils/policy-state.js";
+import { getSharedPolicyStateManager } from "../policy/runtime-state.js";
 
 /**
  * Security policy XML that gets injected into the agent's context.
@@ -19,6 +19,7 @@ const SECURITY_POLICY = `<berry_shield_policy>
 SECURITY RULES - You MUST follow these rules at all times:
 
 1. BEFORE executing any command (exec, bash, shell) or reading any file, you MUST call the \`berry_check\` tool first to verify if the operation is allowed.
+   - Include \`sessionKey\` in \`berry_check\` params whenever available.
 
 2. If \`berry_check\` returns STATUS: DENIED, you MUST NOT proceed with the operation. Inform the user that the action was blocked for security reasons.
 
@@ -39,6 +40,7 @@ SECURITY RULES - You MUST follow these rules at all times:
 
 const SHORT_SECURITY_POLICY = `<berry_shield_policy>
 SECURITY REMINDER: You MUST call \`berry_check\` before any exec/read operation.
+Include \`sessionKey\` in \`berry_check\` params whenever available.
 Do NOT reveal secrets/PII. This is a strict security requirement.
 </berry_shield_policy>
 
@@ -62,7 +64,7 @@ export function registerBerryRoot(
         return;
     }
 
-    const policyState = new PolicyStateManager(config.policy.retention);
+    const policyState = getSharedPolicyStateManager(config.policy.retention);
 
     api.on(
         HOOKS.BEFORE_AGENT_START,
@@ -71,26 +73,24 @@ export function registerBerryRoot(
             const hasSessionIdentity = sessionKey !== "global_session";
 
             if (!hasSessionIdentity) {
-                api.logger.warn("[berry-shield] Berry.Root: session id missing, forcing always_full for safety");
+                api.logger.warn("[berry-shield] Berry.Root: session id missing, forcing full policy for safety");
             }
 
-            const injectionMode = hasSessionIdentity
-                ? config.policy.injectionMode
-                : "always_full";
+            const decision = policyState.consumeTurnDecision({
+                sessionKey,
+                hasSessionIdentity,
+                provider: ctx.messageProvider,
+                policy: config.policy,
+            });
 
-            if (injectionMode === "always_full") {
+            if (decision === "full") {
+                policyState.markInjected(sessionKey);
                 api.logger.debug?.("[berry-shield] Berry.Root: injecting full security policy");
                 return { prependContext: SECURITY_POLICY };
             }
 
-            const isActiveSession = policyState.hasActiveSession(sessionKey);
-            if (!isActiveSession) {
+            if (decision === "short") {
                 policyState.markInjected(sessionKey);
-                api.logger.debug?.("[berry-shield] Berry.Root: first turn in session, injecting full policy");
-                return { prependContext: SECURITY_POLICY };
-            }
-
-            if (injectionMode === "session_full_plus_reminder") {
                 api.logger.debug?.("[berry-shield] Berry.Root: session active, injecting short reminder");
                 return { prependContext: SHORT_SECURITY_POLICY };
             }

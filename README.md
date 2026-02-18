@@ -58,7 +58,13 @@ Configure Berry Shield in your `~/.openclaw/config.json`:
         "stem": true
       },
       "policy": {
-        "injectionMode": "session_full_plus_reminder",
+        "profile": "balanced",
+        "adaptive": {
+          "staleAfterMinutes": 30,
+          "escalationTurns": 3,
+          "heartbeatEveryTurns": 0,
+          "allowGlobalEscalation": false
+        },
         "retention": {
           "maxEntries": 10000,
           "ttlSeconds": 86400
@@ -71,15 +77,16 @@ Configure Berry Shield in your `~/.openclaw/config.json`:
 
 ### Root Policy Injection Modes
 
-Berry.Root supports three injection strategies:
+Berry.Root supports three profiles:
 
-- `always_full`: injects the full security policy on every turn.
-- `session_full_plus_reminder` (default): full policy on first turn, short reminder on subsequent turns.
-- `session_full_only`: full policy on first turn, no policy text on subsequent turns.
+- `strict`: injects full policy on every turn.
+- `balanced` (default): full policy on first turn, then none; re-injects short/full on risk/stale/provider changes.
+- `minimal`: stays silent by default; injects only on critical triggers (risk/provider change/heartbeat if configured).
 
 Security fallback behavior:
 
-- If no session identity is available (`sessionId/sessionKey` missing), Berry Shield automatically degrades to `always_full` and logs a warning.
+- If no session identity is available (`sessionId/sessionKey` missing), Berry Shield automatically forces full policy and logs a warning.
+- Adaptive escalation is session-scoped. When `sessionKey` is missing in `berry_check`, actions are still blocked but escalation is skipped.
 
 Operational note:
 
@@ -173,6 +180,30 @@ Verify your patterns before deploying them to a live agent session.
 openclaw bshield test "My token is INT_abc1234567890abcdef1234567890ab"
 ```
 
+### 4. Policy Profiles and Adaptive Settings
+
+Manage policy behavior without editing JSON manually.
+
+```bash
+# Set profile directly
+openclaw bshield profile strict
+openclaw bshield profile balanced
+openclaw bshield profile minimal
+```
+
+```bash
+# Interactive policy wizard
+openclaw bshield policy
+```
+
+```bash
+# Deterministic set/get (automation-friendly)
+openclaw bshield policy set adaptive.escalationTurns 5
+openclaw bshield policy set adaptive.allowGlobalEscalation false
+openclaw bshield policy get
+openclaw bshield policy get profile
+```
+
 ---
 
 ## 🔍 Technical Details
@@ -184,6 +215,9 @@ The Agent is instructed to always call `berry_check` before executing commands o
 // Agent verification
 berry_check({ operation: "exec", target: "rm -rf /" })
 // Output: STATUS: DENIED | REASON: Destructive command detected
+
+// Recommended when session identity is available
+berry_check({ operation: "exec", target: "rm -rf /", sessionKey: "session-abc" })
 ```
 
 ### Smart Cache

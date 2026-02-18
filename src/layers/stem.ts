@@ -18,6 +18,7 @@ import type { AuditBlockEvent } from "../types/audit-event.js";
 import { formatAuditEvent } from "../types/audit-event.js";
 import { AUDIT_DECISIONS, SECURITY_LAYERS } from "../constants.js";
 import { appendAuditEvent } from "../audit/writer.js";
+import { notifyPolicyDenied } from "../policy/runtime-state.js";
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
@@ -40,6 +41,8 @@ interface BerryCheckParams {
     operation: OperationType;
     /** File path or command to check */
     target: string;
+    /** Optional session key for adaptive escalation binding */
+    sessionKey?: string;
 }
 
 /**
@@ -52,8 +55,28 @@ function isBerryCheckParams(params: unknown): params is BerryCheckParams {
     const maybe = params as { operation?: unknown; target?: unknown };
     return (
         (maybe.operation === "exec" || maybe.operation === "read" || maybe.operation === "write") &&
-        typeof maybe.target === "string"
+        typeof maybe.target === "string" &&
+        (typeof (params as { sessionKey?: unknown }).sessionKey === "string"
+            || (params as { sessionKey?: unknown }).sessionKey === undefined)
     );
+}
+
+function maybeEscalateFromStem(
+    api: OpenClawPluginApi,
+    sessionKey: string | undefined,
+    escalationTurns: number,
+    allowGlobalEscalation: boolean
+): void {
+    if (sessionKey) {
+        notifyPolicyDenied(sessionKey, escalationTurns, false);
+        return;
+    }
+    if (allowGlobalEscalation) {
+        api.logger.warn("[berry-shield] Berry.Stem: sessionKey missing, applying configured global adaptive escalation");
+        notifyPolicyDenied(undefined, escalationTurns, true);
+        return;
+    }
+    api.logger.warn("[berry-shield] Berry.Stem: sessionKey missing, skipping adaptive escalation");
 }
 
 /**
@@ -210,6 +233,10 @@ export function registerBerryStem(
                     type: "string",
                     description: "File path or command to check",
                 },
+                sessionKey: {
+                    type: "string",
+                    description: "Optional session key used for adaptive policy escalation binding",
+                },
             },
             required: ["operation", "target"],
         },
@@ -221,7 +248,7 @@ export function registerBerryStem(
             if (!isBerryCheckParams(rawParams)) {
                 throw new Error("Invalid parameters for berry_check");
             }
-            const { operation, target } = rawParams;
+            const { operation, target, sessionKey } = rawParams;
 
             // Check for destructive commands on exec operations
             if (operation === "exec") {
@@ -243,6 +270,12 @@ export function registerBerryStem(
                             ts: new Date().toISOString(),
                         };
                         appendAuditEvent(event);
+                        maybeEscalateFromStem(
+                            api,
+                            sessionKey,
+                            config.policy.adaptive.escalationTurns,
+                            config.policy.adaptive.allowGlobalEscalation
+                        );
                         return {
                             content: [
                                 { type: "text", text: formatDeniedDestructiveCommand(target) },
@@ -270,6 +303,12 @@ export function registerBerryStem(
                             ts: new Date().toISOString(),
                         };
                         appendAuditEvent(event);
+                        maybeEscalateFromStem(
+                            api,
+                            sessionKey,
+                            config.policy.adaptive.escalationTurns,
+                            config.policy.adaptive.allowGlobalEscalation
+                        );
                         return {
                             content: [
                                 { type: "text", text: formatDeniedSensitiveFile(target) },
@@ -299,6 +338,12 @@ export function registerBerryStem(
                             ts: new Date().toISOString(),
                         };
                         appendAuditEvent(event);
+                        maybeEscalateFromStem(
+                            api,
+                            sessionKey,
+                            config.policy.adaptive.escalationTurns,
+                            config.policy.adaptive.allowGlobalEscalation
+                        );
                         return {
                             content: [
                                 { type: "text", text: formatDeniedSensitiveFile(target) },

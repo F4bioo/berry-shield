@@ -17,6 +17,8 @@ import { statusCommand } from "./commands/status.js";
 import { modeCommand } from "./commands/mode.js";
 import { toggleCommand } from "./commands/toggle.js";
 import { reportCommand } from "./commands/report.js";
+import { profileCommand } from "./commands/profile.js";
+import { policyCommand } from "./commands/policy.js";
 import { ui } from "./ui/tui.js";
 import { theme } from "./ui/theme.js";
 
@@ -119,6 +121,26 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .description("Set operation mode (audit | enforce)")
                 .action(async (mode: string) => {
                     await modeCommand(mode, context, wrapper);
+                }),
+            );
+
+            // Profile command
+            attachSubcommandHelp(
+                bshield
+                .command("profile <profile>")
+                .description("Set policy profile (strict | balanced | minimal)")
+                .action(async (profile: string) => {
+                    await profileCommand(profile, context, wrapper);
+                }),
+            );
+
+            // Policy command
+            attachSubcommandHelp(
+                bshield
+                .command("policy [action] [path] [value]")
+                .description("Manage policy settings (wizard, get, set)")
+                .action(async (action: string | undefined, path: string | undefined, value: string | undefined) => {
+                    await policyCommand(action, path, value, context, wrapper);
                 }),
             );
 

@@ -14,7 +14,13 @@ export const DEFAULT_CONFIG: BerryShieldPluginConfig = {
         root: true
     },
     policy: {
-        injectionMode: "session_full_plus_reminder",
+        profile: "balanced",
+        adaptive: {
+            staleAfterMinutes: 30,
+            escalationTurns: 3,
+            heartbeatEveryTurns: 0,
+            allowGlobalEscalation: false,
+        },
         retention: {
             maxEntries: 10000,
             ttlSeconds: 86400,
