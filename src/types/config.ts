@@ -22,6 +22,34 @@ export interface BerryShieldLayersConfig {
 }
 
 /**
+ * Policy injection mode for Berry.Root.
+ */
+export type BerryShieldPolicyInjectionMode =
+    | "always_full"
+    | "session_full_plus_reminder"
+    | "session_full_only";
+
+/**
+ * In-memory retention controls for policy session state.
+ */
+export interface BerryShieldPolicyRetentionConfig {
+    /** Maximum number of session entries kept in memory */
+    maxEntries: number;
+    /** Time-to-live in seconds for session entries */
+    ttlSeconds: number;
+}
+
+/**
+ * Policy injection configuration for Berry.Root.
+ */
+export interface BerryShieldPolicyConfig {
+    /** Strategy that controls when Full/Short policy is injected */
+    injectionMode: BerryShieldPolicyInjectionMode;
+    /** Memory limits for policy state tracking */
+    retention: BerryShieldPolicyRetentionConfig;
+}
+
+/**
  * Main plugin configuration.
  */
 export interface BerryShieldPluginConfig {
@@ -29,6 +57,8 @@ export interface BerryShieldPluginConfig {
     mode: "enforce" | "audit";
     /** Individual layer toggles */
     layers: BerryShieldLayersConfig;
+    /** Policy injection behavior for Berry.Root */
+    policy: BerryShieldPolicyConfig;
     /** Additional file path patterns to treat as sensitive (regex strings) */
     sensitiveFilePaths: string[];
     /** Additional command patterns to treat as destructive (regex strings) */

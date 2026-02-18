@@ -17,6 +17,13 @@ function createConfig() {
     return {
         mode: "enforce" as const,
         layers: { root: true, pulp: true, thorn: true, leaf: true, stem: true },
+        policy: {
+            injectionMode: "session_full_plus_reminder" as const,
+            retention: {
+                maxEntries: 10000,
+                ttlSeconds: 86400,
+            },
+        },
         sensitiveFilePaths: [],
         destructiveCommands: [],
     };
@@ -97,4 +104,3 @@ describe("Enforce parity events", () => {
         pulpCalls.forEach((event) => expect(event.decision).toBe("redacted"));
     });
 });
-

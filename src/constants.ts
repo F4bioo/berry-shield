@@ -67,6 +67,7 @@ export const HOOKS = {
     MESSAGE_SENDING: "message_sending",
     BEFORE_TOOL_CALL: "before_tool_call",
     TOOL_RESULT_PERSIST: "tool_result_persist",
+    SESSION_END: "session_end",
 } as const;
 
 /** Core runtime hooks required for full Berry Shield security behavior */

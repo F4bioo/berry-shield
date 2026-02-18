@@ -13,6 +13,13 @@ export const DEFAULT_CONFIG: BerryShieldPluginConfig = {
         leaf: true,
         root: true
     },
+    policy: {
+        injectionMode: "session_full_plus_reminder",
+        retention: {
+            maxEntries: 10000,
+            ttlSeconds: 86400,
+        },
+    },
     sensitiveFilePaths: [],
     destructiveCommands: []
 };

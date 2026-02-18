@@ -9,6 +9,7 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
 import { HOOKS } from "../constants.js";
+import { PolicyStateManager } from "../utils/policy-state.js";
 
 /**
  * Security policy XML that gets injected into the agent's context.
@@ -36,6 +37,15 @@ SECURITY RULES - You MUST follow these rules at all times:
 
 `;
 
+const SHORT_SECURITY_POLICY = `<berry_shield_policy>
+SECURITY REMINDER: You MUST call \`berry_check\` before any exec/read operation.
+Do NOT reveal secrets/PII. This is a strict security requirement.
+</berry_shield_policy>
+
+---
+
+`;
+
 /**
  * Registers the Berry.Root layer (Prompt Guard).
  *
@@ -52,17 +62,52 @@ export function registerBerryRoot(
         return;
     }
 
+    const policyState = new PolicyStateManager(config.policy.retention);
+
     api.on(
         HOOKS.BEFORE_AGENT_START,
-        (_event) => {
-            // Inject security policy into the agent's context
-            api.logger.debug?.("[berry-shield] Berry.Root: injecting security policy");
+        (_event, ctx) => {
+            const sessionKey = ctx.sessionId ?? ctx.sessionKey ?? "global_session";
+            const hasSessionIdentity = sessionKey !== "global_session";
 
-            return {
-                prependContext: SECURITY_POLICY
-            };
+            if (!hasSessionIdentity) {
+                api.logger.warn("[berry-shield] Berry.Root: session id missing, forcing always_full for safety");
+            }
+
+            const injectionMode = hasSessionIdentity
+                ? config.policy.injectionMode
+                : "always_full";
+
+            if (injectionMode === "always_full") {
+                api.logger.debug?.("[berry-shield] Berry.Root: injecting full security policy");
+                return { prependContext: SECURITY_POLICY };
+            }
+
+            const isActiveSession = policyState.hasActiveSession(sessionKey);
+            if (!isActiveSession) {
+                policyState.markInjected(sessionKey);
+                api.logger.debug?.("[berry-shield] Berry.Root: first turn in session, injecting full policy");
+                return { prependContext: SECURITY_POLICY };
+            }
+
+            if (injectionMode === "session_full_plus_reminder") {
+                api.logger.debug?.("[berry-shield] Berry.Root: session active, injecting short reminder");
+                return { prependContext: SHORT_SECURITY_POLICY };
+            }
+
+            api.logger.debug?.("[berry-shield] Berry.Root: session active, skipping policy injection");
+            return;
         },
         { priority: 200 } // High priority - security runs first
+    );
+
+    api.on(
+        HOOKS.SESSION_END,
+        (event) => {
+            policyState.delete(event.sessionId);
+            api.logger.debug?.(`[berry-shield] Berry.Root: cleared policy state for session ${event.sessionId}`);
+        },
+        { priority: 200 }
     );
 
     api.logger.debug?.("[berry-shield] Berry.Root layer registered");

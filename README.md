@@ -56,11 +56,34 @@ Configure Berry Shield in your `~/.openclaw/config.json`:
         "thorn": true,
         "leaf": true,
         "stem": true
+      },
+      "policy": {
+        "injectionMode": "session_full_plus_reminder",
+        "retention": {
+          "maxEntries": 10000,
+          "ttlSeconds": 86400
+        }
       }
     }
   }
 }
 ```
+
+### Root Policy Injection Modes
+
+Berry.Root supports three injection strategies:
+
+- `always_full`: injects the full security policy on every turn.
+- `session_full_plus_reminder` (default): full policy on first turn, short reminder on subsequent turns.
+- `session_full_only`: full policy on first turn, no policy text on subsequent turns.
+
+Security fallback behavior:
+
+- If no session identity is available (`sessionId/sessionKey` missing), Berry Shield automatically degrades to `always_full` and logs a warning.
+
+Operational note:
+
+- Policy session state is in-memory. After gateway/plugin restart, session tracking resets and the next turn receives full policy again.
 
 ---
 
