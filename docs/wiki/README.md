@@ -10,7 +10,7 @@ title: "Berry Shield Wiki"
 # `Berry Shield Wiki`
 
 Berry Shield documentation for OpenClaw operators, contributors, and maintainers.
-This wiki follows a Diataxis-style split: tutorials, operations, decisions, internals, deployment, and generated reference.
+This wiki follows a Diataxis-style split: tutorials, operations, decisions, internals, and deployment.
 
 ## Read This First
 
@@ -87,11 +87,6 @@ Installation tracks, build gates, and doc quality gates.
 - [Build](deploy/build.md)
 - [Auditing](deploy/auditing.md)
 
-### Reference (Generated API docs)
-Code-derived reference pages for low-level symbols and module internals.
-
-- [Reference Index](reference/)
-
 ## Suggested Reading Paths
 
 - Operator path:
@@ -99,7 +94,7 @@ Code-derived reference pages for low-level symbols and module internals.
 - Security-review path:
   - `decision/posture.md` -> `layers/README.md` -> `engine/redaction.md`
 - Contributor path:
-  - `layers/README.md` -> `engine/README.md` -> `reference/README.md`
+  - `layers/README.md` -> `engine/README.md` -> `deploy/build.md`
 
 ---
 

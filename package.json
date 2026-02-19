@@ -20,7 +20,6 @@
     "release": "npm run release:preflight && npm run version:update && npm run release:postflight",
     "version:update": "npx ts-node --esm scripts/update-version.ts",
     "update-patterns": "npx ts-node --esm scripts/update-patterns.ts",
-    "wiki:gen": "npx ts-node --esm scripts/doc-factory.ts",
     "wiki:claim": "npx ts-node --esm scripts/doc-sanity.ts"
   },
   "peerDependencies": {
@@ -33,8 +32,6 @@
     "@iarna/toml": "^2.2.5",
     "@types/node": "^25.2.2",
     "esbuild": "^0.27.3",
-    "typedoc": "^0.28.16",
-    "typedoc-plugin-markdown": "^4.10.0",
     "typescript": "^5.3.0",
     "vitest": "^4.0.18"
   }

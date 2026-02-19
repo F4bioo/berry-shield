@@ -4,8 +4,6 @@ import type {
     BerryShieldPolicyRetentionConfig,
 } from "../types/config.js";
 
-type NowFn = () => number;
-
 export type PolicyInjectionDecision = "full" | "short" | "none";
 
 interface SessionPolicyState {
@@ -44,10 +42,10 @@ export class PolicyStateManager {
     private readonly state = new Map<string, SessionPolicyState>();
     private readonly maxEntries: number;
     private readonly ttlMs: number;
-    private readonly now: NowFn;
+    private readonly now: () => number;
     private globalForcedFullTurnsRemaining = 0;
 
-    constructor(retention: BerryShieldPolicyRetentionConfig, now: NowFn = Date.now) {
+    constructor(retention: BerryShieldPolicyRetentionConfig, now: () => number = Date.now) {
         this.maxEntries = Math.max(1, Math.floor(retention.maxEntries));
         this.ttlMs = Math.max(1, Math.floor(retention.ttlSeconds * 1000));
         this.now = now;
