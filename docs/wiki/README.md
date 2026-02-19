@@ -90,8 +90,7 @@ Installation tracks, build gates, and doc quality gates.
 ### Reference (Generated API docs)
 Code-derived reference pages for low-level symbols and module internals.
 
-- [Reference Index](reference/README.md)
-- [Orion Map](reference/ORION_MAP.md)
+- [Reference Index](reference/)
 
 ## Suggested Reading Paths
 

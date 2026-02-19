@@ -1,4 +1,4 @@
-# Maintenance Scripts - Berry Shield
+﻿# Maintenance Scripts - Berry Shield
 
 This directory contains utility scripts for project maintenance and security pattern updates.
 
@@ -70,9 +70,9 @@ npm run version:update
 
 ---
 
-## Wiki Automation (`scripts/wiki/`)
+## Wiki Automation
 
-This directory contains the "Wiki Factory" tools, used to maintain the project's technical documentation following the Diátaxis framework and the Zero-Hype directive.
+This directory contains the "Wiki Factory" tools, used to maintain the project's technical documentation following the Diataxis framework and the Zero-Hype directive.
 
 ### Tools
 1.  **`doc-factory.ts`**: Automatically extracts metadata and documentation from the source code.
@@ -88,7 +88,7 @@ npm run wiki:claim
 ```
 
 > See also:
-> * [Wiki Tools Reference](wiki/README.md)
 > * [Wiki Content Reference](../docs/wiki/README.md)
 
 ---
+

@@ -34,6 +34,3 @@ coverage/
 .temp/
 tmp/
 *.tmp
-
-# Documentation artifacts
-docs/wiki/reference/
