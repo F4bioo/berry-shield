@@ -15,6 +15,7 @@ Remove one custom Berry Shield rule by its identifier.
 - Removes the rule from persistent custom storage.
 - Returns success output with rule type and name.
 - Returns failure output when the rule does not exist.
+- Does not disable built-in rules (use `builtin remove` for built-ins).
 
 ## When to use
 - Removing obsolete custom patterns.
@@ -49,6 +50,13 @@ openclaw bshield list
 ```
 Result: Removed custom rule no longer appears in external rules.
 
+### Disable a built-in rule (separate command)
+Use this when the target is a built-in ID, not a custom rule name.
+```bash
+openclaw bshield builtin remove secret:openai-key
+```
+Result: Built-in rule is marked disabled in inventory and excluded from active enforcement/redaction matching.
+
 ## Common errors
 
 ### Rule not found
@@ -73,6 +81,7 @@ Possible causes:
 - [index](README.md)
 - [list](list.md)
 - [add](add.md)
+- [builtin](builtin.md)
 - [test](test.md)
 
 ---

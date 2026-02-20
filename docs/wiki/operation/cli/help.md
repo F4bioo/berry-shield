@@ -47,7 +47,7 @@ Use this when you need to choose the next command from the available surface.
 ```bash
 openclaw bshield --help
 ```
-Result: Output includes command names such as init, status, mode, profile, policy, and report.
+Result: Output includes command names such as init, status, mode, profile, policy, builtin, reset, and report.
 
 ### Inspect one command before execution
 Use this when you need argument details for policy operations.
@@ -78,6 +78,8 @@ Expected: OpenClaw global command index is shown instead of bshield-only help.
 - [status](status.md)
 - [mode](mode.md)
 - [policy](policy.md)
+- [builtin](builtin.md)
+- [reset](reset.md)
 
 ---
 

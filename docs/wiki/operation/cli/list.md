@@ -14,6 +14,8 @@ List Berry Shield rules grouped by category and source.
 - Loads built-in and custom rule sets.
 - Groups rules by category: secrets, PII redaction, sensitive files, destructive commands.
 - Displays custom rules before built-in rules in each section.
+- Displays built-in rule IDs as the canonical operator handle.
+- Marks disabled built-ins with `[DISABLED]`.
 - Prints a categorized inventory for operational review.
 
 ## When to use
@@ -55,6 +57,13 @@ openclaw bshield list
 ```
 Result: Removed rule no longer appears in external entries.
 
+### Verify built-in disable status
+Use this after disabling a built-in rule by ID.
+```bash
+openclaw bshield list
+```
+Result: Target built-in entry appears with `[DISABLED]` marker.
+
 ## Common errors
 
 ### Rule storage read failure
@@ -72,6 +81,8 @@ Possible causes:
 - [index](README.md)
 - [add](add.md)
 - [remove](remove.md)
+- [builtin](builtin.md)
+- [reset](reset.md)
 - [test](test.md)
 
 ---
