@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { registerBerryRoot } from "../../src/layers/root";
-import { HOOKS } from "../../src/constants";
-import type { BerryShieldPluginConfig } from "../../src/types/config";
-import { resetSharedPolicyStateManagerForTests } from "../../src/policy/runtime-state";
+import { registerBerryRoot } from "../src/layers/root";
+import { HOOKS } from "../src/constants";
+import type { BerryShieldPluginConfig } from "../src/types/config";
+import { resetSharedPolicyStateManagerForTests } from "../src/policy/runtime-state";
 
 type RootHandler = (event: unknown, ctx: { sessionId?: string; sessionKey?: string; messageProvider?: string }) => { prependContext?: string } | void;
 type SessionEndHandler = (event: { sessionId: string }) => void;

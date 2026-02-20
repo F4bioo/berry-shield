@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { PolicyStateManager } from "../../src/utils/policy-state";
-import type { BerryShieldPolicyConfig } from "../../src/types/config";
+import { PolicyStateManager } from "../src/utils/policy-state";
+import type { BerryShieldPolicyConfig } from "../src/types/config";
 
 function createPolicy(overrides?: Partial<BerryShieldPolicyConfig>): BerryShieldPolicyConfig {
     return {
