@@ -10,8 +10,8 @@ import { loadCustomRules } from "../storage.js";
 import {
     SECRET_PATTERNS,
     PII_PATTERNS,
-    SENSITIVE_FILE_PATTERNS,
-    DESTRUCTIVE_COMMAND_PATTERNS,
+    INTERNAL_SENSITIVE_FILE_PATTERNS,
+    INTERNAL_DESTRUCTIVE_COMMAND_PATTERNS,
 } from "../../patterns/index.js";
 
 type PluginLogger = OpenClawPluginApi["logger"];
@@ -20,10 +20,12 @@ type PluginLogger = OpenClawPluginApi["logger"];
  * Validates generic types for checking
  */
 interface GenericRule {
+    id?: string;
     name?: string;
     pattern?: string;
     source: "built-in" | "custom";
     type: "secret" | "pii" | "file" | "command";
+    disabled?: boolean;
 }
 
 /**
@@ -35,23 +37,50 @@ export async function listCommand(
     logger: PluginLogger
 ): Promise<void> {
     const custom = await loadCustomRules();
+    const disabledBuiltIns = new Set((custom.disabledBuiltInIds ?? []).map((entry) => entry.toLowerCase()));
     logger.debug?.("[berry-shield] CLI: Listing security rules");
 
     const allRules: GenericRule[] = [];
 
     // Secrets
-    SECRET_PATTERNS.forEach(r => allRules.push({ name: r.name, pattern: r.pattern.toString(), source: "built-in", type: "secret" }));
+    SECRET_PATTERNS.forEach((rule) => allRules.push({
+        id: rule.id,
+        name: rule.name,
+        pattern: rule.pattern.toString(),
+        source: "built-in",
+        type: "secret",
+        disabled: disabledBuiltIns.has(rule.id.toLowerCase()),
+    }));
     custom.secrets.forEach(r => allRules.push({ name: r.name, pattern: r.pattern, source: "custom", type: "secret" }));
 
     // PII
-    PII_PATTERNS.forEach(r => allRules.push({ name: r.name, pattern: r.pattern.toString(), source: "built-in", type: "pii" }));
+    PII_PATTERNS.forEach((rule) => allRules.push({
+        id: rule.id,
+        name: rule.name,
+        pattern: rule.pattern.toString(),
+        source: "built-in",
+        type: "pii",
+        disabled: disabledBuiltIns.has(rule.id.toLowerCase()),
+    }));
 
     // Files
-    SENSITIVE_FILE_PATTERNS.forEach(r => allRules.push({ pattern: r.toString(), source: "built-in", type: "file" }));
+    INTERNAL_SENSITIVE_FILE_PATTERNS.forEach((rule) => allRules.push({
+        id: rule.id,
+        pattern: rule.pattern.toString(),
+        source: "built-in",
+        type: "file",
+        disabled: disabledBuiltIns.has(rule.id.toLowerCase()),
+    }));
     custom.sensitiveFiles.forEach(r => allRules.push({ pattern: r.pattern, source: "custom", type: "file" }));
 
     // Commands
-    DESTRUCTIVE_COMMAND_PATTERNS.forEach(r => allRules.push({ pattern: r.toString(), source: "built-in", type: "command" }));
+    INTERNAL_DESTRUCTIVE_COMMAND_PATTERNS.forEach((rule) => allRules.push({
+        id: rule.id,
+        pattern: rule.pattern.toString(),
+        source: "built-in",
+        type: "command",
+        disabled: disabledBuiltIns.has(rule.id.toLowerCase()),
+    }));
     custom.destructiveCommands.forEach(r => allRules.push({ pattern: r.pattern, source: "custom", type: "command" }));
 
     // Group items for display
@@ -79,8 +108,8 @@ export async function listCommand(
 
                 // Show External (Custom) first
                 external.forEach(rule => {
-                    const id = rule.name ? `${rule.name}` : `/${rule.pattern}/`;
-                    const displayId = id.length > 55 ? id.substring(0, 52) + "..." : id;
+                    const ruleDisplay = rule.name ? `${rule.name}` : `/${rule.pattern}/`;
+                    const displayId = ruleDisplay.length > 55 ? ruleDisplay.substring(0, 52) + "..." : ruleDisplay;
                     s.row("EXTERNAL", displayId);
                 });
 
@@ -91,8 +120,9 @@ export async function listCommand(
 
                 // Show Internal (Built-in)
                 internal.forEach(rule => {
-                    const id = rule.name ? `${rule.name}` : `/${rule.pattern}/`;
-                    const displayId = id.length > 55 ? id.substring(0, 52) + "..." : id;
+                    const baseId = rule.id ?? rule.name ?? `/${rule.pattern}/`;
+                    const statusSuffix = rule.disabled ? " [DISABLED]" : "";
+                    const displayId = `${baseId}${statusSuffix}`;
                     s.row("INTERNAL", displayId);
                 });
             });

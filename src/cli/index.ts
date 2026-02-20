@@ -19,6 +19,8 @@ import { toggleCommand } from "./commands/toggle.js";
 import { reportCommand } from "./commands/report.js";
 import { profileCommand } from "./commands/profile.js";
 import { policyCommand } from "./commands/policy.js";
+import { builtinListCommand, builtinRemoveCommand } from "./commands/builtin.js";
+import { resetCommand } from "./commands/reset.js";
 import { ui } from "./ui/tui.js";
 import { theme } from "./ui/theme.js";
 
@@ -162,6 +164,43 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .option("--clear", "Clear the persisted audit log")
                 .action(async (options: { clear?: boolean }) => {
                     await reportCommand(options, logger);
+                }),
+            );
+
+            // Built-in commands
+            const builtin = bshield
+                .command("builtin")
+                .description("Manage built-in rules");
+
+            attachSubcommandHelp(
+                builtin
+                .command("list")
+                .description("List built-in rules")
+                .option("--type <type>", "Filter by type (secret | pii | file | command)")
+                .action(async (options: { type?: string }) => {
+                    await builtinListCommand(options, logger);
+                }),
+            );
+
+            attachSubcommandHelp(
+                builtin
+                .command("remove <id>")
+                .description("Disable a built-in rule by id")
+                .option("--type <type>", "Filter by type (secret | pii | file | command)")
+                .action(async (id: string, options: { type?: string }) => {
+                    await builtinRemoveCommand(id, options, logger);
+                }),
+            );
+
+            // Reset command
+            attachSubcommandHelp(
+                bshield
+                .command("reset <target>")
+                .description("Reset defaults (builtins or full scope)")
+                .option("--scope <scope>", "Reset scope (builtins | all)")
+                .option("--yes", "Skip confirmation prompt")
+                .action(async (target: string, options: { scope?: string; yes?: boolean }) => {
+                    await resetCommand(target, options, context, wrapper);
                 }),
             );
         },
