@@ -13,6 +13,19 @@ export const DEFAULT_CONFIG: BerryShieldPluginConfig = {
         leaf: true,
         root: true
     },
+    policy: {
+        profile: "balanced",
+        adaptive: {
+            staleAfterMinutes: 30,
+            escalationTurns: 3,
+            heartbeatEveryTurns: 0,
+            allowGlobalEscalation: false,
+        },
+        retention: {
+            maxEntries: 10000,
+            ttlSeconds: 86400,
+        },
+    },
     sensitiveFilePaths: [],
     destructiveCommands: []
 };

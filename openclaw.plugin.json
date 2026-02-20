@@ -17,6 +17,7 @@
             },
             "layers": {
                 "type": "object",
+                "additionalProperties": false,
                 "properties": {
                     "root": {
                         "type": "boolean",
@@ -42,6 +43,70 @@
                         "type": "boolean",
                         "default": true,
                         "description": "Enable Berry.Stem (security gate)"
+                    }
+                }
+            },
+            "policy": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Root policy injection behavior and adaptive tuning",
+                "properties": {
+                    "profile": {
+                        "type": "string",
+                        "enum": [
+                            "strict",
+                            "balanced",
+                            "minimal"
+                        ],
+                        "default": "balanced",
+                        "description": "Injection profile: strict=always full, balanced=full then adaptive, minimal=silent unless triggered"
+                    },
+                    "adaptive": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "staleAfterMinutes": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 30,
+                                "description": "Session inactivity window (minutes) to treat a conversation as stale"
+                            },
+                            "escalationTurns": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 3,
+                                "description": "Number of turns to force full policy after a denied security event"
+                            },
+                            "heartbeatEveryTurns": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "default": 0,
+                                "description": "Inject short reminder every N turns (0 disables heartbeat)"
+                            },
+                            "allowGlobalEscalation": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Allow escalation without session identity (not recommended for multi-session environments)"
+                            }
+                        }
+                    },
+                    "retention": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "maxEntries": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 10000,
+                                "description": "Maximum adaptive session entries kept in memory"
+                            },
+                            "ttlSeconds": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 86400,
+                                "description": "Adaptive session state TTL in seconds"
+                            }
+                        }
                     }
                 }
             },

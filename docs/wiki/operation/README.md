@@ -1,13 +1,27 @@
-# Operation - User Interface & CLI
+﻿---
+summary: "Operation reference index for Berry Shield interaction surfaces"
+read_when:
+  - Adding or changing operation docs for CLI or Web
+  - Reviewing user-facing operation guidance
+title: "Operation Reference"
+---
 
-Manual guide for interacting with the Berry Shield subsystem via the Command Line Interface (CLI) and the Terminal User Interface (TUI).
+# `Operation reference`
 
-## Navigation
-- **[CLI Reference](cli.md)**: Command syntax, flags, and direct rule management.
-- **[TUI Dashboard](tui.md)**: Overview status display and health checks.
-- **[Interactive Wizards](wizards.md)**: Step-by-step guides for rule creation.
-- **[How to Configure Rules](configuring-rules.md)**: Task-oriented guide for the rule wizard.
-- **[How to Manage Patterns](managing-patterns.md)**: Guidelines for pattern auditing and removal.
+This page is the entry point for operation-level documentation.
+If interaction surfaces change, update this index and linked pages.
 
-## Philosophy
-Interaction with Berry Shield is designed for **efficiency** and **feedback**. Every command provides clear status indicators and expert tips to guide the user through security best practices.
+## Operation surfaces
+
+- [CLI](cli/README.md) (terminal command reference for `openclaw bshield`)
+- [Web](web/README.md) (web operation guidance; planned)
+
+## Scope
+
+Operation docs describe:
+- how users interact with Berry Shield surfaces
+- how to execute common workflows safely
+- where to find command-specific references
+
+---
+- [Back to Wiki Index](../README.md)

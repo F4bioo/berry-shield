@@ -17,6 +17,7 @@ import { formatAuditEvent } from "../types/audit-event.js";
 import { AUDIT_DECISIONS, SECURITY_LAYERS } from "../constants.js";
 import { appendAuditEvent } from "../audit/writer.js";
 import { BRAND_SYMBOL, HOOKS } from "../constants.js";
+import { notifyPolicyDenied } from "../policy/runtime-state.js";
 import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
@@ -148,8 +149,9 @@ export function registerBerryThorn(
 
     api.on(
         HOOKS.BEFORE_TOOL_CALL,
-        (event) => {
+        (event, ctx) => {
             const { toolName, params } = event;
+            const escalationSessionKey = ctx?.sessionKey;
 
             // Check for destructive commands
             const command = extractCommand(toolName, params);
@@ -173,6 +175,14 @@ export function registerBerryThorn(
                     ts: new Date().toISOString(),
                 };
                 appendAuditEvent(auditEvent);
+                if (escalationSessionKey) {
+                    notifyPolicyDenied(escalationSessionKey, config.policy.adaptive.escalationTurns, false);
+                } else if (config.policy.adaptive.allowGlobalEscalation) {
+                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, applying configured global adaptive escalation");
+                    notifyPolicyDenied(undefined, config.policy.adaptive.escalationTurns, true);
+                } else {
+                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, skipping adaptive escalation");
+                }
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
@@ -201,6 +211,14 @@ export function registerBerryThorn(
                     ts: new Date().toISOString(),
                 };
                 appendAuditEvent(auditEvent);
+                if (escalationSessionKey) {
+                    notifyPolicyDenied(escalationSessionKey, config.policy.adaptive.escalationTurns, false);
+                } else if (config.policy.adaptive.allowGlobalEscalation) {
+                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, applying configured global adaptive escalation");
+                    notifyPolicyDenied(undefined, config.policy.adaptive.escalationTurns, true);
+                } else {
+                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, skipping adaptive escalation");
+                }
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
@@ -230,6 +248,14 @@ export function registerBerryThorn(
                     ts: new Date().toISOString(),
                 };
                 appendAuditEvent(auditEvent);
+                if (escalationSessionKey) {
+                    notifyPolicyDenied(escalationSessionKey, config.policy.adaptive.escalationTurns, false);
+                } else if (config.policy.adaptive.allowGlobalEscalation) {
+                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, applying configured global adaptive escalation");
+                    notifyPolicyDenied(undefined, config.policy.adaptive.escalationTurns, true);
+                } else {
+                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, skipping adaptive escalation");
+                }
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,

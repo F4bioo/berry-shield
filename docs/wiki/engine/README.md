@@ -1,19 +1,48 @@
-# Engine & Performance
-
-The core of Berry Shield is designed for efficiency and high-fidelity protection. It manages how strings and objects are scanned, cleaned, and optimized for both security and system resources.
-
-## Core Engine Components
-
-- [Redaction Engine](redaction.md): Patterns, Regex, and Gitleaks integration.
-- [Match Engine & ReDoS](match-engine.md): Technical architecture and threat mitigation.
-- [Performance Optimizations](performance.md): Lazy Cloning and RPi 4 memory management.
-- [Unescape Sniper](redaction.md#unescape-sniper): Handling obfuscated or escaped sensitive data.
-
-## Design Philosophy
-Security execution often introduces latency. The Berry Shield engine aims to minimize this impact through **Context-Aware Processing**:
-1. **Detection**: Identifying risks using community-driven patterns.
-2. **Optimization**: Using selective cloning to preserve memory.
-3. **Clarity**: Cleaning JSON and outputs to improve the LLM's context window.
-
+﻿---
+summary: "Engine index for Berry scanning, matching, and performance behavior"
+read_when:
+  - You need a technical map of content-processing internals
+  - You are debugging detection or redaction behavior
+  - You are evaluating runtime cost and safety tradeoffs
+title: "Engine Reference"
 ---
-- [Back to Wiki Index](../README.md)
+
+# `Engine reference`
+
+This page is the entry point for Berry engine internals.
+It covers how matching, redaction, and performance characteristics fit together.
+
+## Engine pages
+
+- [redaction](redaction.md): transformation behavior for string/object payloads
+- [match engine](match-engine.md): safe CLI regex matching behavior
+- [performance](performance.md): runtime cost model and optimization tradeoffs
+
+## Engine interaction (single view)
+
+```mermaid
+flowchart TD
+    IN[Input or output payload] --> M1[Match evaluation]
+    M1 --> D{Transform required?}
+    D -->|No| FAST[Fast return path]
+    D -->|Yes| RED[Redaction traversal path]
+    RED --> OUT[Sanitized payload]
+    FAST --> OUT
+    CLI[CLI rule tests] --> SAFE[Safe match engine with timeout]
+    SAFE --> M1
+    PERF[Performance controls] --> M1
+    PERF --> RED
+```
+
+## Responsibility boundaries
+
+- Redaction page explains how content is transformed.
+- Match engine page explains safe CLI regex execution.
+- Performance page explains cost drivers, optimization levers, and tradeoffs.
+
+## Related pages
+
+- [wiki index](../README.md)
+- [layers index](../layers/README.md)
+- [decision patterns](../decision/patterns.md)
+

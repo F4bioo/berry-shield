@@ -56,6 +56,16 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
                 ]);
 
                 s.spacer();
+                s.section("Policy");
+                s.table([
+                    { label: "Profile", value: shieldConfig.policy.profile.toUpperCase() },
+                    { label: "Escalation", value: String(shieldConfig.policy.adaptive.escalationTurns) },
+                    { label: "Stale (min)", value: String(shieldConfig.policy.adaptive.staleAfterMinutes) },
+                    { label: "Heartbeat", value: String(shieldConfig.policy.adaptive.heartbeatEveryTurns) },
+                    { label: "Global Escalation", value: shieldConfig.policy.adaptive.allowGlobalEscalation ? theme.warning("ON") : theme.muted("OFF") },
+                ]);
+
+                s.spacer();
                 s.section("Security Layers");
                 s.table(
                     layers.map(layer => ({

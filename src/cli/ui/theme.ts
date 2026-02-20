@@ -17,7 +17,7 @@ const BERRY_PALETTE = {
 
 /**
  * Utility to convert Hex to ANSI 256-color or 24-bit color.
- * Since we want maximum performance on RPI4, we use simple ANSI escape codes.
+ * Since we want maximum performance, we use simple ANSI escape codes.
  */
 function hexToAnsi(hex: string): string {
     const r = parseInt(hex.slice(1, 3), 16);

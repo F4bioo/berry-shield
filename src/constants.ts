@@ -23,6 +23,7 @@ export const ENV_VARS = {
 export const CONFIG_PATHS = {
     PLUGIN_ROOT: `plugins.entries.${PLUGIN_ID}`,
     PLUGIN_CONFIG: `plugins.entries.${PLUGIN_ID}.config`,
+    POLICY_CONFIG: `plugins.entries.${PLUGIN_ID}.config.policy`,
     ENABLED: `plugins.entries.${PLUGIN_ID}.enabled`,
 };
 
@@ -67,6 +68,7 @@ export const HOOKS = {
     MESSAGE_SENDING: "message_sending",
     BEFORE_TOOL_CALL: "before_tool_call",
     TOOL_RESULT_PERSIST: "tool_result_persist",
+    SESSION_END: "session_end",
 } as const;
 
 /** Core runtime hooks required for full Berry Shield security behavior */
