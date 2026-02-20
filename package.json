@@ -1,8 +1,32 @@
 {
-  "name": "berry-shield",
+  "name": "@f4bioo/berry-shield",
   "version": "2026.2.15",
-  "description": "Security plugin for OpenClaw - blocks destructive commands, redacts secrets and PII",
+  "description": "OpenClaw plugin for policy checks, command/file blocking, and sensitive-data redaction.",
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "security",
+    "guardrail",
+    "pii",
+    "redaction",
+    "audit",
+    "safety",
+    "cli"
+  ],
+  "license": "Apache-2.0",
+  "author": "F4bioo",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/F4bioo/berry-shield"
+  },
   "type": "module",
+  "files": [
+    "dist/",
+    "docs/wiki/",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
   "openclaw": {
     "extensions": [
       "./dist/index.js"

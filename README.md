@@ -1,244 +1,151 @@
 # 🍓 Berry Shield
 
-> A modular security plugin for OpenClaw that helps manage data access and command execution.
+Security plugin for OpenClaw that reduces data leakage risk and blocks unsafe operations in agent workflows.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](package.json)
-[![OpenClaw](https://img.shields.io/badge/OpenClaw-plugin-green.svg)](https://docs.openclaw.ai/tools/plugin)
+## 🧐 Why this exists
 
-## Overview
+Berry Shield was created from a practical problem: during routine setup checks, the agent could expose sensitive data directly in chat (API keys, tokens,
+SSH material, and other secrets).
 
-Berry Shield is a **Session Guard** for the OpenClaw ecosystem that provides several layers of observation and control over the Agent's interactions. It focuses on data integrity and conversation safety.
+Typical examples included:
+- reading config files that contained credentials (`openclaw.json`, `.env`, cloud credentials)
+- returning sensitive command/file output without sanitization
+- exposing private paths or secret-bearing content in normal troubleshooting flows
 
-## 🏰 System Overview
+Design principles:
+- Agents can read or execute sensitive operations by mistake.
+- Prompt-only guardrails are not enough in real runtimes.
+- Security controls must be visible, configurable, and testable from CLI.
 
-Berry Shield is designed with multiple layers. The idea is that if an interaction isn't caught by one layer, it might be caught by another.
-
----
-
-## 🛡️ The 5 Defense Layers
-
-| Layer | Type | Technical Role |
-|-------|------|----------------|
-| 🌱 **Berry.Root** | **Policy Injection** | Establishes the security context and instructions for the Agent at the start of every turn. |
-| 🌿 **Berry.Stem** | **Security Gate** | The primary tool-based checkpoint (`berry_check`) that the Agent must call before any risky operation. |
-| 🌵 **Berry.Thorn** | **Active Blocker** | Implements runtime interception of destructive commands and sensitive file access. |
-| 🍇 **Berry.Pulp** | **Data Censor** | Scans and redacts tool outputs and outgoing messages to prevent long-term data leaks. |
-| 🍃 **Berry.Leaf** | **Audit Trail** | Provides non-intrusive logging of all incoming interactions for security auditing. |
+The goal of `Berry Shield` is to reduce that risk in day-to-day usage by adding guardrails for access checks, runtime blocking, and output redaction.
 
 ---
 
-## 🚀 Installation
+## 🎯 What Berry Shield does
 
-```bash
-# Clone the repository
-git clone <repo-url>
-cd berry-shield
-
-# Install into OpenClaw
-openclaw plugins install ./berry-shield
-
-# Enable the plugin
-openclaw plugins enable berry-shield
-```
-
-## ⚙️ Configuration
-
-Configure Berry Shield in your `~/.openclaw/config.json`:
-
-```json
-{
-  "plugins": {
-    "berry-shield": {
-      "mode": "enforce",
-      "layers": {
-        "root": true,
-        "pulp": true,
-        "thorn": true,
-        "leaf": true,
-        "stem": true
-      },
-      "policy": {
-        "profile": "balanced",
-        "adaptive": {
-          "staleAfterMinutes": 30,
-          "escalationTurns": 3,
-          "heartbeatEveryTurns": 0,
-          "allowGlobalEscalation": false
-        },
-        "retention": {
-          "maxEntries": 10000,
-          "ttlSeconds": 86400
-        }
-      }
-    }
-  }
-}
-```
-
-### Root Policy Injection Modes
-
-Berry.Root supports three profiles:
-
-- `strict`: injects full policy on every turn.
-- `balanced` (default): full policy on first turn, then none; re-injects short/full on risk/stale/provider changes.
-- `minimal`: stays silent by default; injects only on critical triggers (risk/provider change/heartbeat if configured).
-
-Security fallback behavior:
-
-- If no session identity is available (`sessionId/sessionKey` missing), Berry Shield automatically forces full policy and logs a warning.
-- Adaptive escalation is session-scoped. When `sessionKey` is missing in `berry_check`, actions are still blocked but escalation is skipped.
-
-Operational note:
-
-- Policy session state is in-memory. After gateway/plugin restart, session tracking resets and the next turn receives full policy again.
+- Enforces a pre-flight security gate with `berry_check` before risky operations.
+- Intercepts tool calls and blocks destructive or sensitive access patterns.
+- Scans and redacts sensitive output before persistence and outbound delivery.
+- Supports `enforce` and `audit` modes for rollout and validation.
+- Provides CLI management for status, mode, policy, layers, rules, and report.
 
 ---
 
-## ⚙️ CLI Management
+## ⚡ Quickstart
 
-Berry Shield includes a CLI for managing security rules and monitoring status directly from the terminal.
-
-### 📊 Dashboard & Monitoring
-Quickly check the health and active layers of the plugin.
+Install from npm package:
 
 ```bash
-# General status dashboard
-openclaw bshield status
+openclaw plugins install @f4bioo/berry-shield
 ```
 
-### Self-Documentation
-You can explore all available commands and flags directly from your terminal:
+**Note:** Berry Shield is plug-and-play after install. No extra setup is required for baseline protection.
+
+See more:
+- [Berry Shield Installation guide](docs/wiki/deploy/installation.md)
+
+---
+
+**Note:** If you want to customize mode, layers, or policy, use:
 
 ```bash
-# General help
 openclaw bshield --help
 ```
 
-```bash
-# Detailed help for specific commands
-openclaw bshield add --help
-```
-
-```bash
-# Detailed help for specific commands
-openclaw bshield add secret --help
-```
-
-### 1. Adding Rules (The `add` Command)
-
-You can add three types of security rules: `secret`, `file`, and `command`.
-
-#### Advanced Redaction (Secrets)
-Use the `--placeholder` flag to define exactly how a secret should appear in the logs/output.
-
-```bash
-# Add a rule for a custom Internal Token with a specific placeholder
-openclaw bshield add secret \
-  --name "InternalToken" \
-  --pattern "INT_[a-z0-9]{32}" \
-  --placeholder "[PROTECTED_INTERNAL_TOKEN]"
-```
-
-#### Targeted Blocking (Files & Commands)
-Block access to specific files or execution of dangerous commands using patterns.
-
-```bash
-# Block specific production config
-openclaw bshield add file --pattern "config/production\.json"
-```
-
-```bash
-# Block all private key extensions
-openclaw bshield add file --pattern "\.pem$"
-```
-
-```bash
-# Block dangerous administrative commands
-openclaw bshield add command --pattern "sudo"
-```
-
-### 2. Monitoring & Cleanup (`list` & `remove`)
-
-Keep your security policy lean by listing and removing rules as needed.
-
-```bash
-# List all active rules (built-in and custom)
-openclaw bshield list
-```
-
-```bash
-# Remove a custom rule by its name
-openclaw bshield remove InternalToken
-```
-
-### 3. Safety Verification (`test`)
-
-Verify your patterns before deploying them to a live agent session.
-
-```bash
-# Test if a specific string triggers redaction
-openclaw bshield test "My token is INT_abc1234567890abcdef1234567890ab"
-```
-
-### 4. Policy Profiles and Adaptive Settings
-
-Manage policy behavior without editing JSON manually.
-
-```bash
-# Set profile directly
-openclaw bshield profile strict
-openclaw bshield profile balanced
-openclaw bshield profile minimal
-```
-
-```bash
-# Interactive policy wizard
-openclaw bshield policy
-```
-
-```bash
-# Deterministic set/get (automation-friendly)
-openclaw bshield policy set adaptive.escalationTurns 5
-openclaw bshield policy set adaptive.allowGlobalEscalation false
-openclaw bshield policy get
-openclaw bshield policy get profile
-```
+See more:
+- [Berry Shield CLI reference](docs/wiki/operation/cli/README.md)
 
 ---
 
-## 🔍 Technical Details
+## 🧠 Mental model (single flow)
 
-### The `berry_check` Tool (The Gate)
-The Agent is instructed to always call `berry_check` before executing commands or reading files. This provides an active defense that works even when standard hooks are unavailable.
+Berry Shield is designed with multiple layers. The idea is that if an interaction isn't caught by one layer, it might be caught by another.
 
-```typescript
-// Agent verification
-berry_check({ operation: "exec", target: "rm -rf /" })
-// Output: STATUS: DENIED | REASON: Destructive command detected
+```mermaid
+flowchart LR
+    U[User message] --> R[Berry.Root policy context]
+    U --> L[Berry.Leaf input audit]
 
-// Recommended when session identity is available
-berry_check({ operation: "exec", target: "rm -rf /", sessionKey: "session-abc" })
+    R --> A[Agent reasoning]
+    A --> S[Berry.Stem berry_check]
+
+    S -->|DENIED| A
+    S -->|ALLOWED| H[Berry.Thorn before_tool_call]
+
+    H -->|BLOCKED| A
+    H -->|ALLOWED| T[Tool execution]
+
+    T --> P[Berry.Pulp output scan]
+    P --> A
+    A --> O[User response]
 ```
 
-### Smart Cache
-To reduce overhead, the rule set is only reloaded if the configuration file's modification time changes.
+## 🧬 Layers in plain language
+
+| Layer | Purpose | Practical effect |
+| :--- | :--- | :--- |
+| **Leaf** 🍃 | **Input audit** | Logs sensitive signals in incoming content for observability. |
+| **Root** 🌱 | **Prompt guard** | Injects security policy/reminders into agent context by profile strategy. |
+| **Stem** 🌿 | **Security gate** | `berry_check` tool decides if intended operation is allowed or denied. |
+| **Thorn** 🌵 | **Runtime blocker** | Intercepts tool calls and blocks risky command/file patterns in enforce mode. |
+| **Pulp** 🍇 | **Output scanner** | Redacts sensitive data in tool results and outgoing messages in enforce mode. |
+
+See more:
+- [Berry Shield layers](docs/wiki/layers/README.md)
 
 ---
 
+## ⚙️ Modes and profiles
+
+### Modes (`mode`)
+
+| Mode | Behavior |
+| :--- | :--- |
+| `enforce` | **Active Defense**: Blocks/Redacts when patterns match. |
+| `audit` | **Silent Observation**: Logs what *would* have happened (`would_block`, `would_redact`). |
+
+### Profiles (`policy.profile`)
+
+| Profile | Injection behavior |
+| :--- | :--- |
+| `strict` | **Full policy** injection every turn. |
+| `balanced` | **Adaptive**: Full on first turn, then `short`/`none` depending on risk/staleness. |
+| `minimal` | **Silent**: Minimal injection by default; escalates only on critical triggers. |
+
+
+See more:
+- [Berry Shield modes and profiles](docs/wiki/decision/modes.md)
+
 ---
 
-## ⚠️ Technical Limitations & SDK Diary
+## 🚧 Technical Limitations & SDK Diary
 
-Berry Shield's effectiveness is tied to the underlying OpenClaw SDK capabilities. We maintain a detailed **[Security Posture & SDK Compatibility Diary](docs/wiki/decision/security-posture.md)** that tracks known bugs and blind spots across OpenClaw versions.
+Berry Shield's effectiveness is tied to the underlying OpenClaw SDK capabilities. We maintain a detailed diary that tracks known bugs and blind spots across OpenClaw versions.
 
 ### Key Points for v2026.2.14:
-*   **Hook Reliability**: While `before_tool_call` and `message_sending` are functional in the latest stable, some version-specific bugs (like the ignored `systemPrompt`) may exist.
+*   **Hook Reliability**: In our v2026.2.14 checkpoint, `before_tool_call` and `message_sending` were observed as functional, but hook behavior remains runtime/version-dependent.
 *   **Soft Guardrails**: Prompt-based defenses (`Berry.Root`) are advisory and can be bypassed by clever user instructions.
 *   **Timing Gaps**: Redaction happens during persistence, which might create a transient data exposure.
 
-For a version-by-version technical breakdown, please refer to the **[Wiki Diary](docs/wiki/decision/security-posture.md)**.
+See more: 
+-  [Security posture and known limits](docs/wiki/decision/posture.md)
 
 ---
 
-## License
-Berry Shield is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE) file for more information.
+## 📚 Docs map
+
+- Wiki overview: [docs/wiki/README.md](docs/wiki/README.md)
+- Install and deploy: [docs/wiki/deploy/installation.md](docs/wiki/deploy/installation.md)
+- CLI commands: [docs/wiki/operation/cli/README.md](docs/wiki/operation/cli/README.md)
+- Layer internals: [docs/wiki/layers/README.md](docs/wiki/layers/README.md)
+- Mode/profile decisions: [docs/wiki/decision/modes.md](docs/wiki/decision/modes.md)
+- Pattern strategy: [docs/wiki/decision/patterns.md](docs/wiki/decision/patterns.md)
+- Tutorials: [docs/wiki/tutorials/README.md](docs/wiki/tutorials/README.md)
+
+---
+
+## ⚖️ License
+
+Apache-2.0. See [LICENSE](LICENSE).
+
+For contributor workflow and internal quality process, see [CONTRIBUTING.md](CONTRIBUTING.md).
