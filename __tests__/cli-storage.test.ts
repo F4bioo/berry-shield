@@ -7,6 +7,9 @@ import {
     loadCustomRulesSync,
     addCustomRule,
     removeCustomRule,
+    ensureRulesDeltaSync,
+    disableBuiltInRule,
+    restoreBuiltInRule,
     getStoragePath,
 } from "../src/cli/storage";
 
@@ -22,6 +25,9 @@ vi.mock("node:fs/promises", async () => {
 
 vi.mock("node:fs", async () => {
     return {
+        existsSync: vi.fn(),
+        mkdirSync: vi.fn(),
+        writeFileSync: vi.fn(),
         accessSync: vi.fn(),
         readFileSync: vi.fn(),
     };
@@ -40,6 +46,9 @@ vi.mock("node:os", async () => {
 describe("CLI Storage", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(fsSync.existsSync).mockReturnValue(false);
+        vi.mocked(fsSync.mkdirSync).mockImplementation(() => undefined);
+        vi.mocked(fsSync.writeFileSync).mockImplementation(() => undefined);
     });
 
     describe("getStoragePath", () => {
@@ -65,6 +74,7 @@ describe("CLI Storage", () => {
                 secrets: [],
                 sensitiveFiles: [],
                 destructiveCommands: [],
+                disabledBuiltInIds: [],
             });
         });
 
@@ -74,6 +84,7 @@ describe("CLI Storage", () => {
                 secrets: [{ name: "test", pattern: "test-.*", placeholder: "[TEST]", addedAt: "now" }],
                 sensitiveFiles: [],
                 destructiveCommands: [],
+                disabledBuiltInIds: [],
             };
 
             vi.mocked(fs.access).mockResolvedValue(undefined); // File exists
@@ -95,6 +106,7 @@ describe("CLI Storage", () => {
                 secrets: [],
                 sensitiveFiles: [],
                 destructiveCommands: [],
+                disabledBuiltInIds: [],
             });
         });
     });
@@ -114,6 +126,7 @@ describe("CLI Storage", () => {
                 secrets: [],
                 sensitiveFiles: [],
                 destructiveCommands: [],
+                disabledBuiltInIds: [],
             });
         });
 
@@ -123,6 +136,7 @@ describe("CLI Storage", () => {
                 secrets: [{ name: "sync-test", pattern: "test-.*", placeholder: "[TEST]", addedAt: "now" }],
                 sensitiveFiles: [],
                 destructiveCommands: [],
+                disabledBuiltInIds: [],
             };
 
             vi.mocked(fsSync.accessSync).mockImplementation(() => undefined);
@@ -131,6 +145,53 @@ describe("CLI Storage", () => {
             const rules = loadCustomRulesSync();
 
             expect(rules).toEqual(mockRules);
+        });
+    });
+
+    describe("ensureRulesDeltaSync", () => {
+        it("creates custom-rules.json with disabledBuiltInIds when file does not exist", () => {
+            vi.mocked(fsSync.existsSync).mockReturnValue(false);
+
+            ensureRulesDeltaSync();
+
+            expect(fsSync.mkdirSync).toHaveBeenCalled();
+            expect(fsSync.writeFileSync).toHaveBeenCalledTimes(1);
+            const payload = vi.mocked(fsSync.writeFileSync).mock.calls[0][1] as string;
+            const parsed = JSON.parse(payload);
+            expect(parsed.disabledBuiltInIds).toEqual([]);
+        });
+
+        it("patches legacy file missing disabledBuiltInIds", () => {
+            vi.mocked(fsSync.existsSync).mockReturnValue(true);
+            vi.mocked(fsSync.readFileSync).mockReturnValue(JSON.stringify({
+                version: "1.0",
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+            }));
+
+            ensureRulesDeltaSync();
+
+            expect(fsSync.writeFileSync).toHaveBeenCalledTimes(1);
+            const payload = vi.mocked(fsSync.writeFileSync).mock.calls[0][1] as string;
+            const parsed = JSON.parse(payload);
+            expect(parsed.disabledBuiltInIds).toEqual([]);
+        });
+
+        it("does not rewrite file when already normalized", () => {
+            const normalized = JSON.stringify({
+                version: "1.0",
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+                disabledBuiltInIds: [],
+            }, null, 2);
+            vi.mocked(fsSync.existsSync).mockReturnValue(true);
+            vi.mocked(fsSync.readFileSync).mockReturnValue(normalized);
+
+            ensureRulesDeltaSync();
+
+            expect(fsSync.writeFileSync).not.toHaveBeenCalled();
         });
     });
 
@@ -175,6 +236,7 @@ describe("CLI Storage", () => {
                 secrets: [{ name: "existing", pattern: "test.*", placeholder: "[TEST]", addedAt: "now" }],
                 sensitiveFiles: [],
                 destructiveCommands: [],
+                disabledBuiltInIds: [],
             };
 
             vi.mocked(fs.access).mockResolvedValue(undefined);
@@ -195,6 +257,7 @@ describe("CLI Storage", () => {
                 secrets: [{ name: "existing", pattern: "test.*", placeholder: "[TEST]", addedAt: "now" }],
                 sensitiveFiles: [],
                 destructiveCommands: [],
+                disabledBuiltInIds: [],
             };
 
             vi.mocked(fs.access).mockResolvedValue(undefined);
@@ -223,6 +286,7 @@ describe("CLI Storage", () => {
                 secrets: [{ name: "to-remove", pattern: "test.*", placeholder: "[TEST]", addedAt: "now" }],
                 sensitiveFiles: [],
                 destructiveCommands: [],
+                disabledBuiltInIds: [],
             };
 
             vi.mocked(fs.access).mockResolvedValue(undefined);
@@ -246,6 +310,7 @@ describe("CLI Storage", () => {
                 secrets: [],
                 sensitiveFiles: [],
                 destructiveCommands: [],
+                disabledBuiltInIds: [],
             };
 
             vi.mocked(fs.access).mockResolvedValue(undefined);
@@ -255,6 +320,108 @@ describe("CLI Storage", () => {
 
             expect(result.success).toBe(true);
             expect(result.removed).toBe(false);
+            expect(fs.writeFile).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("built-in diff-state controls", () => {
+        it("disables a known built-in id (case-insensitive) and persists normalized id", async () => {
+            const existingRules = {
+                version: "1.0",
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+                disabledBuiltInIds: [],
+            };
+
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
+            vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+            const result = await disableBuiltInRule("SeCrEt:OpEnAi-Key");
+
+            expect(result.success).toBe(true);
+            expect(fs.writeFile).toHaveBeenCalledTimes(1);
+            const content = JSON.parse(vi.mocked(fs.writeFile).mock.calls[0][1] as string);
+            expect(content.disabledBuiltInIds).toContain("secret:openai-key");
+        });
+
+        it("rejects unknown built-in id", async () => {
+            const existingRules = {
+                version: "1.0",
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+                disabledBuiltInIds: [],
+            };
+
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
+
+            const result = await disableBuiltInRule("secret:does-not-exist");
+
+            expect(result.success).toBe(false);
+            expect(result.error).toContain("Unknown built-in rule id");
+            expect(fs.writeFile).not.toHaveBeenCalled();
+        });
+
+        it("does not duplicate disable when id already exists", async () => {
+            const existingRules = {
+                version: "1.0",
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+                disabledBuiltInIds: ["secret:openai-key"],
+            };
+
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
+
+            const result = await disableBuiltInRule("secret:openai-key");
+
+            expect(result.success).toBe(false);
+            expect(result.error).toContain("already disabled");
+            expect(fs.writeFile).not.toHaveBeenCalled();
+        });
+
+        it("restores disabled built-in id (case-insensitive)", async () => {
+            const existingRules = {
+                version: "1.0",
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+                disabledBuiltInIds: ["secret:openai-key"],
+            };
+
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
+            vi.mocked(fs.writeFile).mockResolvedValue(undefined);
+
+            const result = await restoreBuiltInRule("SeCrEt:OpEnAi-Key");
+
+            expect(result.success).toBe(true);
+            expect(result.restored).toBe(true);
+            expect(fs.writeFile).toHaveBeenCalledTimes(1);
+            const content = JSON.parse(vi.mocked(fs.writeFile).mock.calls[0][1] as string);
+            expect(content.disabledBuiltInIds).toEqual([]);
+        });
+
+        it("is idempotent when restoring a non-disabled id", async () => {
+            const existingRules = {
+                version: "1.0",
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+                disabledBuiltInIds: [],
+            };
+
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
+
+            const result = await restoreBuiltInRule("secret:openai-key");
+
+            expect(result.success).toBe(true);
+            expect(result.restored).toBe(false);
             expect(fs.writeFile).not.toHaveBeenCalled();
         });
     });

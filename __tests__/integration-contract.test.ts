@@ -74,7 +74,8 @@ describe("Contract Protection: Integrated Security Motor", () => {
                 version: "1.0",
                 secrets: [{ name: "ContractTestKey", pattern: "CONTRACT_SECRET_[0-9]+", placeholder: "[BLOCKED]", addedAt: new Date().toISOString() }],
                 sensitiveFiles: [],
-                destructiveCommands: []
+                destructiveCommands: [],
+                disabledBuiltInIds: [],
             };
 
             fs.mkdirSync(CONFIG_DIR, { recursive: true });

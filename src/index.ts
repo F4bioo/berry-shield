@@ -9,6 +9,7 @@ import { registerBerryStem } from "./layers/stem.js";
 import { registerBerryShieldCli } from "./cli/index.js";
 import { initializePatterns } from "./patterns/index.js";
 import { initAuditWriter } from "./audit/writer.js";
+import { ensureRulesDeltaSync } from "./cli/storage.js";
 
 /**
  * Berry Shield - Security architecture for OpenClaw
@@ -28,6 +29,8 @@ export default {
     description: "Security plugin designed to mitigate flagged commands and redact detected secrets/PII",
 
     register(api: OpenClawPluginApi) {
+        ensureRulesDeltaSync();
+
         // Initialize security patterns from disk
         initializePatterns();
         initAuditWriter();

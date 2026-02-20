@@ -38,6 +38,7 @@ function createConfig() {
         },
         sensitiveFilePaths: [],
         destructiveCommands: [],
+        disabledBuiltInIds: [],
     };
 }
 
