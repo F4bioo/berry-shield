@@ -20,6 +20,8 @@ vi.mock("node:fs/promises", async () => {
         readFile: vi.fn(),
         writeFile: vi.fn(),
         mkdir: vi.fn(),
+        rename: vi.fn(),
+        unlink: vi.fn(),
     };
 });
 
@@ -30,6 +32,8 @@ vi.mock("node:fs", async () => {
         writeFileSync: vi.fn(),
         accessSync: vi.fn(),
         readFileSync: vi.fn(),
+        renameSync: vi.fn(),
+        unlinkSync: vi.fn(),
     };
 });
 
@@ -49,6 +53,10 @@ describe("CLI Storage", () => {
         vi.mocked(fsSync.existsSync).mockReturnValue(false);
         vi.mocked(fsSync.mkdirSync).mockImplementation(() => undefined);
         vi.mocked(fsSync.writeFileSync).mockImplementation(() => undefined);
+        vi.mocked(fsSync.renameSync).mockImplementation(() => undefined);
+        vi.mocked(fsSync.unlinkSync).mockImplementation(() => undefined);
+        vi.mocked(fs.rename).mockResolvedValue(undefined);
+        vi.mocked(fs.unlink).mockResolvedValue(undefined);
     });
 
     describe("getStoragePath", () => {
@@ -109,6 +117,16 @@ describe("CLI Storage", () => {
                 disabledBuiltInIds: [],
             });
         });
+
+        it("backs up corrupted file and restores defaults on parse error", async () => {
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue("invalid json");
+
+            await loadCustomRules();
+
+            expect(fs.rename).toHaveBeenCalled();
+            expect(fs.writeFile).toHaveBeenCalled();
+        });
     });
 
     describe("loadCustomRulesSync", () => {
@@ -145,6 +163,17 @@ describe("CLI Storage", () => {
             const rules = loadCustomRulesSync();
 
             expect(rules).toEqual(mockRules);
+        });
+
+        it("backs up corrupted file and restores defaults on parse error", () => {
+            vi.mocked(fsSync.accessSync).mockImplementation(() => undefined);
+            vi.mocked(fsSync.readFileSync).mockReturnValue("invalid json");
+
+            const rules = loadCustomRulesSync();
+
+            expect(rules.disabledBuiltInIds).toEqual([]);
+            expect(fsSync.renameSync).toHaveBeenCalled();
+            expect(fsSync.writeFileSync).toHaveBeenCalled();
         });
     });
 

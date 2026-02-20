@@ -72,6 +72,84 @@ function normalizeRules(rules: CustomRules): CustomRules {
     };
 }
 
+function getBrokenBackupPath(): string {
+    return `${RULES_FILE}.broken.${Date.now()}`;
+}
+
+async function writeRulesAtomicAsync(rules: CustomRules): Promise<void> {
+    await fs.mkdir(CONFIG_DIR, { recursive: true });
+    const tmpPath = `${RULES_FILE}.tmp.${process.pid}.${Date.now()}`;
+    const payload = JSON.stringify(rules, null, 2);
+
+    await fs.writeFile(tmpPath, payload, "utf-8");
+
+    try {
+        await fs.rename(tmpPath, RULES_FILE);
+    } catch {
+        try {
+            await fs.unlink(RULES_FILE);
+        } catch {
+            // Ignore if destination does not exist or cannot be removed here.
+        }
+        await fs.rename(tmpPath, RULES_FILE);
+    }
+}
+
+function writeRulesAtomicSync(rules: CustomRules): void {
+    fsSync.mkdirSync(CONFIG_DIR, { recursive: true });
+    const tmpPath = `${RULES_FILE}.tmp.${process.pid}.${Date.now()}`;
+    const payload = JSON.stringify(rules, null, 2);
+
+    fsSync.writeFileSync(tmpPath, payload, "utf-8");
+
+    try {
+        fsSync.renameSync(tmpPath, RULES_FILE);
+    } catch {
+        try {
+            fsSync.unlinkSync(RULES_FILE);
+        } catch {
+            // Ignore if destination does not exist or cannot be removed here.
+        }
+        fsSync.renameSync(tmpPath, RULES_FILE);
+    }
+}
+
+async function recoverCorruptedRulesFileAsync(message: string): Promise<void> {
+    console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Invalid custom-rules.json structure, creating backup and restoring defaults`);
+
+    try {
+        await fs.mkdir(CONFIG_DIR, { recursive: true });
+        try {
+            await fs.rename(RULES_FILE, getBrokenBackupPath());
+        } catch {
+            // Keep best-effort behavior: if rename fails, continue writing defaults.
+        }
+        await writeRulesAtomicAsync(emptyRules());
+    } catch (recoveryErr: unknown) {
+        const recoveryMessage = recoveryErr instanceof Error ? recoveryErr.message : String(recoveryErr);
+        console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Failed to recover corrupted custom-rules.json: ${recoveryMessage}`);
+        console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Original parse error: ${message}`);
+    }
+}
+
+function recoverCorruptedRulesFileSync(message: string): void {
+    console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Invalid custom-rules.json structure, creating backup and restoring defaults`);
+
+    try {
+        fsSync.mkdirSync(CONFIG_DIR, { recursive: true });
+        try {
+            fsSync.renameSync(RULES_FILE, getBrokenBackupPath());
+        } catch {
+            // Keep best-effort behavior: if rename fails, continue writing defaults.
+        }
+        writeRulesAtomicSync(emptyRules());
+    } catch (recoveryErr: unknown) {
+        const recoveryMessage = recoveryErr instanceof Error ? recoveryErr.message : String(recoveryErr);
+        console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Failed to recover corrupted custom-rules.json: ${recoveryMessage}`);
+        console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Original parse error: ${message}`);
+    }
+}
+
 function isSystemErrorWithCode(err: unknown): err is { code: string } {
     return typeof err === "object" && err !== null && "code" in err && typeof (err as { code: unknown }).code === "string";
 }
@@ -133,7 +211,7 @@ export async function loadCustomRules(): Promise<CustomRules> {
             console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Could not read custom-rules.json: ${message}`);
         }
         if (err instanceof Error && !isSystemErrorWithCode(err)) {
-            console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Invalid custom-rules.json structure, using defaults`);
+            await recoverCorruptedRulesFileAsync(err.message);
         }
         return emptyRules();
     }
@@ -154,7 +232,7 @@ export function loadCustomRulesSync(): CustomRules {
             console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Could not read custom-rules.json: ${message}`);
         }
         if (err instanceof Error && !isSystemErrorWithCode(err)) {
-            console.error(`   ${symbols.warning} ${theme.warning("Warning:")} Invalid custom-rules.json structure, using defaults`);
+            recoverCorruptedRulesFileSync(err.message);
         }
         return emptyRules();
     }
@@ -165,8 +243,7 @@ export function loadCustomRulesSync(): CustomRules {
  * Creates the config directory if it doesn't exist.
  */
 export async function saveCustomRules(rules: CustomRules): Promise<void> {
-    await fs.mkdir(CONFIG_DIR, { recursive: true });
-    await fs.writeFile(RULES_FILE, JSON.stringify(rules, null, 2));
+    await writeRulesAtomicAsync(normalizeRules(rules));
 }
 
 /**
@@ -256,7 +333,7 @@ export function ensureRulesDeltaSync(): void {
         fsSync.mkdirSync(CONFIG_DIR, { recursive: true });
 
         if (!fsSync.existsSync(RULES_FILE)) {
-            fsSync.writeFileSync(RULES_FILE, JSON.stringify(emptyRules(), null, 2), "utf-8");
+            writeRulesAtomicSync(emptyRules());
             return;
         }
 
@@ -265,7 +342,7 @@ export function ensureRulesDeltaSync(): void {
         const normalized = normalizeRules(parsed);
 
         if (content !== JSON.stringify(normalized, null, 2)) {
-            fsSync.writeFileSync(RULES_FILE, JSON.stringify(normalized, null, 2), "utf-8");
+            writeRulesAtomicSync(normalized);
         }
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);

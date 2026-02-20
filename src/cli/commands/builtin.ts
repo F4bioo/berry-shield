@@ -113,6 +113,7 @@ export async function builtinRemoveCommand(
         header: (s) => s.header("Built-in Rule Disabled"),
         content: (s) => {
             s.successMsg("Built-in rule disabled successfully.");
+            s.warningMsg("Security impact: disabling built-in rules may reduce protection coverage.");
             s.row("Type", builtIn.type.toUpperCase());
             s.row("ID", builtIn.id);
         },
