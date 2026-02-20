@@ -73,3 +73,10 @@ Possible causes:
 - [add](add.md)
 - [remove](remove.md)
 - [test](test.md)
+
+---
+
+## Navigation
+
+- [Back to CLI Index](README.md)
+- [Back to Wiki Index](../../README.md)

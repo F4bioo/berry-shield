@@ -163,3 +163,10 @@ For operational command usage:
 - [stem layer](../layers/stem.md)
 - [thorn layer](../layers/thorn.md)
 - [pulp layer](../layers/pulp.md)
+
+---
+
+## Navigation
+
+- [Back to Decision Index](README.md)
+- [Back to Wiki Index](../README.md)

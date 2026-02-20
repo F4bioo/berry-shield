@@ -168,3 +168,10 @@ Result: Any cancel branch exits immediately and no new custom rule is written.
 - [list](list.md)
 - [remove](remove.md)
 - [test](test.md)
+
+---
+
+## Navigation
+
+- [Back to CLI Index](README.md)
+- [Back to Wiki Index](../../README.md)

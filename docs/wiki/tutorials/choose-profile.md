@@ -84,3 +84,10 @@ Expected:
 - [policy tuning](tune-policy.md)
 - [profile command reference](../operation/cli/profile.md)
 - [modes and profiles model](../decision/modes.md)
+
+---
+
+## Navigation
+
+- [Back to Tutorials Index](README.md)
+- [Back to Wiki Index](../README.md)

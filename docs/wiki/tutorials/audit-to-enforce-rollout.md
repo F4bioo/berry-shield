@@ -92,3 +92,10 @@ Expected:
 - [secure session](secure-session.md)
 - [mode command reference](../operation/cli/mode.md)
 - [report command reference](../operation/cli/report.md)
+
+---
+
+## Navigation
+
+- [Back to Tutorials Index](README.md)
+- [Back to Wiki Index](../README.md)

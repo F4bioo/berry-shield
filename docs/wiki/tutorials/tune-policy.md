@@ -104,3 +104,10 @@ Expected:
 - [choose profile](choose-profile.md)
 - [policy command reference](../operation/cli/policy.md)
 - [security posture](../decision/posture.md)
+
+---
+
+## Navigation
+
+- [Back to Tutorials Index](README.md)
+- [Back to Wiki Index](../README.md)

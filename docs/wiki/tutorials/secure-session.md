@@ -108,3 +108,10 @@ Expected:
 - [decision modes](../decision/modes.md)
 - [CLI mode command](../operation/cli/mode.md)
 - [CLI report command](../operation/cli/report.md)
+
+---
+
+## Navigation
+
+- [Back to Tutorials Index](README.md)
+- [Back to Wiki Index](../README.md)

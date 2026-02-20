@@ -132,3 +132,10 @@ Pulp is useful for:
 - [decision patterns](../decision/patterns.md)
 - [decision posture](../decision/posture.md)
 - [engine redaction](../engine/redaction.md)
+
+---
+
+## Navigation
+
+- [Back to Layers Index](README.md)
+- [Back to Wiki Index](../README.md)

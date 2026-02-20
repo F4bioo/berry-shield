@@ -60,3 +60,10 @@ For posture verification operations, see:
 ## Related pages
 - [decision index](README.md)
 - [modes](modes.md)
+
+---
+
+## Navigation
+
+- [Back to Decision Index](README.md)
+- [Back to Wiki Index](../README.md)

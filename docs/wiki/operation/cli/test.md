@@ -76,3 +76,10 @@ Expected: On failure, runtime reports storage/read issues for custom rule loadin
 - [add](add.md)
 - [list](list.md)
 - [remove](remove.md)
+
+---
+
+## Navigation
+
+- [Back to CLI Index](README.md)
+- [Back to Wiki Index](../../README.md)

@@ -33,3 +33,10 @@ Use these pages when you want guided execution rather than command reference.
 - [CLI reference](../operation/cli/README.md)
 - [decision modes](../decision/modes.md)
 - [decision posture](../decision/posture.md)
+
+---
+
+## Navigation
+
+- [Back to Wiki Index](../README.md)
+- [Back to Repository README](../../../README.md)

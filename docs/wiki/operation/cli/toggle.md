@@ -81,3 +81,10 @@ Possible causes:
 - [status](status.md)
 - [mode](mode.md)
 - [policy](policy.md)
+
+---
+
+## Navigation
+
+- [Back to CLI Index](README.md)
+- [Back to Wiki Index](../../README.md)

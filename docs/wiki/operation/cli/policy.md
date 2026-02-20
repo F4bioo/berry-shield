@@ -189,3 +189,10 @@ Result: Any cancel branch exits the flow and preserves previous policy values.
 - [profile](profile.md)
 - [status](status.md)
 - [mode](mode.md)
+
+---
+
+## Navigation
+
+- [Back to CLI Index](README.md)
+- [Back to Wiki Index](../../README.md)

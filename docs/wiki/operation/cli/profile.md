@@ -87,3 +87,10 @@ Possible causes:
 - [policy](policy.md)
 - [status](status.md)
 - [mode](mode.md)
+
+---
+
+## Navigation
+
+- [Back to CLI Index](README.md)
+- [Back to Wiki Index](../../README.md)

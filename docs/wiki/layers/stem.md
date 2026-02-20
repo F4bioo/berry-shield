@@ -133,3 +133,9 @@ Stem is useful for:
 - [CLI test](../operation/cli/test.md)
 - [CLI report](../operation/cli/report.md)
 
+---
+
+## Navigation
+
+- [Back to Layers Index](README.md)
+- [Back to Wiki Index](../README.md)

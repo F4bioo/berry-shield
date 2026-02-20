@@ -46,3 +46,10 @@ flowchart TD
 - [layers index](../layers/README.md)
 - [decision patterns](../decision/patterns.md)
 
+---
+
+## Navigation
+
+- [Back to Wiki Index](../README.md)
+- [Back to Repository README](../../../README.md)
+

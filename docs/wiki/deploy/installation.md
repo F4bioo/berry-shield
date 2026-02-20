@@ -71,9 +71,9 @@ Current state:
 - Repository currently supports source-truth deployment directly.
 - Use release-truth only after official npm package publication.
 
-When published, install with:
+Install with:
 ```bash
-openclaw plugins install <npm-package-spec>
+openclaw plugins install @f4bioo/berry-shield
 ```
 Expected: Plugin package is installed to OpenClaw extensions directory and can be enabled/loaded after gateway restart.
 
@@ -91,3 +91,10 @@ Expected: Plugin package is installed to OpenClaw extensions directory and can b
 - [CLI init](../operation/cli/init.md)
 - [CLI status](../operation/cli/status.md)
 - [CLI report](../operation/cli/report.md)
+
+---
+
+## Navigation
+
+- [Back to Deploy Index](README.md)
+- [Back to Wiki Index](../README.md)

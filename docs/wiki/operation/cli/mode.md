@@ -93,3 +93,10 @@ Possible causes:
 - [status](status.md)
 - [profile](profile.md)
 - [policy](policy.md)
+
+---
+
+## Navigation
+
+- [Back to CLI Index](README.md)
+- [Back to Wiki Index](../../README.md)

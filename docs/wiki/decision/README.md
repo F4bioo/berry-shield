@@ -43,4 +43,8 @@ See full posture and limits:
 - Claims about security behavior must be scoped and evidence-based.
 
 ---
+
+## Navigation
+
 - [Back to Wiki Index](../README.md)
+- [Back to Repository README](../../../README.md)

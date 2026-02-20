@@ -107,3 +107,10 @@ Large deeply nested payloads with broad aggressive patterns still increase cost 
 - [match engine](match-engine.md)
 - [decision posture](../decision/posture.md)
 
+---
+
+## Navigation
+
+- [Back to Engine Index](README.md)
+- [Back to Wiki Index](../README.md)
+

@@ -49,3 +49,10 @@ Operational implication:
 - [build](build.md)
 - [installation](installation.md)
 
+---
+
+## Navigation
+
+- [Back to Deploy Index](README.md)
+- [Back to Wiki Index](../README.md)
+

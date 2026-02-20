@@ -92,3 +92,10 @@ Expected:
 - [add command reference](../operation/cli/add.md)
 - [test command reference](../operation/cli/test.md)
 - [pattern model](../decision/patterns.md)
+
+---
+
+## Navigation
+
+- [Back to Tutorials Index](README.md)
+- [Back to Wiki Index](../README.md)

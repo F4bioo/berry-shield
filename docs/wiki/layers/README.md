@@ -57,3 +57,9 @@ Use this index in two passes:
 - [decision patterns](../decision/patterns.md)
 - [decision posture](../decision/posture.md)
 
+---
+
+## Navigation
+
+- [Back to Wiki Index](../README.md)
+- [Back to Repository README](../../../README.md)

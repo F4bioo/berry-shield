@@ -84,3 +84,10 @@ Expected: CLI clears persisted data, but very recent buffered writes can still a
 - [status](status.md)
 - [mode](mode.md)
 - [policy](policy.md)
+
+---
+
+## Navigation
+
+- [Back to CLI Index](README.md)
+- [Back to Wiki Index](../../README.md)

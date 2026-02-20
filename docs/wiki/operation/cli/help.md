@@ -78,3 +78,10 @@ Expected: OpenClaw global command index is shown instead of bshield-only help.
 - [status](status.md)
 - [mode](mode.md)
 - [policy](policy.md)
+
+---
+
+## Navigation
+
+- [Back to CLI Index](README.md)
+- [Back to Wiki Index](../../README.md)

@@ -123,3 +123,10 @@ Root is useful for:
 - [decision posture](../decision/posture.md)
 - [CLI profile](../operation/cli/profile.md)
 - [CLI policy](../operation/cli/policy.md)
+
+---
+
+## Navigation
+
+- [Back to Layers Index](README.md)
+- [Back to Wiki Index](../README.md)

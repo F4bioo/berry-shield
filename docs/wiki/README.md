@@ -101,3 +101,9 @@ Installation tracks, build gates, and doc quality gates.
 > [!WARNING]
 > This wiki is actively maintained. If runtime behavior changes, update docs in the same change set.
 
+---
+
+## Navigation
+
+- [Back to Repository README](../../README.md)
+

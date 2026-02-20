@@ -84,5 +84,8 @@ Each command page follows the same structure:
 - Prefer explicit expected outcomes after each example.
 
 ---
+
+## Navigation
+
 - [Back to Operation Index](../README.md)
 - [Back to Wiki Index](../../README.md)

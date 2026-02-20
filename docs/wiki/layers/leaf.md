@@ -119,3 +119,10 @@ Use this quick check during runtime validation:
 - [layers index](README.md)
 - [decision modes](../decision/modes.md)
 - [decision patterns](../decision/patterns.md)
+
+---
+
+## Navigation
+
+- [Back to Layers Index](README.md)
+- [Back to Wiki Index](../README.md)

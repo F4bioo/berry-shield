@@ -113,3 +113,10 @@ For object keys recognized as sensitive:
 - [match engine](match-engine.md)
 - [performance](performance.md)
 - [decision patterns](../decision/patterns.md)
+
+---
+
+## Navigation
+
+- [Back to Engine Index](README.md)
+- [Back to Wiki Index](../README.md)
