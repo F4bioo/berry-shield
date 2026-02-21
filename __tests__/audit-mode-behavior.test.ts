@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { AuditBlockEvent, AuditRedactEvent, AuditEvent } from "../src/types/audit-event";
 import { formatAuditEvent } from "../src/types/audit-event";
 import { AUDIT_DECISIONS, SECURITY_LAYERS, HOOKS } from "../src/constants";

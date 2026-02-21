@@ -7,6 +7,7 @@ import { SECRET_PATTERNS } from "../src/patterns";
 const MOCK_PATTERNS = [
     ...SECRET_PATTERNS,
     {
+        id: "secret:mock-key",
         name: "Mock Key",
         category: "secret" as const,
         pattern: /MOCK-[A-Z0-9]+/g,

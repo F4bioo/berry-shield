@@ -48,7 +48,7 @@ Expected:
 
 Use this command to inspect built-in and custom rule counts and entries.
 ```bash
-openclaw bshield list
+openclaw bshield rules list
 ```
 Expected:
 - Rule list includes your custom `team_token_rule` entry
@@ -57,7 +57,7 @@ Expected:
 
 Use this command to remove the temporary custom rule after validation.
 ```bash
-openclaw bshield remove team_token_rule
+openclaw bshield rules remove custom team_token_rule
 ```
 Expected:
 - CLI confirms rule removal
@@ -66,7 +66,7 @@ Expected:
 
 Use this command to verify the removed rule no longer appears.
 ```bash
-openclaw bshield list
+openclaw bshield rules list
 ```
 Expected:
 - `team_token_rule` is absent from custom entries

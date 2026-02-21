@@ -55,8 +55,6 @@ async function main() {
             // If it fails, we try to strip it.
 
             let pattern = rule.regex;
-            let flags = 'g'; // Default global
-
             // Basic conversion for common Go regex features if needed
             // For now, let's try direct compilation
             new RegExp(pattern);
@@ -67,7 +65,7 @@ async function main() {
                 pattern: pattern,
                 tags: rule.tags || []
             });
-        } catch (e) {
+        } catch {
             skippedRules.push(`${rule.id} (Regex: ${rule.regex})`);
         }
     }

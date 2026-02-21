@@ -1,10 +1,10 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { findMatches } from "../src/utils/redaction";
 import { getAllRedactionPatterns, getAllSensitiveFilePatterns, reloadPatterns } from "../src/patterns";
-import { saveCustomRules, type CustomRules } from "../src/cli/storage";
+import { type CustomRules } from "../src/cli/storage";
 
 // Helper for temporary rules file
 const CONFIG_DIR = path.join(os.homedir(), ".openclaw", "config", "berry-shield");
@@ -74,7 +74,8 @@ describe("Contract Protection: Integrated Security Motor", () => {
                 version: "1.0",
                 secrets: [{ name: "ContractTestKey", pattern: "CONTRACT_SECRET_[0-9]+", placeholder: "[BLOCKED]", addedAt: new Date().toISOString() }],
                 sensitiveFiles: [],
-                destructiveCommands: []
+                destructiveCommands: [],
+                disabledBuiltInIds: [],
             };
 
             fs.mkdirSync(CONFIG_DIR, { recursive: true });

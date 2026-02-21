@@ -88,7 +88,7 @@ Leaf is useful for:
 
 - measuring sensitive-input frequency
 - building audit trails for compliance/security review
-- correlating â€œuser asked for risky actionâ€ with later deny/redact events
+- correlating "user asked for risky action" with later deny/redact events
 - tuning detection rules with real conversational signals
 
 ## Limits and caveats

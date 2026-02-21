@@ -1,20 +1,20 @@
 ﻿---
-summary: "CLI reference for `openclaw bshield list` (show built-in and custom rule inventory)"
+summary: "CLI reference for `openclaw bshield rules list` (show baseline and custom rule inventory)"
 read_when:
   - You need to inspect active Berry Shield rule inventory
-  - You are auditing custom vs built-in rule coverage
+  - You are auditing baseline vs custom rule coverage
 title: "list"
 ---
 
-# `openclaw bshield list`
+# `openclaw bshield rules list`
 
-List Berry Shield rules grouped by category and source.
+List Berry Shield rules grouped by source (baseline/custom) with explicit status.
 
 ## What it does
-- Loads built-in and custom rule sets.
-- Groups rules by category: secrets, PII redaction, sensitive files, destructive commands.
-- Displays custom rules before built-in rules in each section.
-- Prints a categorized inventory for operational review.
+- Loads baseline IDs and custom rules from persisted storage.
+- Displays baseline rows as `BASELINE id: <id> [ENABLED|DISABLED]`.
+- Displays custom rows as `CUSTOM name: <name|pattern> [ENABLED]`.
+- Prints one inventory view for operational review.
 
 ## When to use
 - Before and after adding/removing custom rules.
@@ -22,12 +22,12 @@ List Berry Shield rules grouped by category and source.
 - While diagnosing missing pattern coverage.
 
 ## Syntax
-### List all active rules
-Use this command to inspect current built-in and custom rules.
+### List all rules
+Use this command to inspect current baseline and custom rules.
 ```bash
-openclaw bshield list
+openclaw bshield rules list
 ```
-Expected: CLI prints categorized sections with rule source markers.
+Expected: CLI prints sections for Baseline and Custom with explicit status markers.
 
 ## Options
 This command has no command-specific flags or positional arguments.
@@ -37,30 +37,37 @@ This command has no command-specific flags or positional arguments.
 ### Inspect complete rule inventory
 Use this as the primary inventory view for active protections.
 ```bash
-openclaw bshield list
+openclaw bshield rules list
 ```
-Result: Output is grouped by rule category and ordered by source within each group.
+Result: Output is grouped by source and displays explicit enabled/disabled state.
 
 ### Verify custom rule presence after add
 Use this after adding one custom rule.
 ```bash
-openclaw bshield list
+openclaw bshield rules list
 ```
-Result: New rule appears under EXTERNAL entries in the matching category.
+Result: New rule appears under Custom entries.
 
 ### Verify custom rule absence after remove
 Use this after removing one custom rule.
 ```bash
-openclaw bshield list
+openclaw bshield rules list
 ```
-Result: Removed rule no longer appears in external entries.
+Result: Removed custom rule no longer appears in custom entries.
+
+### Verify baseline disable status
+Use this after disabling a baseline rule by ID.
+```bash
+openclaw bshield rules list
+```
+Result: Target baseline entry appears with `[DISABLED]` marker.
 
 ## Common errors
 
 ### Rule storage read failure
 Use this when output is incomplete or command fails unexpectedly.
 ```bash
-openclaw bshield list
+openclaw bshield rules list
 ```
 Expected: On failure, CLI/runtime reports storage or read error.
 
@@ -70,8 +77,10 @@ Possible causes:
 
 ## Related commands
 - [index](README.md)
+- [rules](rules.md)
 - [add](add.md)
 - [remove](remove.md)
+- [reset](reset.md)
 - [test](test.md)
 
 ---

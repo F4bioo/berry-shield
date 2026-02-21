@@ -22,7 +22,9 @@ If command behavior changes, update this index and the command pages.
 - [policy](policy.md)
 - [toggle](toggle.md)
 - [add](add.md)
+- [rules](rules.md)
 - [remove](remove.md)
+- [reset](reset.md)
 - [list](list.md)
 - [test](test.md)
 - [report](report.md)
@@ -64,6 +66,20 @@ Use this for interactive policy tuning.
 openclaw bshield policy
 ```
 Expected: Wizard prompts for profile, adaptive, and retention values.
+
+### 5) List rules inventory
+Use this to inspect baseline and custom rules in one place.
+```bash
+openclaw bshield rules list
+```
+Expected: CLI shows baseline IDs and custom names, including `[ENABLED]` and `[DISABLED]` status.
+
+### 6) Disable one baseline rule
+Use this to disable one baseline rule by stable ID.
+```bash
+openclaw bshield rules disable baseline secret:openai-key
+```
+Expected: CLI marks the target baseline rule as disabled.
 
 ## Documentation structure
 

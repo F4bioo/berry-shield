@@ -9,8 +9,6 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { OpenClawPluginCliContext, SafeCommand } from "../types/openclaw-local.js";
 import { ConfigWrapper } from "../config/wrapper.js";
 import { addCommand } from "./commands/add.js";
-import { removeCommand } from "./commands/remove.js";
-import { listCommand } from "./commands/list.js";
 import { testCommand } from "./commands/test.js";
 import { initCommand } from "./commands/init.js";
 import { statusCommand } from "./commands/status.js";
@@ -19,6 +17,13 @@ import { toggleCommand } from "./commands/toggle.js";
 import { reportCommand } from "./commands/report.js";
 import { profileCommand } from "./commands/profile.js";
 import { policyCommand } from "./commands/policy.js";
+import {
+    rulesListCommand,
+    rulesRemoveCommand,
+    rulesDisableCommand,
+    rulesEnableCommand,
+} from "./commands/rules.js";
+import { resetCommand } from "./commands/reset.js";
 import { ui } from "./ui/tui.js";
 import { theme } from "./ui/theme.js";
 
@@ -64,23 +69,48 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 }),
             );
 
-            // Remove command
+            // Rules command group
+            const rules = bshield
+                .command("rules")
+                .description("Manage baseline and custom rules");
+
             attachSubcommandHelp(
-                bshield
-                .command("remove <name>")
-                .description("Remove a custom rule by name")
-                .action(async (name: string) => {
-                    await removeCommand(name, config, logger);
+                rules
+                .command("list")
+                .description("List baseline and custom rules")
+                .action(async () => {
+                    await rulesListCommand();
                 }),
             );
 
-            // List command
             attachSubcommandHelp(
-                bshield
-                .command("list")
-                .description("List all rules (built-in and custom)")
-                .action(async () => {
-                    await listCommand(logger);
+                rules
+                .command("remove <target> [name]")
+                .description("Remove custom rule by name (target must be custom)")
+                .action(async (target: string, name: string | undefined) => {
+                    await rulesRemoveCommand(target, name);
+                }),
+            );
+
+            attachSubcommandHelp(
+                rules
+                .command("disable <target> [id]")
+                .description("Disable baseline rule by id or disable all baseline rules")
+                .option("--all", "Apply operation to all baseline rules")
+                .option("--yes", "Skip confirmation prompt")
+                .action(async (target: string, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
+                    await rulesDisableCommand(target, id, options);
+                }),
+            );
+
+            attachSubcommandHelp(
+                rules
+                .command("enable <target> [id]")
+                .description("Enable baseline rule by id or enable all baseline rules")
+                .option("--all", "Apply operation to all baseline rules")
+                .option("--yes", "Skip confirmation prompt")
+                .action(async (target: string, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
+                    await rulesEnableCommand(target, id, options);
                 }),
             );
 
@@ -162,6 +192,18 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .option("--clear", "Clear the persisted audit log")
                 .action(async (options: { clear?: boolean }) => {
                     await reportCommand(options, logger);
+                }),
+            );
+
+            // Reset command
+            attachSubcommandHelp(
+                bshield
+                .command("reset <target>")
+                .description("Reset defaults (builtins or full scope)")
+                .option("--scope <scope>", "Reset scope (builtins | all)")
+                .option("--yes", "Skip confirmation prompt")
+                .action(async (target: string, options: { scope?: string; yes?: boolean }) => {
+                    await resetCommand(target, options, context, wrapper);
                 }),
             );
         },

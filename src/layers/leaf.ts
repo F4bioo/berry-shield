@@ -69,7 +69,7 @@ export function registerBerryLeaf(
             if (!message) return;
 
             // Redact (detect) sensitive content in the message
-            const { redactionCount, redactedTypes } = walkAndRedact(message, patterns);
+            const { redactedTypes } = walkAndRedact(message, patterns);
 
             // Map types back to categories using the central pattern list
             const matchedPatterns = patterns.filter(p => redactedTypes.includes(p.name));
