@@ -1,7 +1,7 @@
 ﻿---
 summary: "Layer index for Berry Shield runtime architecture and cross-layer interaction map"
 read_when:
-  - You need a quick map of all five layers
+  - You need a quick map of all six layers
   - You are tracing a user-input to output-security path
   - You are onboarding to Berry Shield internals
 title: "Layers Reference"
@@ -18,6 +18,7 @@ It explains what each layer owns and how layers interact during runtime.
 - [leaf](leaf.md): incoming-message audit and sensitive-signal logging
 - [stem](stem.md): gate tool for pre-operation allow/deny decisions
 - [thorn](thorn.md): hook-level pre-tool-call interception and blocking
+- [vine](vine.md): external-content trust guard for prompt-injection hardening
 - [pulp](pulp.md): output scanning, sanitation, and policy-block hygiene
 
 ## End-to-end interaction (single view)
@@ -27,8 +28,11 @@ flowchart TD
     U[User message] --> LEAF[Leaf: inbound audit signals]
     U --> ROOT[Root: turn-start policy decision]
     ROOT --> A[Agent reasoning]
+    A --> VINE[Vine: external-content trust guard]
     A --> STEM[Stem: gate tool check]
     A --> THORN[Thorn: before_tool_call interception]
+    VINE --> STEM
+    VINE --> THORN
     STEM --> TOOLS[Tool execution path]
     THORN --> TOOLS
     TOOLS --> PULP[Pulp: output scan and sanitation]
@@ -42,6 +46,7 @@ flowchart TD
 - Leaf provides observability on inbound content, not inbound blocking.
 - Stem evaluates operation intent through a gate tool path.
 - Thorn intercepts tool calls on hook path when host runtime supports invocation.
+- Vine tracks external-content risk signals and adds trust-aware guardrails.
 - Pulp sanitizes output paths and strips leaked policy snippets.
 
 ## How to read this section

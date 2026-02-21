@@ -16,6 +16,7 @@ Show the current Berry Shield state resolved from plugin config plus defaults.
 - Shows current mode, rule counts, and plugin enabled state.
 - Shows policy values (profile and adaptive settings).
 - Shows active/inactive state for each security layer.
+- Includes Vine layer state (`Vine (External Guard)`) when available.
 
 ## When to use
 - After changing mode or profile.
@@ -55,6 +56,7 @@ Use this after toggling one layer for diagnostics.
 openclaw bshield status
 ```
 Result: Security Layers section shows ACTIVE or OFF for each layer.
+This includes Root, Pulp, Thorn, Leaf, Stem, and Vine.
 
 ## Common errors
 

@@ -87,10 +87,12 @@ Rule reload refreshes cache from persisted custom rules.
 
 - Operation-gating patterns (sensitive files, destructive commands) are consumed by operation layers.
 - Redaction patterns (secrets, PII) are consumed by content-scanning layers.
+- External-origin trust signals are consumed by Vine for prompt-injection hardening.
 
 See layer details:
 - [See layer Stem](../layers/stem.md)
 - [See layer Thorn](../layers/thorn.md)
+- [See layer Vine](../layers/vine.md)
 - [See layer Pulp](../layers/pulp.md)
 - [See layer Leaf](../layers/leaf.md)
 

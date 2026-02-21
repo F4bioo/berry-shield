@@ -44,6 +44,7 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
             { name: "Thorn (Tool Blocker)", active: shieldConfig.layers.thorn },
             { name: "Leaf (Input Audit)", active: shieldConfig.layers.leaf },
             { name: "Stem (Security Gate)", active: shieldConfig.layers.stem },
+            { name: "Vine (External Guard)", active: shieldConfig.layers.vine },
         ];
 
         ui.scaffold({

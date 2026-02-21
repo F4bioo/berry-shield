@@ -67,6 +67,7 @@ export const HOOKS = {
     MESSAGE_RECEIVED: "message_received",
     MESSAGE_SENDING: "message_sending",
     BEFORE_TOOL_CALL: "before_tool_call",
+    AFTER_TOOL_CALL: "after_tool_call",
     TOOL_RESULT_PERSIST: "tool_result_persist",
     SESSION_END: "session_end",
 } as const;
@@ -103,6 +104,7 @@ export const SECURITY_LAYERS = {
     STEM: "stem",
     PULP: "pulp",
     THORN: "thorn",
+    VINE: "vine",
 } as const;
 
 /** Audit log persistence configuration */

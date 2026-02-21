@@ -13,7 +13,7 @@ function createConfig(
 ): BerryShieldPluginConfig {
     return {
         mode: "enforce",
-        layers: { root: rootEnabled, pulp: true, thorn: true, leaf: true, stem: true },
+        layers: { root: rootEnabled, pulp: true, thorn: true, leaf: true, stem: true, vine: true },
         policy: {
             profile,
             adaptive: {
@@ -26,6 +26,18 @@ function createConfig(
                 maxEntries: 100,
                 ttlSeconds: 60,
             },
+        },
+        vine: {
+            mode: "balanced",
+            retention: {
+                maxEntries: 100,
+                ttlSeconds: 60,
+            },
+            thresholds: {
+                externalSignalsToEscalate: 1,
+                forcedGuardTurns: 3,
+            },
+            toolAllowlist: [],
         },
         sensitiveFilePaths: [],
         destructiveCommands: [],

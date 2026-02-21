@@ -7,6 +7,7 @@ const layerFiles = [
     "src/layers/pulp.ts",
     "src/layers/thorn.ts",
     "src/layers/leaf.ts",
+    "src/layers/vine.ts",
 ];
 
 function readFile(relPath: string): string {
@@ -31,12 +32,17 @@ describe("Hooks Contract", () => {
         const pulp = readFile("src/layers/pulp.ts");
         const thorn = readFile("src/layers/thorn.ts");
         const leaf = readFile("src/layers/leaf.ts");
+        const vine = readFile("src/layers/vine.ts");
 
         expect(root).toContain("HOOKS.BEFORE_AGENT_START");
         expect(pulp).toContain("HOOKS.TOOL_RESULT_PERSIST");
         expect(pulp).toContain("HOOKS.MESSAGE_SENDING");
         expect(thorn).toContain("HOOKS.BEFORE_TOOL_CALL");
         expect(leaf).toContain("HOOKS.MESSAGE_RECEIVED");
+        expect(vine).toContain("HOOKS.BEFORE_TOOL_CALL");
+        expect(vine).toContain("HOOKS.AFTER_TOOL_CALL");
+        expect(vine).toContain("HOOKS.BEFORE_AGENT_START");
+        expect(vine).toContain("HOOKS.SESSION_END");
     });
 });
 

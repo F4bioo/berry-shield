@@ -19,6 +19,8 @@ export interface BerryShieldLayersConfig {
     leaf: boolean;
     /** Berry.Stem - Security Gate (tool-based checkpoint) */
     stem: boolean;
+    /** Berry.Vine - External Content Guard (prompt-injection hardening) */
+    vine: boolean;
 }
 
 /**
@@ -66,6 +68,45 @@ export interface BerryShieldPolicyConfig {
 }
 
 /**
+ * Vine operating profile for external-content guardrails.
+ */
+export type BerryShieldVineMode = "balanced" | "strict";
+
+/**
+ * In-memory retention controls for Vine runtime risk state.
+ */
+export interface BerryShieldVineRetentionConfig {
+    /** Maximum number of Vine session entries kept in memory */
+    maxEntries: number;
+    /** Time-to-live in seconds for Vine session entries */
+    ttlSeconds: number;
+}
+
+/**
+ * Vine risk thresholds.
+ */
+export interface BerryShieldVineThresholdsConfig {
+    /** Number of external signals required to escalate risk */
+    externalSignalsToEscalate: number;
+    /** Number of turns to keep guardrails active after escalation */
+    forcedGuardTurns: number;
+}
+
+/**
+ * Vine configuration.
+ */
+export interface BerryShieldVineConfig {
+    /** Enforcement profile for unknown/external trust scenarios */
+    mode: BerryShieldVineMode;
+    /** Runtime retention settings */
+    retention: BerryShieldVineRetentionConfig;
+    /** Escalation tuning */
+    thresholds: BerryShieldVineThresholdsConfig;
+    /** Optional allowlist of tool names exempt from Vine escalation */
+    toolAllowlist: string[];
+}
+
+/**
  * Main plugin configuration.
  */
 export interface BerryShieldPluginConfig {
@@ -75,6 +116,8 @@ export interface BerryShieldPluginConfig {
     layers: BerryShieldLayersConfig;
     /** Policy injection behavior for Berry.Root */
     policy: BerryShieldPolicyConfig;
+    /** External-content hardening behavior for Berry.Vine */
+    vine: BerryShieldVineConfig;
     /** Additional file path patterns to treat as sensitive (regex strings) */
     sensitiveFilePaths: string[];
     /** Additional command patterns to treat as destructive (regex strings) */

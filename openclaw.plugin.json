@@ -43,6 +43,11 @@
                         "type": "boolean",
                         "default": true,
                         "description": "Enable Berry.Stem (security gate)"
+                    },
+                    "vine": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Enable Berry.Vine (external content guard)"
                     }
                 }
             },
@@ -107,6 +112,66 @@
                                 "description": "Adaptive session state TTL in seconds"
                             }
                         }
+                    }
+                }
+            },
+            "vine": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "External-content guardrail tuning for Berry.Vine",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "balanced",
+                            "strict"
+                        ],
+                        "default": "balanced",
+                        "description": "balanced = conservative on unknown, strict = block sensitive actions on unknown/external risk"
+                    },
+                    "retention": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "maxEntries": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 10000,
+                                "description": "Maximum Vine session entries kept in memory"
+                            },
+                            "ttlSeconds": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 86400,
+                                "description": "Vine runtime state TTL in seconds"
+                            }
+                        }
+                    },
+                    "thresholds": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "externalSignalsToEscalate": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 1,
+                                "description": "Number of external signals required to mark session risk"
+                            },
+                            "forcedGuardTurns": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 3,
+                                "description": "Number of guarded turns after escalation"
+                            }
+                        }
+                    },
+                    "toolAllowlist": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "default": [],
+                        "description": "Tool names exempt from Vine escalation"
                     }
                 }
             },

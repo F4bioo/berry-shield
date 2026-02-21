@@ -6,6 +6,7 @@ import { registerBerryPulp } from "./layers/pulp.js";
 import { registerBerryThorn } from "./layers/thorn.js";
 import { registerBerryLeaf } from "./layers/leaf.js";
 import { registerBerryStem } from "./layers/stem.js";
+import { registerBerryVine } from "./layers/vine.js";
 import { registerBerryShieldCli } from "./cli/index.js";
 import { initializePatterns } from "./patterns/index.js";
 import { initAuditWriter } from "./audit/writer.js";
@@ -20,6 +21,7 @@ import { ensureRulesDeltaSync } from "./cli/storage.js";
  * - Berry.Thorn: Tool Blocker (mitigates flagged commands)
  * - Berry.Leaf: Input Audit (logs for auditing)
  * - Berry.Stem: Security Gate (tool-based checkpoint)
+ * - Berry.Vine: External Content Guard (prompt-injection hardening)
  */
 
 export default {
@@ -39,12 +41,13 @@ export default {
         const userConfig = api.pluginConfig ?? api.config ?? {};
         const config = mergeConfig(userConfig);
 
-        // Register all 5 security layers
+        // Register all security layers
         registerBerryRoot(api, config);  // Prompt Guard
         registerBerryPulp(api, config);  // Output Scanner
         registerBerryThorn(api, config); // Tool Blocker
         registerBerryLeaf(api, config);  // Input Audit
         registerBerryStem(api, config);  // Security Gate
+        registerBerryVine(api, config);  // External Content Guard
 
         // Warn when running in audit (Shadow Mode) — data is NOT protected
         if (config.mode === "audit") {
