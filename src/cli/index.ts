@@ -17,6 +17,7 @@ import { toggleCommand } from "./commands/toggle.js";
 import { reportCommand } from "./commands/report.js";
 import { profileCommand } from "./commands/profile.js";
 import { policyCommand } from "./commands/policy.js";
+import { vineCommand } from "./commands/vine.js";
 import {
     rulesListCommand,
     rulesRemoveCommand,
@@ -171,6 +172,16 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .description("Manage policy settings (wizard, get, set)")
                 .action(async (action: string | undefined, path: string | undefined, value: string | undefined) => {
                     await policyCommand(action, path, value, context, wrapper);
+                }),
+            );
+
+            // Vine command
+            attachSubcommandHelp(
+                bshield
+                .command("vine [action] [pathOrTool] [value]")
+                .description("Manage Berry.Vine settings and tool allowlist")
+                .action(async (action: string | undefined, pathOrTool: string | undefined, value: string | undefined) => {
+                    await vineCommand(action, pathOrTool, value, context, wrapper);
                 }),
             );
 

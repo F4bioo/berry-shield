@@ -20,6 +20,7 @@ If command behavior changes, update this index and the command pages.
 - [mode](mode.md)
 - [profile](profile.md)
 - [policy](policy.md)
+- [vine](vine.md)
 - [toggle](toggle.md)
 - [add](add.md)
 - [rules](rules.md)
@@ -80,6 +81,13 @@ Use this to disable one baseline rule by stable ID.
 openclaw bshield rules disable baseline secret:openai-key
 ```
 Expected: CLI marks the target baseline rule as disabled.
+
+### 7) Tune Vine mode for smoke tests
+Use this to switch Vine behavior deterministically.
+```bash
+openclaw bshield vine set mode strict
+```
+Expected: CLI confirms strict Vine mode for external-content guard behavior.
 
 ## Documentation structure
 

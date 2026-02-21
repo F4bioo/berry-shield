@@ -15,6 +15,7 @@ Show the current Berry Shield state resolved from plugin config plus defaults.
 - Merges config with Berry Shield defaults.
 - Shows current mode, rule counts, and plugin enabled state.
 - Shows policy values (profile and adaptive settings).
+- Shows Vine values (mode, thresholds, retention, and allowlist size).
 - Shows active/inactive state for each security layer.
 - Includes Vine layer state (`Vine (External Guard)`) when available.
 
@@ -29,7 +30,7 @@ Use this command to inspect the full Berry Shield state.
 ```bash
 openclaw bshield status
 ```
-Expected: Output includes Status, Mode, Rules, Policy, and Security Layers sections.
+Expected: Output includes Status, Mode, Rules, Policy, Vine, and Security Layers sections.
 
 ## Options
 This command has no command-specific flags or positional arguments.
@@ -49,6 +50,13 @@ Use this after changing profile or adaptive settings.
 openclaw bshield status
 ```
 Result: Policy section reflects current profile, escalation turns, stale timeout, heartbeat, and global escalation.
+
+### Verify Vine values after tuning
+Use this after changing Vine mode or thresholds.
+```bash
+openclaw bshield status
+```
+Result: Vine section reflects mode, escalation threshold, guard turns, retention, and allowlist count.
 
 ### Verify layer state after toggle
 Use this after toggling one layer for diagnostics.
@@ -77,6 +85,7 @@ Possible causes:
 - [mode](mode.md)
 - [profile](profile.md)
 - [policy](policy.md)
+- [vine](vine.md)
 
 ---
 

@@ -67,6 +67,17 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
                 ]);
 
                 s.spacer();
+                s.section("Vine");
+                s.table([
+                    { label: "Mode", value: shieldConfig.vine.mode.toUpperCase() },
+                    { label: "Signals to Escalate", value: String(shieldConfig.vine.thresholds.externalSignalsToEscalate) },
+                    { label: "Guard Turns", value: String(shieldConfig.vine.thresholds.forcedGuardTurns) },
+                    { label: "Retention (entries)", value: String(shieldConfig.vine.retention.maxEntries) },
+                    { label: "Retention (ttl sec)", value: String(shieldConfig.vine.retention.ttlSeconds) },
+                    { label: "Allowlist", value: `${shieldConfig.vine.toolAllowlist.length} tool(s)` },
+                ]);
+
+                s.spacer();
                 s.section("Security Layers");
                 s.table(
                     layers.map(layer => ({

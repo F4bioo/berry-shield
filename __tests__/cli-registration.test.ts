@@ -87,6 +87,7 @@ describe("registerBerryShieldCli", () => {
         expect(commandPaths).toContain("bshield rules remove <target> [name]");
         expect(commandPaths).toContain("bshield rules disable <target> [id]");
         expect(commandPaths).toContain("bshield rules enable <target> [id]");
+        expect(commandPaths).toContain("bshield vine [action] [pathOrTool] [value]");
         expect(commandPaths).toContain("bshield reset <target>");
     });
 });
