@@ -128,6 +128,15 @@ describe("rules command", () => {
         exitSpy.mockRestore();
     });
 
+    it("fails remove when custom target has no name", async () => {
+        const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+            throw new Error(`EXIT_${code}`);
+        }) as never);
+        await expect(rulesRemoveCommand("custom", undefined, logger)).rejects.toThrow("EXIT_1");
+        expect(failureMsgMock).toHaveBeenCalled();
+        exitSpy.mockRestore();
+    });
+
     it("disables one baseline rule by id", async () => {
         await rulesDisableCommand("baseline", "secret:openai-key", {}, logger);
         expect(disableBuiltInRuleMock).toHaveBeenCalledWith("secret:openai-key");
@@ -138,6 +147,24 @@ describe("rules command", () => {
         await rulesDisableCommand("baseline", undefined, { all: true, yes: true }, logger);
         expect(saveCustomRulesMock).toHaveBeenCalled();
         expect(successMsgMock).toHaveBeenCalled();
+    });
+
+    it("fails disable when both id and --all are provided", async () => {
+        const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+            throw new Error(`EXIT_${code}`);
+        }) as never);
+        await expect(rulesDisableCommand("baseline", "secret:openai-key", { all: true }, logger)).rejects.toThrow("EXIT_1");
+        expect(failureMsgMock).toHaveBeenCalled();
+        exitSpy.mockRestore();
+    });
+
+    it("fails disable when neither id nor --all is provided", async () => {
+        const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+            throw new Error(`EXIT_${code}`);
+        }) as never);
+        await expect(rulesDisableCommand("baseline", undefined, {}, logger)).rejects.toThrow("EXIT_1");
+        expect(failureMsgMock).toHaveBeenCalled();
+        exitSpy.mockRestore();
     });
 
     it("is idempotent when disabling an already disabled baseline rule", async () => {
@@ -158,6 +185,42 @@ describe("rules command", () => {
         await rulesEnableCommand("baseline", undefined, { all: true, yes: true }, logger);
         expect(headerMock).toHaveBeenCalledWith("No Changes Applied");
         expect(warningMsgMock).toHaveBeenCalledWith("All baseline rules are already enabled.");
+    });
+
+    it("fails enable when both id and --all are provided", async () => {
+        const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+            throw new Error(`EXIT_${code}`);
+        }) as never);
+        await expect(rulesEnableCommand("baseline", "secret:openai-key", { all: true }, logger)).rejects.toThrow("EXIT_1");
+        expect(failureMsgMock).toHaveBeenCalled();
+        exitSpy.mockRestore();
+    });
+
+    it("fails enable when neither id nor --all is provided", async () => {
+        const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+            throw new Error(`EXIT_${code}`);
+        }) as never);
+        await expect(rulesEnableCommand("baseline", undefined, {}, logger)).rejects.toThrow("EXIT_1");
+        expect(failureMsgMock).toHaveBeenCalled();
+        exitSpy.mockRestore();
+    });
+
+    it("fails disable when target is not baseline", async () => {
+        const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+            throw new Error(`EXIT_${code}`);
+        }) as never);
+        await expect(rulesDisableCommand("custom", "secret:openai-key", {}, logger)).rejects.toThrow("EXIT_1");
+        expect(failureMsgMock).toHaveBeenCalled();
+        exitSpy.mockRestore();
+    });
+
+    it("fails enable when target is not baseline", async () => {
+        const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+            throw new Error(`EXIT_${code}`);
+        }) as never);
+        await expect(rulesEnableCommand("custom", "secret:openai-key", {}, logger)).rejects.toThrow("EXIT_1");
+        expect(failureMsgMock).toHaveBeenCalled();
+        exitSpy.mockRestore();
     });
 
     it("fails enable with unknown baseline id", async () => {
