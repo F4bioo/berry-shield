@@ -58,7 +58,7 @@ function collectPaths(command: MockCommand): string[] {
 }
 
 describe("registerBerryShieldCli", () => {
-    it("registers new built-in and reset commands through sync bootstrap callback", () => {
+    it("registers rules namespace and reset command through sync bootstrap callback", () => {
         const rootProgram = new MockCommand("program", "");
         let capturedCliHandler: ((context: unknown) => void) | undefined;
 
@@ -83,9 +83,10 @@ describe("registerBerryShieldCli", () => {
         expect(bshield).toBeDefined();
 
         const commandPaths = collectPaths(bshield!);
-        expect(commandPaths).toContain("bshield builtin list");
-        expect(commandPaths).toContain("bshield builtin remove <id>");
+        expect(commandPaths).toContain("bshield rules list");
+        expect(commandPaths).toContain("bshield rules remove <target> [name]");
+        expect(commandPaths).toContain("bshield rules disable <target> [id]");
+        expect(commandPaths).toContain("bshield rules enable <target> [id]");
         expect(commandPaths).toContain("bshield reset <target>");
     });
 });
-

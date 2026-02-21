@@ -9,8 +9,6 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { OpenClawPluginCliContext, SafeCommand } from "../types/openclaw-local.js";
 import { ConfigWrapper } from "../config/wrapper.js";
 import { addCommand } from "./commands/add.js";
-import { removeCommand } from "./commands/remove.js";
-import { listCommand } from "./commands/list.js";
 import { testCommand } from "./commands/test.js";
 import { initCommand } from "./commands/init.js";
 import { statusCommand } from "./commands/status.js";
@@ -19,7 +17,12 @@ import { toggleCommand } from "./commands/toggle.js";
 import { reportCommand } from "./commands/report.js";
 import { profileCommand } from "./commands/profile.js";
 import { policyCommand } from "./commands/policy.js";
-import { builtinListCommand, builtinRemoveCommand } from "./commands/builtin.js";
+import {
+    rulesListCommand,
+    rulesRemoveCommand,
+    rulesDisableCommand,
+    rulesEnableCommand,
+} from "./commands/rules.js";
 import { resetCommand } from "./commands/reset.js";
 import { ui } from "./ui/tui.js";
 import { theme } from "./ui/theme.js";
@@ -66,23 +69,48 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 }),
             );
 
-            // Remove command
+            // Rules command group
+            const rules = bshield
+                .command("rules")
+                .description("Manage baseline and custom rules");
+
             attachSubcommandHelp(
-                bshield
-                .command("remove <name>")
-                .description("Remove a custom rule by name")
-                .action(async (name: string) => {
-                    await removeCommand(name, config, logger);
+                rules
+                .command("list")
+                .description("List baseline and custom rules")
+                .action(async () => {
+                    await rulesListCommand(logger);
                 }),
             );
 
-            // List command
             attachSubcommandHelp(
-                bshield
-                .command("list")
-                .description("List all rules (built-in and custom)")
-                .action(async () => {
-                    await listCommand(logger);
+                rules
+                .command("remove <target> [name]")
+                .description("Remove custom rule by name (target must be custom)")
+                .action(async (target: string, name: string | undefined) => {
+                    await rulesRemoveCommand(target, name, logger);
+                }),
+            );
+
+            attachSubcommandHelp(
+                rules
+                .command("disable <target> [id]")
+                .description("Disable baseline rule by id or disable all baseline rules")
+                .option("--all", "Apply operation to all baseline rules")
+                .option("--yes", "Skip confirmation prompt")
+                .action(async (target: string, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
+                    await rulesDisableCommand(target, id, options, logger);
+                }),
+            );
+
+            attachSubcommandHelp(
+                rules
+                .command("enable <target> [id]")
+                .description("Enable baseline rule by id or enable all baseline rules")
+                .option("--all", "Apply operation to all baseline rules")
+                .option("--yes", "Skip confirmation prompt")
+                .action(async (target: string, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
+                    await rulesEnableCommand(target, id, options, logger);
                 }),
             );
 
@@ -164,31 +192,6 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .option("--clear", "Clear the persisted audit log")
                 .action(async (options: { clear?: boolean }) => {
                     await reportCommand(options, logger);
-                }),
-            );
-
-            // Built-in commands
-            const builtin = bshield
-                .command("builtin")
-                .description("Manage built-in rules");
-
-            attachSubcommandHelp(
-                builtin
-                .command("list")
-                .description("List built-in rules")
-                .option("--type <type>", "Filter by type (secret | pii | file | command)")
-                .action(async (options: { type?: string }) => {
-                    await builtinListCommand(options, logger);
-                }),
-            );
-
-            attachSubcommandHelp(
-                builtin
-                .command("remove <id>")
-                .description("Disable a built-in rule by id")
-                .option("--type <type>", "Filter by type (secret | pii | file | command)")
-                .action(async (id: string, options: { type?: string }) => {
-                    await builtinRemoveCommand(id, options, logger);
                 }),
             );
 
