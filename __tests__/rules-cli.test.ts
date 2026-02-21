@@ -85,8 +85,6 @@ import {
 } from "../src/cli/commands/rules.js";
 
 describe("rules command", () => {
-    const logger = { info: vi.fn(), warn: vi.fn(), debug: vi.fn() } as any;
-
     beforeEach(() => {
         vi.clearAllMocks();
         loadCustomRulesMock.mockResolvedValue({
@@ -105,7 +103,7 @@ describe("rules command", () => {
     });
 
     it("lists baseline and custom rules", async () => {
-        await rulesListCommand(logger);
+        await rulesListCommand();
 
         expect(headerMock).toHaveBeenCalledWith("Security Rules");
         expect(sectionMock).toHaveBeenCalledWith("Baseline (4)");
@@ -114,7 +112,7 @@ describe("rules command", () => {
     });
 
     it("removes custom rule when target is custom", async () => {
-        await rulesRemoveCommand("custom", "HotTest", logger);
+        await rulesRemoveCommand("custom", "HotTest");
         expect(removeCustomRuleMock).toHaveBeenCalledWith("HotTest");
         expect(successMsgMock).toHaveBeenCalled();
     });
@@ -123,7 +121,7 @@ describe("rules command", () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
             throw new Error(`EXIT_${code}`);
         }) as never);
-        await expect(rulesRemoveCommand("baseline", "secret:openai-key", logger)).rejects.toThrow("EXIT_1");
+        await expect(rulesRemoveCommand("baseline", "secret:openai-key")).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
         exitSpy.mockRestore();
     });
@@ -132,19 +130,19 @@ describe("rules command", () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
             throw new Error(`EXIT_${code}`);
         }) as never);
-        await expect(rulesRemoveCommand("custom", undefined, logger)).rejects.toThrow("EXIT_1");
+        await expect(rulesRemoveCommand("custom", undefined)).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
         exitSpy.mockRestore();
     });
 
     it("disables one baseline rule by id", async () => {
-        await rulesDisableCommand("baseline", "secret:openai-key", {}, logger);
+        await rulesDisableCommand("baseline", "secret:openai-key", {});
         expect(disableBuiltInRuleMock).toHaveBeenCalledWith("secret:openai-key");
         expect(successMsgMock).toHaveBeenCalled();
     });
 
     it("disables all baseline rules with --all", async () => {
-        await rulesDisableCommand("baseline", undefined, { all: true, yes: true }, logger);
+        await rulesDisableCommand("baseline", undefined, { all: true, yes: true });
         expect(saveCustomRulesMock).toHaveBeenCalled();
         expect(successMsgMock).toHaveBeenCalled();
     });
@@ -153,7 +151,7 @@ describe("rules command", () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
             throw new Error(`EXIT_${code}`);
         }) as never);
-        await expect(rulesDisableCommand("baseline", "secret:openai-key", { all: true }, logger)).rejects.toThrow("EXIT_1");
+        await expect(rulesDisableCommand("baseline", "secret:openai-key", { all: true })).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
         exitSpy.mockRestore();
     });
@@ -162,14 +160,14 @@ describe("rules command", () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
             throw new Error(`EXIT_${code}`);
         }) as never);
-        await expect(rulesDisableCommand("baseline", undefined, {}, logger)).rejects.toThrow("EXIT_1");
+        await expect(rulesDisableCommand("baseline", undefined, {})).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
         exitSpy.mockRestore();
     });
 
     it("is idempotent when disabling an already disabled baseline rule", async () => {
         disableBuiltInRuleMock.mockResolvedValueOnce({ success: false, error: "Rule is already disabled." });
-        await rulesDisableCommand("baseline", "secret:openai-key", {}, logger);
+        await rulesDisableCommand("baseline", "secret:openai-key", {});
         expect(headerMock).toHaveBeenCalledWith("No Changes Applied");
         expect(warningMsgMock).toHaveBeenCalledWith("Baseline rule is already disabled.");
     });
@@ -182,7 +180,7 @@ describe("rules command", () => {
             destructiveCommands: [],
             disabledBuiltInIds: [],
         });
-        await rulesEnableCommand("baseline", undefined, { all: true, yes: true }, logger);
+        await rulesEnableCommand("baseline", undefined, { all: true, yes: true });
         expect(headerMock).toHaveBeenCalledWith("No Changes Applied");
         expect(warningMsgMock).toHaveBeenCalledWith("All baseline rules are already enabled.");
     });
@@ -191,7 +189,7 @@ describe("rules command", () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
             throw new Error(`EXIT_${code}`);
         }) as never);
-        await expect(rulesEnableCommand("baseline", "secret:openai-key", { all: true }, logger)).rejects.toThrow("EXIT_1");
+        await expect(rulesEnableCommand("baseline", "secret:openai-key", { all: true })).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
         exitSpy.mockRestore();
     });
@@ -200,7 +198,7 @@ describe("rules command", () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
             throw new Error(`EXIT_${code}`);
         }) as never);
-        await expect(rulesEnableCommand("baseline", undefined, {}, logger)).rejects.toThrow("EXIT_1");
+        await expect(rulesEnableCommand("baseline", undefined, {})).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
         exitSpy.mockRestore();
     });
@@ -209,7 +207,7 @@ describe("rules command", () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
             throw new Error(`EXIT_${code}`);
         }) as never);
-        await expect(rulesDisableCommand("custom", "secret:openai-key", {}, logger)).rejects.toThrow("EXIT_1");
+        await expect(rulesDisableCommand("custom", "secret:openai-key", {})).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
         exitSpy.mockRestore();
     });
@@ -218,7 +216,7 @@ describe("rules command", () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
             throw new Error(`EXIT_${code}`);
         }) as never);
-        await expect(rulesEnableCommand("custom", "secret:openai-key", {}, logger)).rejects.toThrow("EXIT_1");
+        await expect(rulesEnableCommand("custom", "secret:openai-key", {})).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
         exitSpy.mockRestore();
     });
@@ -227,7 +225,7 @@ describe("rules command", () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
             throw new Error(`EXIT_${code}`);
         }) as never);
-        await expect(rulesEnableCommand("baseline", "secret:unknown", {}, logger)).rejects.toThrow("EXIT_1");
+        await expect(rulesEnableCommand("baseline", "secret:unknown", {})).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalledWith("Unknown baseline rule id: secret:unknown");
         exitSpy.mockRestore();
     });

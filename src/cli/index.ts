@@ -79,7 +79,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .command("list")
                 .description("List baseline and custom rules")
                 .action(async () => {
-                    await rulesListCommand(logger);
+                    await rulesListCommand();
                 }),
             );
 
@@ -88,7 +88,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .command("remove <target> [name]")
                 .description("Remove custom rule by name (target must be custom)")
                 .action(async (target: string, name: string | undefined) => {
-                    await rulesRemoveCommand(target, name, logger);
+                    await rulesRemoveCommand(target, name);
                 }),
             );
 
@@ -99,7 +99,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .option("--all", "Apply operation to all baseline rules")
                 .option("--yes", "Skip confirmation prompt")
                 .action(async (target: string, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
-                    await rulesDisableCommand(target, id, options, logger);
+                    await rulesDisableCommand(target, id, options);
                 }),
             );
 
@@ -110,7 +110,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .option("--all", "Apply operation to all baseline rules")
                 .option("--yes", "Skip confirmation prompt")
                 .action(async (target: string, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
-                    await rulesEnableCommand(target, id, options, logger);
+                    await rulesEnableCommand(target, id, options);
                 }),
             );
 

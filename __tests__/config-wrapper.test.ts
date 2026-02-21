@@ -55,7 +55,7 @@ describe("ConfigWrapper", () => {
         });
 
         it("should fallback to CLI if no memory config is provided", async () => {
-            execFileMock.mockImplementation((file, args, callback) => {
+            execFileMock.mockImplementation((_file, _args, callback) => {
                 callback(null, { stdout: '"audit"' }, { stderr: "" });
             });
 
@@ -65,7 +65,7 @@ describe("ConfigWrapper", () => {
         });
 
         it("should use platform defaults for binary name", async () => {
-            execFileMock.mockImplementation((file, args, callback) => {
+            execFileMock.mockImplementation((_file, _args, callback) => {
                 callback(null, { stdout: "null" }, { stderr: "" });
             });
 
@@ -81,7 +81,7 @@ describe("ConfigWrapper", () => {
         it("should respect OPENCLAW_EXECUTABLE env var", async () => {
             process.env[ENV_VARS.OPENCLAW_EXECUTABLE] = "/custom/path/to/openclaw";
 
-            execFileMock.mockImplementation((file, args, callback) => {
+            execFileMock.mockImplementation((_file, _args, callback) => {
                 callback(null, { stdout: "null" }, { stderr: "" });
             });
 
@@ -92,7 +92,7 @@ describe("ConfigWrapper", () => {
         it("should respect OPENCLAW_BIN env var if EXECUTABLE is not set", async () => {
             process.env[ENV_VARS.OPENCLAW_BIN] = "oc-alias";
 
-            execFileMock.mockImplementation((file, args, callback) => {
+            execFileMock.mockImplementation((_file, _args, callback) => {
                 callback(null, { stdout: "null" }, { stderr: "" });
             });
 
@@ -105,7 +105,7 @@ describe("ConfigWrapper", () => {
         it("should always use CLI for set operations even if memory exists", async () => {
             wrapper = new ConfigWrapper({ config: {} as any });
 
-            execFileMock.mockImplementation((file, args, callback) => {
+            execFileMock.mockImplementation((_file, _args, callback) => {
                 callback(null, { stdout: "" }, { stderr: "" });
             });
 
@@ -116,7 +116,7 @@ describe("ConfigWrapper", () => {
         it("should always use CLI for unset operations", async () => {
             wrapper = new ConfigWrapper({ config: {} as any });
 
-            execFileMock.mockImplementation((file, args, callback) => {
+            execFileMock.mockImplementation((_file, _args, callback) => {
                 callback(null, { stdout: "" }, { stderr: "" });
             });
 

@@ -1,6 +1,5 @@
 import {
     BerryShieldPluginConfig,
-    BerryShieldLayersConfig,
     BerryShieldPolicyProfile,
 } from "../types/config.js";
 import { DEFAULT_CONFIG } from "./defaults.js";

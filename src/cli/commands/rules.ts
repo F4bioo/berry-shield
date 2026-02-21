@@ -1,5 +1,4 @@
 import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import {
     disableBuiltInRule,
     loadCustomRules,
@@ -16,7 +15,6 @@ import {
 import { ui } from "../ui/tui.js";
 import { theme } from "../ui/theme.js";
 
-type PluginLogger = OpenClawPluginApi["logger"];
 type RuleTarget = "baseline" | "custom";
 
 function collectBaselineIds(): string[] {
@@ -55,7 +53,7 @@ function printUsage(message: string): never {
     process.exit(1);
 }
 
-export async function rulesListCommand(logger: PluginLogger): Promise<void> {
+export async function rulesListCommand(): Promise<void> {
     const custom = await loadCustomRules();
     const disabledSet = new Set((custom.disabledBuiltInIds ?? []).map((value) => value.toLowerCase()));
 
@@ -90,13 +88,11 @@ export async function rulesListCommand(logger: PluginLogger): Promise<void> {
         },
     });
 
-    logger.debug?.("[berry-shield] CLI: Listed rules inventory");
 }
 
 export async function rulesRemoveCommand(
     target: string,
     name: string | undefined,
-    logger: PluginLogger,
 ): Promise<void> {
     const parsedTarget = parseTarget(target);
     if (parsedTarget !== "custom") {
@@ -124,14 +120,12 @@ export async function rulesRemoveCommand(
         },
     });
 
-    logger.info?.(`[berry-shield] CLI: Removed custom rule ${name}`);
 }
 
 export async function rulesDisableCommand(
     target: string,
     id: string | undefined,
     options: { all?: boolean; yes?: boolean },
-    logger: PluginLogger,
 ): Promise<void> {
     const parsedTarget = parseTarget(target);
     if (parsedTarget !== "baseline") {
@@ -183,7 +177,6 @@ export async function rulesDisableCommand(
                 s.row("Mode", "--all");
             },
         });
-        logger.warn?.("[berry-shield] CLI: Disabled all baseline rules");
         return;
     }
 
@@ -216,14 +209,12 @@ export async function rulesDisableCommand(
         },
     });
 
-    logger.info?.(`[berry-shield] CLI: Disabled baseline rule ${parsed.id!}`);
 }
 
 export async function rulesEnableCommand(
     target: string,
     id: string | undefined,
     options: { all?: boolean; yes?: boolean },
-    logger: PluginLogger,
 ): Promise<void> {
     const parsedTarget = parseTarget(target);
     if (parsedTarget !== "baseline") {
@@ -270,7 +261,6 @@ export async function rulesEnableCommand(
                 s.row("Mode", "--all");
             },
         });
-        logger.info?.("[berry-shield] CLI: Enabled all baseline rules");
         return;
     }
 
@@ -312,6 +302,4 @@ export async function rulesEnableCommand(
             s.row("ID", parsed.id!);
         },
     });
-
-    logger.info?.(`[berry-shield] CLI: Enabled baseline rule ${parsed.id!}`);
 }
