@@ -87,7 +87,7 @@ Expected: CLI returns failure with valid scope values.
 
 ## Related commands
 - [index](README.md)
-- [builtin](builtin.md)
+- [rules](rules.md)
 - [list](list.md)
 - [policy](policy.md)
 

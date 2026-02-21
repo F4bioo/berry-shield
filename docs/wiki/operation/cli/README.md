@@ -22,8 +22,8 @@ If command behavior changes, update this index and the command pages.
 - [policy](policy.md)
 - [toggle](toggle.md)
 - [add](add.md)
+- [rules](rules.md)
 - [remove](remove.md)
-- [builtin](builtin.md)
 - [reset](reset.md)
 - [list](list.md)
 - [test](test.md)
@@ -67,19 +67,19 @@ openclaw bshield policy
 ```
 Expected: Wizard prompts for profile, adaptive, and retention values.
 
-### 5) List built-in rules
-Use this to inspect stable built-in IDs and disabled status.
+### 5) List rules inventory
+Use this to inspect baseline and custom rules in one place.
 ```bash
-openclaw bshield builtin list
+openclaw bshield rules list
 ```
-Expected: CLI shows built-in rule IDs grouped by type, including `[DISABLED]` markers.
+Expected: CLI shows baseline IDs and custom names, including `[ENABLED]` and `[DISABLED]` status.
 
-### 6) Reset built-in defaults
-Use this to restore built-in baseline while preserving custom rules.
+### 6) Disable one baseline rule
+Use this to disable one baseline rule by stable ID.
 ```bash
-openclaw bshield reset defaults --scope builtins
+openclaw bshield rules disable baseline secret:openai-key
 ```
-Expected: CLI clears disabled built-in IDs and keeps custom rules unchanged.
+Expected: CLI marks the target baseline rule as disabled.
 
 ## Documentation structure
 

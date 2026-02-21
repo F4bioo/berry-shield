@@ -1,21 +1,21 @@
 ﻿---
-summary: "CLI reference for `openclaw bshield remove` (delete one custom security rule by name)"
+summary: "CLI reference for `openclaw bshield rules remove custom` (delete one custom security rule by name)"
 read_when:
   - You need to remove a custom Berry Shield rule
   - You are cleaning up test or deprecated custom rules
 title: "remove"
 ---
 
-# `openclaw bshield remove`
+# `openclaw bshield rules remove custom`
 
 Remove one custom Berry Shield rule by its identifier.
 
 ## What it does
 - Looks up a custom rule by name.
 - Removes the rule from persistent custom storage.
-- Returns success output with rule type and name.
+- Returns success output when the rule is removed.
 - Returns failure output when the rule does not exist.
-- Does not disable built-in rules (use `builtin remove` for built-ins).
+- Does not mutate baseline rules.
 
 ## When to use
 - Removing obsolete custom patterns.
@@ -23,15 +23,16 @@ Remove one custom Berry Shield rule by its identifier.
 - Replacing a rule with a new pattern/version.
 
 ## Syntax
-### Remove one rule by name
+### Remove one custom rule by name
 Use this to remove one existing custom rule.
 ```bash
-openclaw bshield remove <name>
+openclaw bshield rules remove custom <name>
 ```
 Expected: CLI confirms successful removal or reports that rule was not found.
 
 ## Options
-Positional argument:
+Positional arguments:
+- custom: required target for custom-rule removal.
 - `<name>`: custom rule identifier to remove.
 
 ## Examples
@@ -39,49 +40,45 @@ Positional argument:
 ### Remove an existing custom rule
 Use this when the exact custom rule identifier is known.
 ```bash
-openclaw bshield remove MyToken
+openclaw bshield rules remove custom MyToken
 ```
-Result: CLI confirms rule removal and prints rule type.
+Result: CLI confirms custom rule removal.
 
-### Verify removal through rule listing
+### Verify removal through rules list
 Use this to confirm the removed rule is no longer present.
 ```bash
-openclaw bshield list
+openclaw bshield rules list
 ```
-Result: Removed custom rule no longer appears in external rules.
+Result: Removed custom rule no longer appears in custom entries.
 
-### Disable a built-in rule (separate command)
-Use this when the target is a built-in ID, not a custom rule name.
+### Disable a baseline rule (separate command)
+Use this when the target is a baseline ID.
 ```bash
-openclaw bshield builtin remove secret:openai-key
+openclaw bshield rules disable baseline secret:openai-key
 ```
-Result: Built-in rule is marked disabled in inventory and excluded from active enforcement/redaction matching.
+Result: Baseline rule is marked disabled in rules inventory.
 
 ## Common errors
+
+### Wrong target
+Use this to validate explicit target semantics.
+```bash
+openclaw bshield rules remove baseline secret:openai-key
+```
+Expected: CLI returns usage error because remove supports only custom target.
 
 ### Rule not found
 Use this to verify missing-rule behavior.
 ```bash
-openclaw bshield remove UnknownRule
+openclaw bshield rules remove custom UnknownRule
 ```
 Expected: CLI reports that the rule was not found.
 
-### Storage update failure
-Use this when remove command reports operation failure unexpectedly.
-```bash
-openclaw bshield remove MyToken
-```
-Expected: On failure, CLI prints a failure message with operation details.
-
-Possible causes:
-- Custom rules storage is unavailable.
-- Runtime permission issue for custom rules file path.
-
 ## Related commands
 - [index](README.md)
+- [rules](rules.md)
 - [list](list.md)
 - [add](add.md)
-- [builtin](builtin.md)
 - [test](test.md)
 
 ---

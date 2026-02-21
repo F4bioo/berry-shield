@@ -57,7 +57,7 @@ Expected:
 
 Use this command to ensure the new rule is visible in active rule inventory.
 ```bash
-openclaw bshield list
+openclaw bshield rules list
 ```
 Expected:
 - Custom list includes `newservice_creds_rule`
