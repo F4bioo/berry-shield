@@ -157,6 +157,20 @@ export async function rulesDisableCommand(
 
         const rules = await loadCustomRules();
         const baselineIds = collectBaselineIds().map((value) => value.toLowerCase());
+        const current = new Set((rules.disabledBuiltInIds ?? []).map((value) => value.toLowerCase()));
+        const alreadyAllDisabled = baselineIds.every((idValue) => current.has(idValue)) && current.size === baselineIds.length;
+        if (alreadyAllDisabled) {
+            ui.scaffold({
+                header: (s) => s.header("No Changes Applied"),
+                content: (s) => {
+                    s.warningMsg("All baseline rules are already disabled.");
+                    s.row("Target", "BASELINE");
+                    s.row("Mode", "--all");
+                },
+            });
+            return;
+        }
+
         rules.disabledBuiltInIds = baselineIds;
         await saveCustomRules(rules);
 
@@ -175,6 +189,16 @@ export async function rulesDisableCommand(
 
     const result = await disableBuiltInRule(parsed.id!);
     if (!result.success) {
+        if (result.error === "Rule is already disabled.") {
+            ui.scaffold({
+                header: (s) => s.header("No Changes Applied"),
+                content: (s) => {
+                    s.warningMsg("Baseline rule is already disabled.");
+                    s.row("ID", parsed.id!);
+                },
+            });
+            return;
+        }
         ui.scaffold({
             header: (s) => s.header("Operation Failed"),
             content: (s) => s.failureMsg(result.error ?? "Failed to disable baseline rule."),
@@ -224,6 +248,17 @@ export async function rulesEnableCommand(
         }
 
         const rules = await loadCustomRules();
+        if ((rules.disabledBuiltInIds ?? []).length === 0) {
+            ui.scaffold({
+                header: (s) => s.header("No Changes Applied"),
+                content: (s) => {
+                    s.warningMsg("All baseline rules are already enabled.");
+                    s.row("Target", "BASELINE");
+                    s.row("Mode", "--all");
+                },
+            });
+            return;
+        }
         rules.disabledBuiltInIds = [];
         await saveCustomRules(rules);
 

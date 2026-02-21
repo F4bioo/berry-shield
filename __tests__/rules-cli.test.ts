@@ -140,6 +140,26 @@ describe("rules command", () => {
         expect(successMsgMock).toHaveBeenCalled();
     });
 
+    it("is idempotent when disabling an already disabled baseline rule", async () => {
+        disableBuiltInRuleMock.mockResolvedValueOnce({ success: false, error: "Rule is already disabled." });
+        await rulesDisableCommand("baseline", "secret:openai-key", {}, logger);
+        expect(headerMock).toHaveBeenCalledWith("No Changes Applied");
+        expect(warningMsgMock).toHaveBeenCalledWith("Baseline rule is already disabled.");
+    });
+
+    it("is idempotent when enabling all baseline rules and none are disabled", async () => {
+        loadCustomRulesMock.mockResolvedValueOnce({
+            version: "1.0",
+            secrets: [],
+            sensitiveFiles: [],
+            destructiveCommands: [],
+            disabledBuiltInIds: [],
+        });
+        await rulesEnableCommand("baseline", undefined, { all: true, yes: true }, logger);
+        expect(headerMock).toHaveBeenCalledWith("No Changes Applied");
+        expect(warningMsgMock).toHaveBeenCalledWith("All baseline rules are already enabled.");
+    });
+
     it("fails enable with unknown baseline id", async () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
             throw new Error(`EXIT_${code}`);
