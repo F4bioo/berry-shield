@@ -123,6 +123,13 @@ const EVIDENCE_RULES = [
     }
 ];
 
+const MOJIBAKE_PATTERNS: RegExp[] = [
+    /â€œ/g, /â€/g, /â€˜/g, /â€™/g,
+    /â€”/g, /â€“/g, /â€¦/g, /â†³/g,
+    /Ã§/g, /Ã£/g, /Ã¡/g, /Ã©/g, /Ã³/g, /Ãº/g, /Ãª/g, /Ã´/g, /Ã­/g,
+    /ðŸ/g, /âš/g, /âœ/g, /â/g
+];
+
 // 🛡️ Logic & Indexing
 function getFiles(dir: string, extFilter: string[]): string[] {
     if (!existsSync(dir)) return [];
@@ -324,6 +331,17 @@ class SanityAuditor {
         let exclamationCount = 0;
         let sanityHits = 0;
         let ignoreBlock = false;
+
+        // 0. Mojibake guardrail
+        for (const pattern of MOJIBAKE_PATTERNS) {
+            let m: RegExpExecArray | null;
+            pattern.lastIndex = 0;
+            while ((m = pattern.exec(content)) !== null) {
+                const lineNo = lineAtIndex(content, m.index);
+                this.errors.push(`${relPath}:${lineNo}: Mojibake detected ("${m[0]}"). Re-save file in UTF-8 and fix corrupted text.`);
+                if (m.index === pattern.lastIndex) pattern.lastIndex++;
+            }
+        }
 
         // 0. Bash block policy for OpenClaw CLI docs
         const bashFenceRegex = /```bash\s*\n([\s\S]*?)```/g;
