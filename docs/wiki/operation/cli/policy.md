@@ -66,6 +66,18 @@ Validation rules:
 - `retention.maxEntries`: integer `>= 1`
 - `retention.ttlSeconds`: integer `>= 1`
 
+## Tuning guide
+
+| Field | Change when | Typical direction | Tradeoff |
+| --- | --- | --- | --- |
+| `profile` | You need broader or quieter policy injection behavior | `balanced -> strict` for stronger visibility, `balanced -> minimal` for lower noise | Stronger profiles improve policy visibility but can increase prompt overhead |
+| `adaptive.allowGlobalEscalation` | Session identity is missing and escalation still must apply | `false -> true` only in controlled single-session contexts | Useful fallback for missing identity, risky in multi-session environments |
+| `adaptive.escalationTurns` | Full-policy escalation feels too short or too long after denied events | Increase for stronger persistence, decrease for faster recovery | Higher values improve guard persistence but increase context load |
+| `adaptive.heartbeatEveryTurns` | Long sessions need periodic reminder, or reminder noise is too high | Increase interval to reduce reminders, set `0` to disable | More heartbeat improves continuity, less heartbeat reduces token usage |
+| `adaptive.staleAfterMinutes` | Session is considered stale too early or too late | Increase for longer continuity, decrease for faster stale detection | Longer windows reduce resets, shorter windows refresh posture sooner |
+| `retention.maxEntries` | High session churn or memory pressure appears | Decrease on constrained hosts, increase for larger workloads | Lower values save memory, higher values keep more adaptive history |
+| `retention.ttlSeconds` | Adaptive state expires too fast or remains too long | Increase for longer correlation, decrease for faster cleanup | Longer TTL helps continuity, shorter TTL reduces stale state risk |
+
 ## Examples
 
 ### Open wizard for manual policy updates

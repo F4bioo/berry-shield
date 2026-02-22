@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 🍓 Berry Shield: Doc Sanity (Technical Integrity & Editorial Refinement)
  * Philosophy: Honest, technical, humble. "Show, don't tell."
  * 
@@ -14,7 +14,7 @@ import { readFileSync, readdirSync, statSync, existsSync } from "fs";
 import { join, extname, relative, dirname, resolve, basename } from "path";
 import ts from "typescript";
 
-// 🍓 Configuration
+// Configuration
 const DOCS_DIR = process.env.DOCS_DIR ?? "docs/wiki";
 const CODE_DIR = process.env.CODE_DIR ?? "src";
 
@@ -48,7 +48,8 @@ const SYMBOL = {
     ANCHOR: "⚓",
     SUCCESS: "✅",
     FAIL: "❌",
-    WARN: "⚠️"
+    WARN: "⚠️",
+    MARKER: "↳",
 };
 
 const IGNORE = {
@@ -125,12 +126,12 @@ const EVIDENCE_RULES = [
 
 const MOJIBAKE_PATTERNS: RegExp[] = [
     /â€œ/g, /â€/g, /â€˜/g, /â€™/g,
-    /â€”/g, /â€“/g, /â€¦/g, /â†³/g,
-    /Ã§/g, /Ã£/g, /Ã¡/g, /Ã©/g, /Ã³/g, /Ãº/g, /Ãª/g, /Ã´/g, /Ã­/g,
-    /ðŸ/g, /âš/g, /âœ/g, /â/g
+    /â€“/g, /â€”/g, /â€¦/g,
+    /Ã¢/g, /Ãƒ/g,
+    /ðŸ/g
 ];
 
-// 🛡️ Logic & Indexing
+// Logic & Indexing
 function getFiles(dir: string, extFilter: string[]): string[] {
     if (!existsSync(dir)) return [];
     let results: string[] = [];
@@ -245,7 +246,7 @@ function parseFrontmatter(content: string): FrontmatterData | null {
     };
 }
 
-// 🛡️ Technical Sanity Auditor
+// Technical Sanity Auditor
 class SanityAuditor {
     errors: string[] = [];
     warnings: string[] = [];
@@ -435,7 +436,7 @@ class SanityAuditor {
                 while ((m = rule.pattern.exec(effectiveLine)) !== null) {
                     sanityHits++;
                     const snippet = snippetAround(line, m.index, m[0].length);
-                    this.errors.push(`${relPath}:${lineNo}: [${rule.id}] ${rule.message}\n   ↳ Match: "${m[0]}"\n   ↳ Context: ${snippet}\n   ↳ Suggestion: ${rule.suggestion}`);
+                    this.errors.push(`${relPath}:${lineNo}: [${rule.id}] ${rule.message}\n   ${SYMBOL.MARKER} Match: "${m[0]}"\n   ${SYMBOL.MARKER} Context: ${snippet}\n   ${SYMBOL.MARKER} Suggestion: ${rule.suggestion}`);
                     if (m.index === rule.pattern.lastIndex) rule.pattern.lastIndex++;
                 }
             });
@@ -551,12 +552,12 @@ class SanityAuditor {
 
         if (this.warnings.length > 0) {
             console.log(`${SYMBOL.WARN} ${COLOR.YELLOW} Sanity Warnings (Density & Tone):${COLOR.RESET}`);
-            this.warnings.forEach(w => console.log(`   ↳ ${w}`));
+            this.warnings.forEach(w => console.log(`   ${SYMBOL.MARKER} ${w}`));
         }
 
         if (this.errors.length > 0) {
             console.log(`\n${SYMBOL.FAIL} ${COLOR.RED} FAIL: Technical Sanity Violated!${COLOR.RESET}`);
-            this.errors.forEach(e => console.log(`   ↳ ${e}`));
+            this.errors.forEach(e => console.log(`   ${SYMBOL.MARKER} ${e}`));
             process.exit(1);
         } else {
             console.log(`\n${SYMBOL.SUCCESS} ${COLOR.LOBSTER} Technical purity maintained. Fact-based documentation.${COLOR.RESET}`);
@@ -565,7 +566,7 @@ class SanityAuditor {
     }
 }
 
-// 📦 Execution Layer
+// Execution Layer
 const auditor = new SanityAuditor();
 const docs = getFiles(DOCS_DIR, [".md"]);
 docs.forEach(d => auditor.auditFile(d));

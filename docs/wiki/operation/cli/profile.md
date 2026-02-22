@@ -46,6 +46,14 @@ Expected: CLI confirms switch to MINIMAL profile.
 Positional argument:
 - `<profile>`: accepted values are `strict`, `balanced`, `minimal`.
 
+## Tuning guide
+
+| Profile | Use when | Expected behavior | Tradeoff |
+| --- | --- | --- | --- |
+| `strict` | You want maximum policy visibility and deterministic guardrails | Full policy is injected every turn | Strongest posture, highest context overhead |
+| `balanced` | You need default production behavior with adaptive control | Full at session start, then adaptive reminders/escalation | Best general balance between safety and noise |
+| `minimal` | You want low-noise interaction and rely on trigger-based escalation | No full injection on new session; escalates when needed | Lowest overhead, depends more on runtime triggers |
+
 ## Examples
 
 ### Apply balanced profile for standard operation

@@ -80,6 +80,16 @@ Supported `set` paths:
 - `retention.maxEntries` (integer `>= 1`)
 - `retention.ttlSeconds` (integer `>= 1`)
 
+## Tuning guide
+
+| Field | Change when | Typical direction | Tradeoff |
+| --- | --- | --- | --- |
+| `mode` | You need stronger or softer protection posture | `balanced -> strict` for harder blocking | `strict` reduces risk but may increase false positives |
+| `thresholds.externalSignalsToEscalate` | Vine escalates too early or too late | Increase to reduce sensitivity, decrease to escalate faster | Lower values improve safety response, higher values reduce noise |
+| `thresholds.forcedGuardTurns` | Guard window is too short or too long after escalation | Increase for stronger persistence, decrease for faster recovery | Higher values improve protection continuity but may impact UX |
+| `retention.maxEntries` | High session churn or memory pressure appears | Decrease on constrained hosts, increase for larger workloads | Lower values save memory, higher values keep more Vine state |
+| `retention.ttlSeconds` | Session risk state expires too fast or remains too long | Increase for longer correlation, decrease for faster cleanup | Longer TTL helps traceability, shorter TTL reduces stale state |
+
 ## Examples
 
 ### Set strict mode for aggressive blocking
@@ -109,6 +119,10 @@ Use this when previously trusted tool should be guarded again.
 openclaw bshield vine deny web_fetch
 ```
 Result: `web_fetch` is removed from allowlist.
+
+## See more:
+
+- [Vine runtime validation principles](../../layers/vine.md#runtime-validation-principles)
 
 ## Common errors
 

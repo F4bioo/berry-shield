@@ -42,6 +42,36 @@ const SENSITIVE_ACTION_TOOL_HINTS = [
     "edit",
 ];
 
+function stripWrappingQuotes(value: string): string {
+    const trimmed = value.trim();
+    if (
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))
+        || (trimmed.startsWith("\"") && trimmed.endsWith("\""))
+    ) {
+        return trimmed.slice(1, -1);
+    }
+    return trimmed;
+}
+
+function extractWriteLikeTarget(command: string): string | undefined {
+    const redirectMatch = command.match(/(?:^|[^\w])>>?\s*([^\s|;&]+)/);
+    if (redirectMatch?.[1]) {
+        return stripWrappingQuotes(redirectMatch[1]);
+    }
+
+    const teeMatch = command.match(/\btee\b(?:\s+-a)?\s+([^\s|;&]+)/);
+    if (teeMatch?.[1]) {
+        return stripWrappingQuotes(teeMatch[1]);
+    }
+
+    const catRedirectMatch = command.match(/\bcat\b[\s\S]*?>>?\s*([^\s|;&]+)/);
+    if (catRedirectMatch?.[1]) {
+        return stripWrappingQuotes(catRedirectMatch[1]);
+    }
+
+    return undefined;
+}
+
 function normalizeName(value: string): string {
     return value.trim().toLowerCase();
 }
@@ -115,6 +145,11 @@ function isSensitiveFile(value: string): boolean {
 function isSensitiveAction(toolName: string, params: Record<string, unknown>): { sensitive: boolean; target: string } {
     const command = extractCommand(toolName, params);
     if (command) {
+        const writeLikeTarget = extractWriteLikeTarget(command);
+        if (writeLikeTarget) {
+            return { sensitive: true, target: writeLikeTarget.slice(0, 120) };
+        }
+
         if (isDestructiveCommand(command)) {
             return { sensitive: true, target: command.slice(0, 120) };
         }
@@ -157,6 +192,16 @@ function emitBlockEvent(
         api.logger.warn(`[berry-shield] Berry.Vine: ${formatAuditEvent(event)}`);
     }
     appendAuditEvent(event);
+}
+
+function resolveRuntimeGlobalMode(
+    api: OpenClawPluginApi,
+    fallback: BerryShieldPluginConfig["mode"]
+): BerryShieldPluginConfig["mode"] {
+    const runtimeConfig = (api as unknown as { pluginConfig?: { mode?: unknown } }).pluginConfig;
+    return runtimeConfig?.mode === "audit" || runtimeConfig?.mode === "enforce"
+        ? runtimeConfig.mode
+        : fallback;
 }
 
 export function registerBerryVine(
@@ -222,6 +267,7 @@ export function registerBerryVine(
         HOOKS.BEFORE_TOOL_CALL,
         (event, ctx) => {
             const sessionKey = resolveSessionKey({ sessionKey: ctx.sessionKey });
+            const runtimeMode = resolveRuntimeGlobalMode(api, config.mode);
 
             if (isAllowlistedTool(event.toolName, config.vine.toolAllowlist)) {
                 return undefined;
@@ -236,9 +282,9 @@ export function registerBerryVine(
             const hasUnknownSignal = vineState.hasUnknownSignal(sessionKey);
 
             // Audit mode never blocks, but logs would_block.
-            if (config.mode === "audit") {
+            if (runtimeMode === "audit") {
                 if (hasGuardRisk || hasUnknownSignal) {
-                    emitBlockEvent(api, config, "external-untrusted instruction risk", sensitive.target);
+                    emitBlockEvent(api, { ...config, mode: runtimeMode }, "external-untrusted instruction risk", sensitive.target);
                 }
                 return undefined;
             }
@@ -283,4 +329,3 @@ export function registerBerryVine(
 
     api.logger.debug?.("[berry-shield] Berry.Vine layer registered");
 }
-

@@ -1,4 +1,4 @@
----
+﻿---
 summary: "Layer reference for Berry.Vine (external-content trust guard and prompt-injection hardening)"
 read_when:
   - You need to understand how Berry handles untrusted external content
@@ -26,7 +26,7 @@ It reduces prompt-injection risk by treating external content as untrusted by de
 
 - It does not guarantee complete prevention of all prompt-injection techniques.
 - It does not replace Stem/Thorn/Pulp controls.
-- It does not rely on semantic AI classification in v1.
+- It does not rely on semantic AI classification.
 - It does not auto-remediate without explicit operator action.
 
 ## Runtime flow
@@ -84,8 +84,47 @@ Key operational rule:
 
 Vine is useful for:
 - browser/email/webhook-heavy workflows
-- reducing “execute what this page says” risk
+- reducing "execute what this page says" risk
 - introducing trust-aware controls without replacing existing rule engine
+
+
+## Real-world examples
+
+### Case: external page tells the agent to run a command
+- If the page is ingested through an external tool path observed by Vine, session risk is marked.
+- A later sensitive write-like or destructive action is guarded.
+- In `audit`, Vine records `would_block`.
+- In enforce, Vine can block and report a blocked decision event.
+
+### Case: user pastes external text manually
+- Vine may classify this as `unknown` instead of `external_untrusted`.
+- Behavior depends on Vine mode:
+- `balanced`: tends to observe and escalate carefully.
+- `strict`: can block unknown-origin sensitive attempts.
+
+### Case: no sensitive action follows
+- Vine does not block "just for reading".
+- Guarding happens when a sensitive action is attempted.
+
+## Threat-model boundaries
+
+Vine is focused on instruction-origin trust before sensitive actions. It does not replace:
+- Pulp for output redaction and leak minimization.
+- Stem/Thorn for broader execution gates.
+- Host/runtime sandboxing and OS-level isolation.
+
+## Runtime validation principles
+
+Vine validation is a runtime behavior check, not an exploit demonstration.
+
+Use this principle:
+- run normal agent/tool workflows that include external-content ingestion;
+- let Berry observe and decide during regular execution flow;
+- verify evidence in structured outcomes (`would_block` in `audit`, active mitigation decision in `enforce`) through report/log telemetry.
+
+Important scope:
+- this validation assumes operator-guided execution in a real OpenClaw runtime;
+- the objective is to confirm decision posture and traceability, not to publish bypass or injection recipes.
 
 ## Limits and caveats
 
@@ -115,4 +154,3 @@ Vine is useful for:
 
 - [Back to Layers Index](README.md)
 - [Back to Wiki Index](../README.md)
-

@@ -64,6 +64,30 @@ describe("Berry.Vine", () => {
         expect(result?.block).toBe(true);
     });
 
+    it("enforce blocks write-like exec after external signal", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            mode: "enforce",
+            vine: { mode: "strict" },
+        }));
+
+        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+            toolName: "web_search",
+            params: { q: "test" },
+            result: { externalContent: { untrusted: true } },
+        }, { sessionKey: "s1" });
+
+        const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: "bash -lc 'echo VINE > /tmp/vine-only.txt'" },
+        }, { sessionKey: "s1" });
+
+        expect(result?.block).toBe(true);
+        const lastEvent = appendAuditEventMock.mock.calls.at(-1)?.[0];
+        expect(lastEvent?.layer).toBe("vine");
+        expect(lastEvent?.decision).toBe("blocked");
+    });
+
     it("audit never blocks sensitive action but emits would_block", () => {
         const { api, handlers } = createApi();
         registerBerryVine(api as any, createConfig({
@@ -87,6 +111,30 @@ describe("Berry.Vine", () => {
         const lastEvent = appendAuditEventMock.mock.calls.at(-1)?.[0];
         expect(lastEvent?.decision).toBe("would_block");
         expect(lastEvent?.layer).toBe("vine");
+    });
+
+    it("audit emits would_block for write-like exec after external signal", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            mode: "audit",
+            vine: { mode: "strict" },
+        }));
+
+        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+            toolName: "web_search",
+            params: { q: "test" },
+            result: { externalContent: { untrusted: true } },
+        }, { sessionKey: "s1" });
+
+        const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: "echo \"VINE\" >> /tmp/vine-only.txt" },
+        }, { sessionKey: "s1" });
+
+        expect(result).toBeUndefined();
+        const lastEvent = appendAuditEventMock.mock.calls.at(-1)?.[0];
+        expect(lastEvent?.layer).toBe("vine");
+        expect(lastEvent?.decision).toBe("would_block");
     });
 
     it("strict blocks unknown-origin sensitive action", () => {
@@ -153,5 +201,35 @@ describe("Berry.Vine", () => {
         }, { sessionKey: "s1" });
 
         expect(result).toBeUndefined();
+    });
+
+    it("respects runtime global mode updates and does not block in audit", () => {
+        const { api, handlers } = createApi();
+
+        // Register with ENFORCE (runtime snapshot captured in hook closures).
+        const snapshotConfig = createConfig({
+            mode: "enforce",
+            vine: { mode: "strict" },
+        });
+        registerBerryVine(api as any, snapshotConfig);
+
+        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+            toolName: "web_search",
+            params: { q: "inject" },
+            result: { externalContent: { untrusted: true } },
+        }, { sessionKey: "s1" });
+
+        // Simulate operator changed mode to AUDIT after registration.
+        (api as any).pluginConfig = { mode: "audit" };
+
+        const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: "bash -lc 'echo VINE > /tmp/vine-red.txt'" },
+        }, { sessionKey: "s1" });
+
+        expect(result).toBeUndefined();
+        const lastEvent = appendAuditEventMock.mock.calls.at(-1)?.[0];
+        expect(lastEvent?.layer).toBe("vine");
+        expect(lastEvent?.decision).toBe("would_block");
     });
 });

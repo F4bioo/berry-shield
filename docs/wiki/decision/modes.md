@@ -158,6 +158,7 @@ For operational command usage:
 - [CLI status command](../operation/cli/status.md)
 - [CLI profile command](../operation/cli/profile.md)
 - [CLI policy command](../operation/cli/policy.md)
+- [CLI vine command](../operation/cli/vine.md)
 
 ## Related pages
 

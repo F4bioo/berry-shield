@@ -71,11 +71,14 @@ flowchart LR
 
     S -->|DENIED| A
     S -->|ALLOWED| H[Berry.Thorn before_tool_call]
+    H -->|ALLOWED| V[Berry.Vine trust guard]
 
     H -->|BLOCKED| A
-    H -->|ALLOWED| T[Tool execution]
+    V -->|BLOCKED| A
+    V -->|ALLOWED| T[Tool execution]
 
     T --> P[Berry.Pulp output scan]
+    T --> V
     P --> A
     A --> O[User response]
 ```
@@ -86,8 +89,9 @@ flowchart LR
 | :--- | :--- | :--- |
 | **Leaf** 🍃 | **Input audit** | Logs sensitive signals in incoming content for observability. |
 | **Root** 🌱 | **Prompt guard** | Injects security policy/reminders into agent context by profile strategy. |
-| **Stem** 🌿 | **Security gate** | `berry_check` tool decides if intended operation is allowed or denied. |
+| **Stem** 🪵 | **Security gate** | `berry_check` tool decides if intended operation is allowed or denied. |
 | **Thorn** 🌵 | **Runtime blocker** | Intercepts tool calls and blocks risky command/file patterns in enforce mode. |
+| **Vine** 🌿 | **External guard** | Marks external-content risk and can block sensitive actions under active risk. |
 | **Pulp** 🍇 | **Output scanner** | Redacts sensitive data in tool results and outgoing messages in enforce mode. |
 
 See more:
