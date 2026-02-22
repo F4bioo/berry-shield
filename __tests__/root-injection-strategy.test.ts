@@ -39,6 +39,11 @@ function createConfig(
             },
             toolAllowlist: [],
         },
+        customRules: {
+            secrets: [],
+            sensitiveFiles: [],
+            destructiveCommands: [],
+        },
         sensitiveFilePaths: [],
         destructiveCommands: [],
     };

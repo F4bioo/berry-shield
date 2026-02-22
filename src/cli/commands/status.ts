@@ -1,6 +1,5 @@
 import { OpenClawPluginCliContext } from "../../types/openclaw-local.js";
 import { mergeConfig } from "../../config/utils.js";
-import { loadCustomRules } from "../storage.js";
 import {
     SECRET_PATTERNS,
     PII_PATTERNS,
@@ -26,8 +25,9 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
             CONFIG_PATHS.ENABLED
         ) ?? false;
 
-        const customRules = await loadCustomRules();
-        const customCount = customRules.secrets.length + customRules.sensitiveFiles.length + customRules.destructiveCommands.length;
+        const customCount = shieldConfig.customRules.secrets.length
+            + shieldConfig.customRules.sensitiveFiles.length
+            + shieldConfig.customRules.destructiveCommands.length;
 
         const builtInCount = SECRET_PATTERNS.length + PII_PATTERNS.length +
             SENSITIVE_FILE_PATTERNS.length + DESTRUCTIVE_COMMAND_PATTERNS.length;

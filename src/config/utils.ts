@@ -1,6 +1,7 @@
 import {
     BerryShieldPluginConfig,
     BerryShieldPolicyProfile,
+    BerryShieldCustomRulesConfig,
     BerryShieldVineMode,
 } from "../types/config.js";
 import { DEFAULT_CONFIG } from "./defaults.js";
@@ -42,6 +43,57 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
     const destructiveCommands = Array.isArray(config.destructiveCommands)
         ? config.destructiveCommands.filter((c): c is string => typeof c === "string")
         : DEFAULT_CONFIG.destructiveCommands;
+
+    const rawCustomRules = (config.customRules && typeof config.customRules === "object")
+        ? (config.customRules as Record<string, unknown>)
+        : {};
+
+    const customSecrets = Array.isArray(rawCustomRules.secrets)
+        ? rawCustomRules.secrets
+            .filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null)
+            .filter((entry) =>
+                typeof entry.name === "string"
+                && typeof entry.pattern === "string"
+                && typeof entry.placeholder === "string"
+            )
+            .map((entry) => ({
+                name: entry.name as string,
+                pattern: entry.pattern as string,
+                placeholder: entry.placeholder as string,
+            }))
+        : DEFAULT_CONFIG.customRules.secrets;
+
+    const customSensitiveFiles = Array.isArray(rawCustomRules.sensitiveFiles)
+        ? rawCustomRules.sensitiveFiles
+            .filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null)
+            .filter((entry) => typeof entry.pattern === "string")
+            .map((entry) => ({
+                pattern: entry.pattern as string,
+            }))
+        : DEFAULT_CONFIG.customRules.sensitiveFiles;
+
+    const customDestructiveCommands = Array.isArray(rawCustomRules.destructiveCommands)
+        ? rawCustomRules.destructiveCommands
+            .filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null)
+            .filter((entry) => typeof entry.pattern === "string")
+            .map((entry) => ({
+                pattern: entry.pattern as string,
+            }))
+        : DEFAULT_CONFIG.customRules.destructiveCommands;
+
+    const customRules: BerryShieldCustomRulesConfig = {
+        secrets: customSecrets,
+        sensitiveFiles: customSensitiveFiles,
+        destructiveCommands: customDestructiveCommands,
+    };
+
+    const fallbackSensitiveFiles = customRules.sensitiveFiles.length > 0
+        ? customRules.sensitiveFiles.map((rule) => rule.pattern)
+        : sensitiveFilePaths;
+
+    const fallbackDestructiveCommands = customRules.destructiveCommands.length > 0
+        ? customRules.destructiveCommands.map((rule) => rule.pattern)
+        : destructiveCommands;
 
     const rawPolicy = (config.policy && typeof config.policy === "object")
         ? (config.policy as Record<string, unknown>)
@@ -165,7 +217,8 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
             },
             toolAllowlist,
         },
-        sensitiveFilePaths,
-        destructiveCommands,
+        customRules,
+        sensitiveFilePaths: fallbackSensitiveFiles,
+        destructiveCommands: fallbackDestructiveCommands,
     };
 }

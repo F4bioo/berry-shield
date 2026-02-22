@@ -24,6 +24,7 @@ export const CONFIG_PATHS = {
     PLUGIN_ROOT: `plugins.entries.${PLUGIN_ID}`,
     PLUGIN_CONFIG: `plugins.entries.${PLUGIN_ID}.config`,
     POLICY_CONFIG: `plugins.entries.${PLUGIN_ID}.config.policy`,
+    CUSTOM_RULES_CONFIG: `plugins.entries.${PLUGIN_ID}.config.customRules`,
     ENABLED: `plugins.entries.${PLUGIN_ID}.enabled`,
 };
 

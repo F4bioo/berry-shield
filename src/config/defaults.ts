@@ -39,6 +39,11 @@ export const DEFAULT_CONFIG: BerryShieldPluginConfig = {
         },
         toolAllowlist: [],
     },
+    customRules: {
+        secrets: [],
+        sensitiveFiles: [],
+        destructiveCommands: [],
+    },
     sensitiveFilePaths: [],
     destructiveCommands: []
 };

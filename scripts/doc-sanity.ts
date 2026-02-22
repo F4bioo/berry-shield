@@ -17,6 +17,7 @@ import ts from "typescript";
 // Configuration
 const DOCS_DIR = process.env.DOCS_DIR ?? "docs/wiki";
 const CODE_DIR = process.env.CODE_DIR ?? "src";
+const EXTRA_DOC_FILES = ["SECURITY_AUDIT.md"];
 
 const CONFIG = {
     hypeDensityThreshold: 2.0,      // Max hits per 1000 words
@@ -33,6 +34,31 @@ const CONFIG = {
         }
     }
 };
+
+type DensityRule = {
+    pattern: RegExp;
+    maxWords: number;
+    label: string;
+};
+
+const DENSITY_RULES: DensityRule[] = [
+    { pattern: /SECURITY_AUDIT\.md$/i, maxWords: 1200, label: "security-audit-root-doc" },
+    { pattern: /^README\.md$/i, maxWords: 900, label: "wiki-root-readme" },
+    { pattern: /^operation\/README\.md$/i, maxWords: 900, label: "operation-index" },
+    { pattern: /^operation\/cli\/README\.md$/i, maxWords: 900, label: "cli-index" },
+    { pattern: /^operation\/web\/README\.md$/i, maxWords: 900, label: "web-index" },
+    { pattern: /^operation\/cli\/.+\.md$/i, maxWords: 1000, label: "cli-command" },
+    { pattern: /^decision\/README\.md$/i, maxWords: 900, label: "decision-index" },
+    { pattern: /^decision\/.+\.md$/i, maxWords: 1500, label: "decision-page" },
+    { pattern: /^layers\/README\.md$/i, maxWords: 900, label: "layers-index" },
+    { pattern: /^layers\/.+\.md$/i, maxWords: 1500, label: "layer-page" },
+    { pattern: /^engine\/README\.md$/i, maxWords: 900, label: "engine-index" },
+    { pattern: /^engine\/.+\.md$/i, maxWords: 1200, label: "engine-page" },
+    { pattern: /^deploy\/README\.md$/i, maxWords: 900, label: "deploy-index" },
+    { pattern: /^deploy\/.+\.md$/i, maxWords: 1200, label: "deploy-page" },
+    { pattern: /^tutorials\/README\.md$/i, maxWords: 900, label: "tutorials-index" },
+    { pattern: /^tutorials\/.+\.md$/i, maxWords: 1200, label: "tutorial-page" },
+];
 
 const COLOR = {
     LOBSTER: "\x1b[38;2;255;90;45m",
@@ -148,6 +174,14 @@ function getFiles(dir: string, extFilter: string[]): string[] {
     return results;
 }
 
+function getAuditTargets(): string[] {
+    const docs = getFiles(DOCS_DIR, [".md"]);
+    const extras = EXTRA_DOC_FILES
+        .map((file) => resolve(process.cwd(), file))
+        .filter((file) => existsSync(file));
+    return [...docs, ...extras];
+}
+
 function buildExportIndex(files: string[]): Set<string> {
     const exports = new Set<string>();
     for (const file of files) {
@@ -246,6 +280,15 @@ function parseFrontmatter(content: string): FrontmatterData | null {
     };
 }
 
+function normalizeDocRelPath(absPath: string): string {
+    return relative(resolve(DOCS_DIR), resolve(absPath)).replace(/\\/g, "/");
+}
+
+function resolveDensityRule(absPath: string): DensityRule | null {
+    const relDoc = normalizeDocRelPath(absPath);
+    return DENSITY_RULES.find((rule) => rule.pattern.test(relDoc)) ?? null;
+}
+
 // Technical Sanity Auditor
 class SanityAuditor {
     errors: string[] = [];
@@ -260,7 +303,7 @@ class SanityAuditor {
         this.exportedSymbols = buildExportIndex(codeFiles);
         this.codeContent = codeFiles.map(f => readFileSync(f, "utf8").toLowerCase()).join("\n");
 
-        const docFiles = getFiles(DOCS_DIR, [".md"]);
+        const docFiles = getAuditTargets();
         docFiles.forEach(f => this.allDocs.add(resolve(f)));
 
         // Seed entry point
@@ -277,9 +320,15 @@ class SanityAuditor {
 
         const lines = content.split("\n");
         const relPath = relative(process.cwd(), filePath);
-        const isExplanation = filePath.includes("anatomy") || filePath.includes("engine");
         const isReference = filePath.includes("reference");
         const strictCliContract = /<!--\s*doc-sanity:cli-contract:strict\s*-->/i.test(content);
+        const densityRule = resolveDensityRule(filePath);
+
+        if (!densityRule) {
+            this.errors.push(
+                `${relPath}: Missing density target mapping for this path. Add a rule in DENSITY_RULES (scripts/doc-sanity.ts).`
+            );
+        }
 
         // -1. Frontmatter contract (except generated reference docs)
         if (!isReference) {
@@ -537,9 +586,10 @@ class SanityAuditor {
             this.warnings.push(`${relPath}: Many exclamation marks (${exclamationCount}). Reads like marketing.`);
         }
 
-        const wordLimit = isExplanation ? 1200 : 500;
-        if (totalWords > wordLimit) {
-            this.warnings.push(`${relPath}: High word density (${totalWords} words). Target: <${wordLimit}.`);
+        if (densityRule && totalWords > densityRule.maxWords) {
+            this.warnings.push(
+                `${relPath}: High word density (${totalWords} words). Target: <${densityRule.maxWords} [${densityRule.label}].`
+            );
         }
     }
 
@@ -568,6 +618,6 @@ class SanityAuditor {
 
 // Execution Layer
 const auditor = new SanityAuditor();
-const docs = getFiles(DOCS_DIR, [".md"]);
+const docs = getAuditTargets();
 docs.forEach(d => auditor.auditFile(d));
 auditor.report();

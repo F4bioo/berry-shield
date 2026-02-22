@@ -1,0 +1,196 @@
+import { mergeConfig } from "../config/utils.js";
+import { CONFIG_PATHS } from "../constants.js";
+import type {
+    BerryShieldCustomCommandRule,
+    BerryShieldCustomFileRule,
+    BerryShieldCustomRulesConfig,
+    BerryShieldCustomSecretRule,
+} from "../types/config.js";
+import type { ConfigWrapper } from "../config/wrapper.js";
+
+export type CustomRuleType = "secret" | "file" | "command";
+
+export interface AddCustomRuleOptions {
+    name?: string;
+    pattern: string;
+    placeholder?: string;
+    force?: boolean;
+}
+
+export interface AddCustomRuleResult {
+    success: boolean;
+    error?: string;
+    rule?: BerryShieldCustomSecretRule | BerryShieldCustomFileRule | BerryShieldCustomCommandRule;
+}
+
+const MAX_ITEMS_PER_LIST = 500;
+const MAX_PATTERN_LENGTH = 512;
+
+function normalizeName(value: string): string {
+    return value.trim().toLowerCase();
+}
+
+export function generatePlaceholder(name: string): string {
+    const sanitized = name.toUpperCase().replace(/[^A-Z0-9]/g, "_");
+    return `[${sanitized}_REDACTED]`;
+}
+
+export function validateRegex(pattern: string): { valid: boolean; error?: string } {
+    if (pattern.length > MAX_PATTERN_LENGTH) {
+        return { valid: false, error: `Pattern exceeds ${MAX_PATTERN_LENGTH} characters.` };
+    }
+    try {
+        new RegExp(pattern, "gi");
+        return { valid: true };
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return { valid: false, error: message };
+    }
+}
+
+function enforceListLimit<T>(entries: T[], label: string): void {
+    if (entries.length > MAX_ITEMS_PER_LIST) {
+        throw new Error(`${label} exceeds maximum of ${MAX_ITEMS_PER_LIST} entries.`);
+    }
+}
+
+function validateCustomRulesConfig(customRules: BerryShieldCustomRulesConfig): void {
+    for (const rule of customRules.secrets) {
+        if (!rule.name.trim()) throw new Error("Secret rule name cannot be empty.");
+        if (!rule.placeholder.trim()) throw new Error(`Secret rule '${rule.name}' placeholder cannot be empty.`);
+        const validation = validateRegex(rule.pattern);
+        if (!validation.valid) throw new Error(`Invalid secret regex for '${rule.name}': ${validation.error}`);
+    }
+    for (const rule of customRules.sensitiveFiles) {
+        const validation = validateRegex(rule.pattern);
+        if (!validation.valid) throw new Error(`Invalid sensitive file regex: ${validation.error}`);
+    }
+    for (const rule of customRules.destructiveCommands) {
+        const validation = validateRegex(rule.pattern);
+        if (!validation.valid) throw new Error(`Invalid destructive command regex: ${validation.error}`);
+    }
+
+    enforceListLimit(customRules.secrets, "customRules.secrets");
+    enforceListLimit(customRules.sensitiveFiles, "customRules.sensitiveFiles");
+    enforceListLimit(customRules.destructiveCommands, "customRules.destructiveCommands");
+}
+
+async function loadEffectiveConfig(wrapper: ConfigWrapper) {
+    const rawPluginConfig = await wrapper.get<unknown>(CONFIG_PATHS.PLUGIN_CONFIG) || {};
+    return mergeConfig(rawPluginConfig);
+}
+
+export async function loadCustomRulesFromConfig(wrapper: ConfigWrapper): Promise<BerryShieldCustomRulesConfig> {
+    const config = await loadEffectiveConfig(wrapper);
+    return config.customRules;
+}
+
+export async function saveCustomRulesToConfig(
+    wrapper: ConfigWrapper,
+    customRules: BerryShieldCustomRulesConfig
+): Promise<void> {
+    validateCustomRulesConfig(customRules);
+    await wrapper.set(CONFIG_PATHS.CUSTOM_RULES_CONFIG, customRules);
+}
+
+export async function addCustomRuleToConfig(
+    wrapper: ConfigWrapper,
+    type: CustomRuleType,
+    options: AddCustomRuleOptions
+): Promise<AddCustomRuleResult> {
+    const { name, pattern, placeholder, force } = options;
+    const validation = validateRegex(pattern);
+    if (!validation.valid) {
+        return { success: false, error: `Invalid regex pattern: ${validation.error}` };
+    }
+
+    const customRules = await loadCustomRulesFromConfig(wrapper);
+
+    if (type === "secret") {
+        if (!name || !name.trim()) return { success: false, error: "Secret rules require a name." };
+
+        const normalized = normalizeName(name);
+        const exists = customRules.secrets.some((rule) => normalizeName(rule.name) === normalized);
+        if (exists && !force) {
+            return { success: false, error: `Rule '${name}' already exists. Use --force to override.` };
+        }
+
+        if (exists) {
+            customRules.secrets = customRules.secrets.filter((rule) => normalizeName(rule.name) !== normalized);
+        }
+
+        const rule: BerryShieldCustomSecretRule = {
+            name: name.trim(),
+            pattern,
+            placeholder: placeholder ?? generatePlaceholder(name),
+        };
+        customRules.secrets.push(rule);
+        await saveCustomRulesToConfig(wrapper, customRules);
+        return { success: true, rule };
+    }
+
+    if (type === "file") {
+        const exists = customRules.sensitiveFiles.some((rule) => rule.pattern === pattern);
+        if (exists && !force) {
+            return { success: false, error: "File pattern already exists. Use --force to add anyway." };
+        }
+        if (exists) {
+            customRules.sensitiveFiles = customRules.sensitiveFiles.filter((rule) => rule.pattern !== pattern);
+        }
+        const rule: BerryShieldCustomFileRule = { pattern };
+        customRules.sensitiveFiles.push(rule);
+        await saveCustomRulesToConfig(wrapper, customRules);
+        return { success: true, rule };
+    }
+
+    const exists = customRules.destructiveCommands.some((rule) => rule.pattern === pattern);
+    if (exists && !force) {
+        return { success: false, error: "Command pattern already exists. Use --force to add anyway." };
+    }
+    if (exists) {
+        customRules.destructiveCommands = customRules.destructiveCommands.filter((rule) => rule.pattern !== pattern);
+    }
+    const rule: BerryShieldCustomCommandRule = { pattern };
+    customRules.destructiveCommands.push(rule);
+    await saveCustomRulesToConfig(wrapper, customRules);
+    return { success: true, rule };
+}
+
+export async function removeCustomRuleFromConfig(
+    wrapper: ConfigWrapper,
+    identifier: string
+): Promise<{ success: boolean; removed: boolean; type?: string }> {
+    const customRules = await loadCustomRulesFromConfig(wrapper);
+    let removed = false;
+    let type: string | undefined;
+
+    const initialSecrets = customRules.secrets.length;
+    customRules.secrets = customRules.secrets.filter((rule) => normalizeName(rule.name) !== normalizeName(identifier));
+    if (customRules.secrets.length < initialSecrets) {
+        removed = true;
+        type = "secret";
+    }
+
+    if (!removed) {
+        const initialFiles = customRules.sensitiveFiles.length;
+        customRules.sensitiveFiles = customRules.sensitiveFiles.filter((rule) => rule.pattern !== identifier);
+        if (customRules.sensitiveFiles.length < initialFiles) {
+            removed = true;
+            type = "file";
+        }
+    }
+
+    if (!removed) {
+        const initialCommands = customRules.destructiveCommands.length;
+        customRules.destructiveCommands = customRules.destructiveCommands.filter((rule) => rule.pattern !== identifier);
+        if (customRules.destructiveCommands.length < initialCommands) {
+            removed = true;
+            type = "command";
+        }
+    }
+
+    if (!removed) return { success: true, removed: false };
+
+    await saveCustomRulesToConfig(wrapper, customRules);
+    return { success: true, removed: true, type };
+}

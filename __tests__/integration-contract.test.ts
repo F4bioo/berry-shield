@@ -1,14 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import * as os from "node:os";
 import { findMatches } from "../src/utils/redaction";
 import { getAllRedactionPatterns, getAllSensitiveFilePatterns, reloadPatterns } from "../src/patterns";
-import { type CustomRules } from "../src/cli/storage";
-
-// Helper for temporary rules file
-const CONFIG_DIR = path.join(os.homedir(), ".openclaw", "config", "berry-shield");
-const RULES_FILE = path.join(CONFIG_DIR, "custom-rules.json");
+import type { BerryShieldCustomRulesConfig } from "../src/types/config";
 
 describe("Contract Protection: Integrated Security Motor", () => {
 
@@ -47,41 +40,31 @@ describe("Contract Protection: Integrated Security Motor", () => {
     });
 
     describe("Smart Cache Contract (Reactivity & Performance)", () => {
-        // Back up original rules if they exist
-        let originalContent: string | null = null;
-
         beforeEach(() => {
-            if (fs.existsSync(RULES_FILE)) {
-                originalContent = fs.readFileSync(RULES_FILE, "utf-8");
-                // Clean slate for the test
-                fs.unlinkSync(RULES_FILE);
-            }
+            reloadPatterns({
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+            });
         });
 
         afterEach(() => {
-            if (originalContent !== null) {
-                fs.writeFileSync(RULES_FILE, originalContent);
-            } else if (fs.existsSync(RULES_FILE)) {
-                fs.unlinkSync(RULES_FILE);
-            }
-        });
-
-        it("should reload patterns when file changes", async () => {
-            await reloadPatterns();
-            const initialCount = getAllRedactionPatterns().length;
-
-            const rules: CustomRules = {
-                version: "1.0",
-                secrets: [{ name: "ContractTestKey", pattern: "CONTRACT_SECRET_[0-9]+", placeholder: "[BLOCKED]", addedAt: new Date().toISOString() }],
+            reloadPatterns({
+                secrets: [],
                 sensitiveFiles: [],
                 destructiveCommands: [],
-                disabledBuiltInIds: [],
+            });
+        });
+
+        it("should reload patterns when customRules config changes", () => {
+            const initialCount = getAllRedactionPatterns().length;
+
+            const customRules: BerryShieldCustomRulesConfig = {
+                secrets: [{ name: "ContractTestKey", pattern: "CONTRACT_SECRET_[0-9]+", placeholder: "[BLOCKED]" }],
+                sensitiveFiles: [],
+                destructiveCommands: [],
             };
-
-            fs.mkdirSync(CONFIG_DIR, { recursive: true });
-            fs.writeFileSync(RULES_FILE, JSON.stringify(rules));
-
-            await reloadPatterns();
+            reloadPatterns(customRules);
 
             const updatedPatterns = getAllRedactionPatterns();
 
@@ -91,7 +74,7 @@ describe("Contract Protection: Integrated Security Motor", () => {
             expect(testPattern?.pattern.test("CONTRACT_SECRET_12345")).toBe(true);
         });
 
-        it("should NOT reload if the file hasn't changed (Cache hit)", () => {
+        it("should NOT reload if the in-memory state hasn't changed (Cache hit)", () => {
             const patterns1 = getAllRedactionPatterns();
             const patterns2 = getAllRedactionPatterns();
 

@@ -175,21 +175,68 @@
                     }
                 }
             },
-            "sensitiveFilePaths": {
-                "type": "array",
-                "items": {
-                    "type": "string"
+            "customRules": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Custom rules synchronized across CLI and Web settings",
+                "properties": {
+                    "secrets": {
+                        "type": "array",
+                        "description": "Custom secret redaction entries",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "pattern": {
+                                    "type": "string"
+                                },
+                                "placeholder": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["name", "pattern", "placeholder"]
+                        },
+                        "default": []
+                    },
+                    "sensitiveFiles": {
+                        "type": "array",
+                        "description": "Additional sensitive file path regex entries",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "pattern": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["pattern"]
+                        },
+                        "default": []
+                    },
+                    "destructiveCommands": {
+                        "type": "array",
+                        "description": "Additional destructive command regex entries",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "pattern": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["pattern"]
+                        },
+                        "default": []
+                    }
                 },
-                "default": [],
-                "description": "Additional file path patterns (regex)"
-            },
-            "destructiveCommands": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                },
-                "default": [],
-                "description": "Additional command patterns (regex)"
+                "default": {
+                    "secrets": [],
+                    "sensitiveFiles": [],
+                    "destructiveCommands": []
+                }
             }
         }
     }

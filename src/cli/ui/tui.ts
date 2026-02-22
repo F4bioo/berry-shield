@@ -5,14 +5,21 @@ import { theme, symbols } from "./theme.js";
  * Berry Shield TUI Layout Utilities
  */
 
-const TIPS = [
+export const TIPS = [
     "Audit mode is your playground: test rules safely before you enforce.",
     "Enforce mode actively blocks any action that matches a security pattern.",
     "Custom rules are persistent and stored in your home directory.",
+    "Profile controls prompt-injection behavior: strict, balanced, minimal.",
+    "Policy tuning controls escalation turns, stale windows, and heartbeats.",
+    "Root layer injects runtime safety policy before agent execution starts.",
+    "Leaf layer audits incoming messages to track sensitive-signal exposure.",
     "The 'test' command helps you validate regex patterns against strings.",
+    "Use 'openclaw bshield rules list' to inspect baseline and custom rules.",
+    "Use 'openclaw bshield rules disable baseline <id>' for scoped hardening.",
     "Thorn layer blocks destructive commands via hooks in real-time.",
     "Stem layer acts as a mandatory security gate for file operations.",
     "Pulp layer scans and redacts secrets from all outgoing logs.",
+    "Vine layer guards against external-untrusted instruction escalation.",
     "Redaction replaces sensitive data with markers to ensure privacy.",
 ];
 

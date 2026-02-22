@@ -31,6 +31,18 @@ The goal of `Berry Shield` is to reduce that risk in day-to-day usage by adding 
 
 ---
 
+## 🛡️ Security Audit & Installation Notice
+
+> [!WARNING]
+> **Expected heuristic warnings:**
+> During `openclaw plugins install`, OpenClaw may flag patterns such as `child_process` usage and environment-based runtime resolution.
+> In Berry Shield, these patterns are used for legitimate host integration (OpenClaw CLI/config bridge), not hidden execution paths.
+>
+> This is a heuristic warning, not a malware verdict.
+> For a code-level mapping of each warning, see [Security Audit](SECURITY_AUDIT.md).
+
+---
+
 ## ⚡ Quickstart
 
 Install from npm package:
@@ -51,7 +63,7 @@ See more:
 ```bash
 openclaw bshield --help
 ```
-
+ 
 See more:
 - [Berry Shield CLI reference](docs/wiki/operation/cli/README.md)
 

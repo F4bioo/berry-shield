@@ -17,9 +17,9 @@ It covers installation tracks, build/release gates, and validation workflow.
 Berry supports two operational tracks:
 
 - Source-truth track: run exactly what is in this repository (build from source).
-- Release-truth track: consume published package artifact once registry release is available.
+- Release-truth track: consume published package artifact from the package registry.
 
-If published package is not yet available, use source-truth track.
+Choose source-truth when you need repository-level auditability; choose release-truth when you need immutable package consumption.
 
 ## Pages
 

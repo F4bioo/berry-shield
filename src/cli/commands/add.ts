@@ -7,9 +7,10 @@
 
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
 import {
-    addCustomRule,
     isBroadPattern
 } from "../storage.js";
+import { addCustomRuleToConfig } from "../custom-rules-config.js";
+import { type ConfigWrapper } from "../../config/wrapper.js";
 import { ui } from "../ui/tui.js";
 import { RuleWizardSession } from "../ui/wizard.js";
 
@@ -55,7 +56,8 @@ export async function addCommand(
     type: string | undefined,
     options: AddOptions,
     _config: OpenClawConfig,
-    logger: PluginLogger
+    logger: PluginLogger,
+    wrapper: ConfigWrapper
 ): Promise<void> {
 
     let finalType = type;
@@ -80,7 +82,15 @@ export async function addCommand(
     const { name, pattern, placeholder, force } = finalOptions;
     if (!pattern || !finalType) return;
 
-    const result = await addCustomRule(finalType, { name, pattern, placeholder, force });
+    const normalizedType = finalType === "secret" || finalType === "file" || finalType === "command"
+        ? finalType
+        : undefined;
+    if (!normalizedType) {
+        printError("Invalid type. Use: secret, file, command", logger);
+        return;
+    }
+
+    const result = await addCustomRuleToConfig(wrapper, normalizedType, { name, pattern, placeholder, force });
 
     if (!result.success || !result.rule) {
         printError(result.error || "Unknown error", logger);

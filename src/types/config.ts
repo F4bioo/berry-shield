@@ -107,6 +107,38 @@ export interface BerryShieldVineConfig {
 }
 
 /**
+ * Custom secret rule stored in plugin config.
+ */
+export interface BerryShieldCustomSecretRule {
+    name: string;
+    pattern: string;
+    placeholder: string;
+}
+
+/**
+ * Custom file rule stored in plugin config.
+ */
+export interface BerryShieldCustomFileRule {
+    pattern: string;
+}
+
+/**
+ * Custom command rule stored in plugin config.
+ */
+export interface BerryShieldCustomCommandRule {
+    pattern: string;
+}
+
+/**
+ * Custom rules state in plugin config (single source for CLI/Web).
+ */
+export interface BerryShieldCustomRulesConfig {
+    secrets: BerryShieldCustomSecretRule[];
+    sensitiveFiles: BerryShieldCustomFileRule[];
+    destructiveCommands: BerryShieldCustomCommandRule[];
+}
+
+/**
  * Main plugin configuration.
  */
 export interface BerryShieldPluginConfig {
@@ -118,6 +150,8 @@ export interface BerryShieldPluginConfig {
     policy: BerryShieldPolicyConfig;
     /** External-content hardening behavior for Berry.Vine */
     vine: BerryShieldVineConfig;
+    /** User-defined custom rules (single source of truth for CLI/Web) */
+    customRules: BerryShieldCustomRulesConfig;
     /** Additional file path patterns to treat as sensitive (regex strings) */
     sensitiveFilePaths: string[];
     /** Additional command patterns to treat as destructive (regex strings) */

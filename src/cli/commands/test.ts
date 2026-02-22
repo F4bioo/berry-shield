@@ -8,11 +8,12 @@
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
 type PluginLogger = OpenClawPluginApi["logger"];
 
-import { loadCustomRules } from "../storage.js";
+import { loadCustomRulesFromConfig } from "../custom-rules-config.js";
 import { SECRET_PATTERNS, PII_PATTERNS } from "../../patterns/index.js";
 import { matchAgainstPattern } from "../utils/match.js";
 import { ui } from "../ui/tui.js";
 import { theme } from "../ui/theme.js";
+import { type ConfigWrapper } from "../../config/wrapper.js";
 
 interface MatchResult {
     name: string;
@@ -26,9 +27,10 @@ interface MatchResult {
 export async function testCommand(
     input: string,
     _config: OpenClawConfig,
-    logger: PluginLogger
+    logger: PluginLogger,
+    wrapper: ConfigWrapper
 ): Promise<void> {
-    const custom = await loadCustomRules();
+    const custom = await loadCustomRulesFromConfig(wrapper);
     logger.debug?.(`[berry-shield] CLI: Testing input: ${input.substring(0, 20)}...`);
     const matches: MatchResult[] = [];
 

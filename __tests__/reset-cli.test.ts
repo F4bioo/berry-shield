@@ -59,7 +59,7 @@ vi.mock("../src/cli/storage", () => ({
 import { resetCommand } from "../src/cli/commands/reset";
 
 describe("resetCommand", () => {
-    const wrapper = { set: vi.fn() };
+    const wrapper = { set: vi.fn(), get: vi.fn() };
     const context = { logger: { error: vi.fn() } } as any;
 
     beforeEach(() => {
@@ -73,6 +73,13 @@ describe("resetCommand", () => {
         });
         saveCustomRulesMock.mockResolvedValue(undefined);
         wrapper.set.mockResolvedValue(undefined);
+        wrapper.get.mockResolvedValue({
+            customRules: {
+                secrets: [{ name: "x", pattern: "x", placeholder: "[X]" }],
+                sensitiveFiles: [{ pattern: "x" }],
+                destructiveCommands: [{ pattern: "x" }],
+            },
+        });
     });
 
     it("resets builtins scope by default", async () => {

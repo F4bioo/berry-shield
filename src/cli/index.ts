@@ -66,7 +66,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .option("-r, --placeholder <text>", "Custom placeholder for redaction")
                 .option("-f, --force", "Override existing rule with same name")
                 .action(async (type: string | undefined, options: any) => {
-                    await addCommand(type, options, config, logger);
+                    await addCommand(type, options, config, logger, wrapper);
                 }),
             );
 
@@ -80,7 +80,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .command("list")
                 .description("List baseline and custom rules")
                 .action(async () => {
-                    await rulesListCommand();
+                    await rulesListCommand(wrapper);
                 }),
             );
 
@@ -89,7 +89,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .command("remove <target> [name]")
                 .description("Remove custom rule by name (target must be custom)")
                 .action(async (target: string, name: string | undefined) => {
-                    await rulesRemoveCommand(target, name);
+                    await rulesRemoveCommand(target, name, wrapper);
                 }),
             );
 
@@ -121,7 +121,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .command("test <input>")
                 .description("Test if input matches any security pattern")
                 .action(async (input: string) => {
-                    await testCommand(input, config, logger);
+                    await testCommand(input, config, logger, wrapper);
                 }),
             );
 

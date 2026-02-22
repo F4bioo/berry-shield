@@ -6,6 +6,7 @@ import {
     restoreBuiltInRule,
     saveCustomRules,
 } from "../storage.js";
+import { loadCustomRulesFromConfig, removeCustomRuleFromConfig } from "../custom-rules-config.js";
 import {
     SECRET_PATTERNS,
     PII_PATTERNS,
@@ -14,6 +15,7 @@ import {
 } from "../../patterns/index.js";
 import { ui } from "../ui/tui.js";
 import { theme } from "../ui/theme.js";
+import { type ConfigWrapper } from "../../config/wrapper.js";
 
 type RuleTarget = "baseline" | "custom";
 
@@ -53,9 +55,10 @@ function printUsage(message: string): never {
     process.exit(1);
 }
 
-export async function rulesListCommand(): Promise<void> {
-    const custom = await loadCustomRules();
-    const disabledSet = new Set((custom.disabledBuiltInIds ?? []).map((value) => value.toLowerCase()));
+export async function rulesListCommand(wrapper?: ConfigWrapper): Promise<void> {
+    const customDelta = await loadCustomRules();
+    const custom = wrapper ? await loadCustomRulesFromConfig(wrapper) : customDelta;
+    const disabledSet = new Set((customDelta.disabledBuiltInIds ?? []).map((value) => value.toLowerCase()));
 
     const baselineRows = collectBaselineIds().map((id) => {
         const disabled = disabledSet.has(id.toLowerCase());
@@ -93,6 +96,7 @@ export async function rulesListCommand(): Promise<void> {
 export async function rulesRemoveCommand(
     target: string,
     name: string | undefined,
+    wrapper?: ConfigWrapper
 ): Promise<void> {
     const parsedTarget = parseTarget(target);
     if (parsedTarget !== "custom") {
@@ -102,7 +106,9 @@ export async function rulesRemoveCommand(
         printUsage("Usage: openclaw bshield rules remove custom <name>");
     }
 
-    const result = await removeCustomRule(name);
+    const result = wrapper
+        ? await removeCustomRuleFromConfig(wrapper, name)
+        : await removeCustomRule(name);
     if (!result.success || !result.removed) {
         ui.scaffold({
             header: (s) => s.header("Operation Failed"),

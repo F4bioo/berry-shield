@@ -12,6 +12,7 @@ Manage baseline and custom Berry Shield rules from one command group.
 
 ## What it does
 - Centralizes rule operations under rules.
+- Reads and writes custom rule state from `pluginConfig.customRules` (single CLI/Web source).
 - Lists baseline and custom inventory with explicit status.
 - Removes custom rules by target + name.
 - Enables or disables baseline rules by ID or in bulk.

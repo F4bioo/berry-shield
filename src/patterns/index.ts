@@ -5,8 +5,7 @@
  * sensitive information that should be redacted from tool outputs.
  */
 
-import * as fs from "node:fs";
-import { loadCustomRules, loadCustomRulesSync, getStoragePath, type CustomRules } from "../cli/storage.js";
+import type { BerryShieldCustomRulesConfig } from "../types/config.js";
 import { GITLEAKS_PATTERNS } from "./generated.js";
 
 /**
@@ -287,12 +286,13 @@ let _cache: PatternCache = {
     commandPatterns: [...DESTRUCTIVE_COMMAND_PATTERNS],
 };
 
-let _watcherInitialized = false;
+function compileCustomPatterns(
+    customRules: BerryShieldCustomRulesConfig,
+    disabledBuiltInIds: readonly string[]
+): PatternCache {
+    const disabledIds = new Set(disabledBuiltInIds.map(id => id.toLowerCase()));
 
-function compileCustomPatterns(custom: CustomRules): PatternCache {
-    const disabledIds = new Set((custom.disabledBuiltInIds || []).map(id => id.toLowerCase()));
-
-    const customSecrets: SecurityPattern[] = custom.secrets.map(s => {
+    const customSecrets: SecurityPattern[] = customRules.secrets.map(s => {
         let pattern = s.pattern;
         let flags = "gi";
 
@@ -315,11 +315,11 @@ function compileCustomPatterns(custom: CustomRules): PatternCache {
         }
     }).filter((r): r is SecurityPattern => r !== null);
 
-    const customFiles = custom.sensitiveFiles.map(f => {
+    const customFiles = customRules.sensitiveFiles.map(f => {
         try { return new RegExp(f.pattern, "i"); } catch { return null; }
     }).filter((r): r is RegExp => r !== null);
 
-    const customCmds = custom.destructiveCommands.map(c => {
+    const customCmds = customRules.destructiveCommands.map(c => {
         try { return new RegExp(c.pattern, "i"); } catch { return null; }
     }).filter((r): r is RegExp => r !== null);
 
@@ -335,48 +335,39 @@ function compileCustomPatterns(custom: CustomRules): PatternCache {
     };
 }
 
-function startPatternsWatcher(): void {
-    if (process.env.NODE_ENV === "test" || _watcherInitialized) {
-        return;
-    }
-
-    const rulesPath = getStoragePath();
-    try {
-        fs.watch(rulesPath, { persistent: false }, (eventType) => {
-            if (eventType === "change" || eventType === "rename") {
-                void reloadPatterns();
-            }
-        }).on("error", () => {
-            // Ignore errors
-        });
-        _watcherInitialized = true;
-    } catch {
-        // Ignore watch setup errors
-    }
-}
-
 /**
- * Initializes the pattern cache by loading custom rules from disk synchronously.
- * Skips file watching in test environment to avoid handle leaks.
+ * Initializes the pattern cache from effective plugin config.
  */
-export function initializePatterns(): void {
+export function initializePatterns(
+    customRules?: BerryShieldCustomRulesConfig,
+    disabledBuiltInIds: readonly string[] = []
+): void {
     try {
-        const custom = loadCustomRulesSync();
-        _cache = compileCustomPatterns(custom);
+        const effectiveCustomRules: BerryShieldCustomRulesConfig = customRules ?? {
+            secrets: [],
+            sensitiveFiles: [],
+            destructiveCommands: [],
+        };
+        _cache = compileCustomPatterns(effectiveCustomRules, disabledBuiltInIds);
     } catch (e) {
         console.error(`[berry-shield] Error initializing patterns: ${e}`);
     }
-
-    startPatternsWatcher();
 }
 
 /**
- * Reloads patterns from disk and updates the cache.
+ * Reloads pattern cache from updated effective plugin config.
  */
-export async function reloadPatterns(): Promise<void> {
+export function reloadPatterns(
+    customRules?: BerryShieldCustomRulesConfig,
+    disabledBuiltInIds: readonly string[] = []
+): void {
     try {
-        const custom: CustomRules = await loadCustomRules();
-        _cache = compileCustomPatterns(custom);
+        const effectiveCustomRules: BerryShieldCustomRulesConfig = customRules ?? {
+            secrets: [],
+            sensitiveFiles: [],
+            destructiveCommands: [],
+        };
+        _cache = compileCustomPatterns(effectiveCustomRules, disabledBuiltInIds);
     } catch (e) {
         // If reload fails, we keep the previous cache
         console.error(`[berry-shield] Error reloading patterns: ${e}`);
