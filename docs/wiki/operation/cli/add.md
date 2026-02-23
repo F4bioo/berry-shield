@@ -41,7 +41,7 @@ Positional argument:
 - `[type]`: rule category selected by wizard or passed directly.
 
 Flags:
-- `--name <name>`: technical rule identifier.
+- `--name <name>`: technical identifier for secret, file, and command rules.
 - `--pattern <regex>`: regex pattern to match.
 - `--placeholder <text>`: redaction placeholder for secret rules.
 - `--force`: overwrite existing custom rule with same identifier.
@@ -58,9 +58,16 @@ Result: Rule is persisted as a custom secret rule.
 ### Add a sensitive file rule directly
 Use this for local paths that should be treated as sensitive.
 ```bash
-openclaw bshield add file --name TeamKey --pattern "/srv/app/keys/team.key"
+openclaw bshield add file --name team-key --pattern "/srv/app/keys/team.key"
 ```
-Result: Rule is persisted as a custom sensitive file rule.
+Result: Rule is persisted as a custom sensitive file rule (`id: file:team-key`).
+
+### Add a destructive command rule directly
+Use this for command patterns that should be blocked as destructive.
+```bash
+openclaw bshield add command --name dangerous-rm-tmp --pattern "^(?:rm\\s+-rf\\s+/tmp/smoke)$"
+```
+Result: Rule is persisted as a custom destructive command rule (`id: command:dangerous-rm-tmp`).
 
 ### Add using wizard
 Use this when you want guided selection and validation.
@@ -126,6 +133,7 @@ For secret type:
 - placeholder is optional
 
 For file/command type:
+- name is required
 - pattern is required and regex-validated
 
 Invalid regex typically prevents progress until a valid pattern is entered or the user cancels.

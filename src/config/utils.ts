@@ -66,8 +66,9 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
     const customSensitiveFiles = Array.isArray(rawCustomRules.sensitiveFiles)
         ? rawCustomRules.sensitiveFiles
             .filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null)
-            .filter((entry) => typeof entry.pattern === "string")
+            .filter((entry) => typeof entry.name === "string" && typeof entry.pattern === "string")
             .map((entry) => ({
+                name: entry.name as string,
                 pattern: entry.pattern as string,
             }))
         : DEFAULT_CONFIG.customRules.sensitiveFiles;
@@ -75,8 +76,9 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
     const customDestructiveCommands = Array.isArray(rawCustomRules.destructiveCommands)
         ? rawCustomRules.destructiveCommands
             .filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null)
-            .filter((entry) => typeof entry.pattern === "string")
+            .filter((entry) => typeof entry.name === "string" && typeof entry.pattern === "string")
             .map((entry) => ({
+                name: entry.name as string,
                 pattern: entry.pattern as string,
             }))
         : DEFAULT_CONFIG.customRules.destructiveCommands;

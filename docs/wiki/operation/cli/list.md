@@ -13,7 +13,7 @@ List Berry Shield rules grouped by source (baseline/custom) with explicit status
 ## What it does
 - Loads baseline IDs and custom rules from persisted storage.
 - Displays baseline rows as `BASELINE id: <id> [ENABLED|DISABLED]`.
-- Displays custom rows as `CUSTOM name: <name|pattern> [ENABLED]`.
+- Displays custom rows as `CUSTOM id: <type:name> [ENABLED]`.
 - Prints one inventory view for operational review.
 
 ## When to use
@@ -29,8 +29,17 @@ openclaw bshield rules list
 ```
 Expected: CLI prints sections for Baseline and Custom with explicit status markers.
 
+### List all rules with full patterns
+Use this command to inspect IDs together with raw patterns.
+```bash
+openclaw bshield rules list --full
+```
+Expected: CLI prints the same sections plus pattern details for baseline and custom rows.
+Expected: CLI prints one detailed inventory view with IDs and patterns.
+
 ## Options
-This command has no command-specific flags or positional arguments.
+Flags:
+- `--full`: include raw pattern details for all listed entries.
 
 ## Examples
 

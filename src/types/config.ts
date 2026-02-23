@@ -119,6 +119,7 @@ export interface BerryShieldCustomSecretRule {
  * Custom file rule stored in plugin config.
  */
 export interface BerryShieldCustomFileRule {
+    name: string;
     pattern: string;
 }
 
@@ -126,6 +127,7 @@ export interface BerryShieldCustomFileRule {
  * Custom command rule stored in plugin config.
  */
 export interface BerryShieldCustomCommandRule {
+    name: string;
     pattern: string;
 }
 

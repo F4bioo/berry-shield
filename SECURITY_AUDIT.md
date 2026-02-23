@@ -12,14 +12,14 @@ This project is open source and community-auditable by design.
 
 During `openclaw plugins install`, OpenClaw may show heuristic warnings such as:
 ```text
-WARNING: Plugin "berry-shield" contains dangerous code patterns: Shell command execution detected (child_process) (.../berry-shield/dist/index.js:3476); Environment variable access combined with network send - possible credential harvesting (.../berry-shield/dist/index.js:2749)
+WARNING: Plugin "berry-shield" contains dangerous code patterns: Shell command execution detected (child_process) (.../berry-shield/dist/index.js:xxxx); Environment variable access combined with network send — possible credential harvesting (.../berry-shield/dist/index.js:xxxx)
 ```
 
 For Berry Shield, these warnings are expected from legitimate host-integration behavior:
 - `src/config/wrapper.ts:1` uses Node `child_process` invocation to call OpenClaw CLI config commands.
 - `src/config/wrapper.ts:58` reads `OPENCLAW_EXECUTABLE` / `OPENCLAW_BIN` to resolve runtime binary path.
 
-Note: line numbers reported in `dist/index.js` can point to bundled code regions and are not always a direct 1:1 map to source declarations.
+**Note:** Line numbers reported in `dist/index.js` can point to bundled code regions and are not always a direct 1:1 map to source declarations.
 
 No hidden trust model is required:
 - install if you want,

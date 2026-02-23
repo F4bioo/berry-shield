@@ -73,7 +73,11 @@ Run from the root of the local `berry-shield` project folder.
 ```bash
 openclaw plugins install .
 ```
-Expected: OpenClaw installs the plugin into the extensions directory.
+Expected: 
+```terminaloutput
+Installed plugin: berry-shield
+Restart the gateway to load plugins.
+```
 
 ### Step 6: Restart Gateway runtime
 
@@ -93,7 +97,11 @@ Use this flow when you want to install Berry Shield from the published package i
 ```bash
 openclaw plugins install @f4bioo/berry-shield
 ```
-Expected: plugin package is installed to OpenClaw extensions directory.
+Expected: 
+```terminaloutput
+Installed plugin: berry-shield
+Restart the gateway to load plugins.
+```
 
 ### Step 2: Restart Gateway runtime
 
@@ -120,7 +128,7 @@ Run this command immediately after initialization to confirm active runtime sett
 ```bash
 openclaw bshield status
 ```
-Expected output:
+Expected:
 ```terminaloutput
  ◇ Berry Shield ─────────────────────────────────────────────────────────────
 
@@ -170,7 +178,7 @@ openclaw bshield --help
 ```
 Usage Example: run this before changing defaults to review available command paths.
 
-Expected output:
+Expected:
 ```terminaloutput
 Usage: openclaw bshield [options] [command]
 
@@ -202,6 +210,63 @@ For more info, visit: https://github.com/F4bioo/berry-shield
 
 See more:
 - [Berry Shield CLI reference](../operation/cli/README.md)
+
+---
+
+### Uninstall Berry Shield
+
+Step 1 removes Berry Shield from OpenClaw runtime config and install records.
+
+```bash
+openclaw plugins uninstall berry-shield
+```
+Expected: OpenClaw confirms `Removed: config entry, install record` and asks for gateway restart.
+
+Step 2 is a double-check for leftover local files.
+- If no Berry Shield folder is found, uninstall is complete.
+- If the folder still exists, run the delete command for your OS.
+
+Linux/macOS - verify leftovers:
+```bash
+ls -la ~/.openclaw/extensions/berry-shield
+```
+Expected:
+- `No such file or directory`: uninstall already complete.
+- folder listing shown: proceed to delete.
+
+Linux/macOS - delete leftovers:
+```bash
+rm -rf ~/.openclaw/extensions/berry-shield
+```
+Expected: command finishes silently and the folder no longer exists.
+
+Windows (PowerShell) - verify leftovers:
+```powershell
+Get-ChildItem -Force "$env:USERPROFILE\\.openclaw\\extensions\\berry-shield"
+```
+Expected:
+- `Cannot find path`: uninstall already complete.
+- folder listing shown: proceed to delete.
+
+Windows (PowerShell) - delete leftovers:
+```powershell
+Remove-Item -Recurse -Force "$env:USERPROFILE\\.openclaw\\extensions\\berry-shield"
+```
+Expected: command completes without error and the folder is removed.
+
+Windows (CMD) - verify leftovers:
+```cmd
+dir "%USERPROFILE%\\.openclaw\\extensions\\berry-shield"
+```
+Expected:
+- `File Not Found`: uninstall already complete.
+- directory listing shown: proceed to delete.
+
+Windows (CMD) - delete leftovers:
+```cmd
+rmdir /s /q "%USERPROFILE%\\.openclaw\\extensions\\berry-shield"
+```
+Expected: command returns to prompt and the folder is removed.
 
 ---
 

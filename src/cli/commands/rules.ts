@@ -2,11 +2,10 @@ import { cancel, confirm, isCancel } from "@clack/prompts";
 import {
     disableBuiltInRule,
     loadCustomRules,
-    removeCustomRule,
     restoreBuiltInRule,
     saveCustomRules,
 } from "../storage.js";
-import { loadCustomRulesFromConfig, removeCustomRuleFromConfig } from "../custom-rules-config.js";
+import { loadCustomRulesFromConfig, saveCustomRulesToConfig } from "../custom-rules-config.js";
 import {
     SECRET_PATTERNS,
     PII_PATTERNS,
@@ -18,6 +17,7 @@ import { theme } from "../ui/theme.js";
 import { type ConfigWrapper } from "../../config/wrapper.js";
 
 type RuleTarget = "baseline" | "custom";
+type CustomRuleKind = "secret" | "file" | "command";
 
 function collectBaselineIds(): string[] {
     const ids = [
@@ -32,6 +32,21 @@ function collectBaselineIds(): string[] {
 function parseTarget(value: string): RuleTarget | undefined {
     if (value === "baseline" || value === "custom") return value;
     return undefined;
+}
+
+function toCustomRuleId(kind: CustomRuleKind, value: string): string {
+    return `${kind}:${value}`;
+}
+
+function parseCustomRuleId(input: string): { ok: true; kind: CustomRuleKind; value: string } | { ok: false } {
+    const trimmed = input.trim();
+    const separator = trimmed.indexOf(":");
+    if (separator <= 0) return { ok: false };
+    const kindRaw = trimmed.slice(0, separator).trim();
+    const value = trimmed.slice(separator + 1);
+    if (!value) return { ok: false };
+    if (kindRaw !== "secret" && kindRaw !== "file" && kindRaw !== "command") return { ok: false };
+    return { ok: true, kind: kindRaw, value };
 }
 
 function parseIdAndAll(id: string | undefined, all: boolean | undefined): {
@@ -55,7 +70,7 @@ function printUsage(message: string): never {
     process.exit(1);
 }
 
-export async function rulesListCommand(wrapper?: ConfigWrapper): Promise<void> {
+export async function rulesListCommand(wrapper?: ConfigWrapper, options?: { full?: boolean }): Promise<void> {
     const customDelta = await loadCustomRules();
     const custom = wrapper ? await loadCustomRulesFromConfig(wrapper) : customDelta;
     const disabledSet = new Set((customDelta.disabledBuiltInIds ?? []).map((value) => value.toLowerCase()));
@@ -70,14 +85,62 @@ export async function rulesListCommand(wrapper?: ConfigWrapper): Promise<void> {
     });
 
     const customRows = [
-        ...custom.secrets.map((rule) => ({ label: "CUSTOM", value: `name: ${rule.name} ${theme.success("[ENABLED]")}` })),
-        ...custom.sensitiveFiles.map((rule) => ({ label: "CUSTOM", value: `name: ${rule.pattern} ${theme.success("[ENABLED]")}` })),
-        ...custom.destructiveCommands.map((rule) => ({ label: "CUSTOM", value: `name: ${rule.pattern} ${theme.success("[ENABLED]")}` })),
+        ...custom.secrets.map((rule) => ({ label: "CUSTOM", value: `id: ${toCustomRuleId("secret", rule.name)} ${theme.success("[ENABLED]")}` })),
+        ...custom.sensitiveFiles.map((rule) => ({ label: "CUSTOM", value: `id: ${toCustomRuleId("file", rule.name)} ${theme.success("[ENABLED]")}` })),
+        ...custom.destructiveCommands.map((rule) => ({ label: "CUSTOM", value: `id: ${toCustomRuleId("command", rule.name)} ${theme.success("[ENABLED]")}` })),
     ];
 
     ui.scaffold({
         header: (s) => s.header("Security Rules"),
         content: (s) => {
+            if (options?.full) {
+                s.section(`Baseline (${baselineRows.length})`);
+                for (const rule of SECRET_PATTERNS) {
+                    const disabled = disabledSet.has(rule.id.toLowerCase());
+                    const status = disabled ? theme.warning("[DISABLED]") : theme.success("[ENABLED]");
+                    s.row("BASELINE", `id: ${rule.id} ${status}`);
+                    s.row("", `pattern: ${rule.pattern.toString()}`);
+                }
+                for (const rule of PII_PATTERNS) {
+                    const disabled = disabledSet.has(rule.id.toLowerCase());
+                    const status = disabled ? theme.warning("[DISABLED]") : theme.success("[ENABLED]");
+                    s.row("BASELINE", `id: ${rule.id} ${status}`);
+                    s.row("", `pattern: ${rule.pattern.toString()}`);
+                }
+                for (const rule of INTERNAL_SENSITIVE_FILE_PATTERNS) {
+                    const disabled = disabledSet.has(rule.id.toLowerCase());
+                    const status = disabled ? theme.warning("[DISABLED]") : theme.success("[ENABLED]");
+                    s.row("BASELINE", `id: ${rule.id} ${status}`);
+                    s.row("", `pattern: ${rule.pattern.toString()}`);
+                }
+                for (const rule of INTERNAL_DESTRUCTIVE_COMMAND_PATTERNS) {
+                    const disabled = disabledSet.has(rule.id.toLowerCase());
+                    const status = disabled ? theme.warning("[DISABLED]") : theme.success("[ENABLED]");
+                    s.row("BASELINE", `id: ${rule.id} ${status}`);
+                    s.row("", `pattern: ${rule.pattern.toString()}`);
+                }
+
+                s.spacer();
+                s.section(`Custom (${customRows.length})`);
+                if (customRows.length === 0) {
+                    s.warningMsg("No custom rules configured.");
+                } else {
+                    for (const rule of custom.secrets) {
+                        s.row("CUSTOM", `id: ${toCustomRuleId("secret", rule.name)} ${theme.success("[ENABLED]")}`);
+                        s.row("", `pattern: ${rule.pattern}`);
+                    }
+                    for (const rule of custom.sensitiveFiles) {
+                        s.row("CUSTOM", `id: ${toCustomRuleId("file", rule.name)} ${theme.success("[ENABLED]")}`);
+                        s.row("", `pattern: ${rule.pattern}`);
+                    }
+                    for (const rule of custom.destructiveCommands) {
+                        s.row("CUSTOM", `id: ${toCustomRuleId("command", rule.name)} ${theme.success("[ENABLED]")}`);
+                        s.row("", `pattern: ${rule.pattern}`);
+                    }
+                }
+                return;
+            }
+
             s.section(`Baseline (${baselineRows.length})`);
             s.table(baselineRows, 10);
 
@@ -95,24 +158,67 @@ export async function rulesListCommand(wrapper?: ConfigWrapper): Promise<void> {
 
 export async function rulesRemoveCommand(
     target: string,
-    name: string | undefined,
+    id: string | undefined,
     wrapper?: ConfigWrapper
 ): Promise<void> {
     const parsedTarget = parseTarget(target);
     if (parsedTarget !== "custom") {
-        printUsage("Usage: openclaw bshield rules remove custom <name>");
+        printUsage("Usage: openclaw bshield rules remove custom <id>\nExpected format: secret:<name> | file:<name> | command:<name>");
     }
-    if (!name) {
-        printUsage("Usage: openclaw bshield rules remove custom <name>");
+    if (!id) {
+        printUsage("Usage: openclaw bshield rules remove custom <id>\nExpected format: secret:<name> | file:<name> | command:<name>");
     }
 
-    const result = wrapper
-        ? await removeCustomRuleFromConfig(wrapper, name)
-        : await removeCustomRule(name);
-    if (!result.success || !result.removed) {
+    const parsed = parseCustomRuleId(id);
+    if (!parsed.ok) {
+        printUsage("Invalid identifier. Use: secret:<name> | file:<name> | command:<name>");
+    }
+
+    let removed = false;
+    if (wrapper) {
+        const customRules = await loadCustomRulesFromConfig(wrapper);
+        if (parsed.kind === "secret") {
+            const initial = customRules.secrets.length;
+            customRules.secrets = customRules.secrets.filter((rule) => rule.name.toLowerCase() !== parsed.value.toLowerCase());
+            removed = customRules.secrets.length < initial;
+        } else if (parsed.kind === "file") {
+            const initial = customRules.sensitiveFiles.length;
+            customRules.sensitiveFiles = customRules.sensitiveFiles.filter((rule) => rule.name.toLowerCase() !== parsed.value.toLowerCase());
+            removed = customRules.sensitiveFiles.length < initial;
+        } else {
+            const initial = customRules.destructiveCommands.length;
+            customRules.destructiveCommands = customRules.destructiveCommands.filter((rule) => rule.name.toLowerCase() !== parsed.value.toLowerCase());
+            removed = customRules.destructiveCommands.length < initial;
+        }
+
+        if (removed) {
+            await saveCustomRulesToConfig(wrapper, customRules);
+        }
+    } else {
+        const customRules = await loadCustomRules();
+        if (parsed.kind === "secret") {
+            const initial = customRules.secrets.length;
+            customRules.secrets = customRules.secrets.filter((rule) => rule.name.toLowerCase() !== parsed.value.toLowerCase());
+            removed = customRules.secrets.length < initial;
+        } else if (parsed.kind === "file") {
+            const initial = customRules.sensitiveFiles.length;
+            customRules.sensitiveFiles = customRules.sensitiveFiles.filter((rule) => rule.name.toLowerCase() !== parsed.value.toLowerCase());
+            removed = customRules.sensitiveFiles.length < initial;
+        } else {
+            const initial = customRules.destructiveCommands.length;
+            customRules.destructiveCommands = customRules.destructiveCommands.filter((rule) => rule.name.toLowerCase() !== parsed.value.toLowerCase());
+            removed = customRules.destructiveCommands.length < initial;
+        }
+
+        if (removed) {
+            await saveCustomRules(customRules);
+        }
+    }
+
+    if (!removed) {
         ui.scaffold({
             header: (s) => s.header("Operation Failed"),
-            content: (s) => s.failureMsg(`Custom rule '${name}' not found.`),
+            content: (s) => s.failureMsg(`Custom rule '${id}' not found.`),
         });
         process.exit(1);
     }
@@ -122,7 +228,7 @@ export async function rulesRemoveCommand(
         content: (s) => {
             s.successMsg("Custom rule removed successfully.");
             s.row("Target", "CUSTOM");
-            s.row("Name", name);
+            s.row("ID", id);
         },
     });
 

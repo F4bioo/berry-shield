@@ -9,7 +9,6 @@ const {
     failureMsgMock,
     rowMock,
     loadCustomRulesMock,
-    removeCustomRuleMock,
     disableBuiltInRuleMock,
     restoreBuiltInRuleMock,
     saveCustomRulesMock,
@@ -25,7 +24,6 @@ const {
     failureMsgMock: vi.fn(),
     rowMock: vi.fn(),
     loadCustomRulesMock: vi.fn(),
-    removeCustomRuleMock: vi.fn(),
     disableBuiltInRuleMock: vi.fn(),
     restoreBuiltInRuleMock: vi.fn(),
     saveCustomRulesMock: vi.fn(),
@@ -64,7 +62,6 @@ vi.mock("@clack/prompts", () => ({
 
 vi.mock("../src/cli/storage.js", () => ({
     loadCustomRules: loadCustomRulesMock,
-    removeCustomRule: removeCustomRuleMock,
     disableBuiltInRule: disableBuiltInRuleMock,
     restoreBuiltInRule: restoreBuiltInRuleMock,
     saveCustomRules: saveCustomRulesMock,
@@ -94,7 +91,6 @@ describe("rules command", () => {
             destructiveCommands: [],
             disabledBuiltInIds: [],
         });
-        removeCustomRuleMock.mockResolvedValue({ success: true, removed: true });
         disableBuiltInRuleMock.mockResolvedValue({ success: true });
         restoreBuiltInRuleMock.mockResolvedValue({ success: true, restored: true });
         saveCustomRulesMock.mockResolvedValue(undefined);
@@ -111,9 +107,44 @@ describe("rules command", () => {
         expect(tableMock).toHaveBeenCalledTimes(2);
     });
 
+    it("lists full patterns when --full is provided", async () => {
+        loadCustomRulesMock.mockResolvedValueOnce({
+            version: "1.0",
+            secrets: [{ name: "HotTest", pattern: "HOT_[A-Z0-9]{12}", placeholder: "[HOT_REDACTED]", addedAt: new Date().toISOString() }],
+            sensitiveFiles: [{ name: "newservice-creds", pattern: "/home/.*/.config/newservice/credentials.json", addedAt: new Date().toISOString() }],
+            destructiveCommands: [{ name: "dangerous-rm-tmp", pattern: "^(?:rm\\s+-rf\\s+/tmp/smoke)$", addedAt: new Date().toISOString() }],
+            disabledBuiltInIds: [],
+        });
+
+        await rulesListCommand(undefined, { full: true });
+
+        expect(tableMock).not.toHaveBeenCalled();
+        expect(sectionMock).toHaveBeenCalledWith("Baseline (4)");
+        expect(sectionMock).toHaveBeenCalledWith("Custom (3)");
+        expect(rowMock).toHaveBeenCalledWith("", "pattern: /home/.*/.config/newservice/credentials.json");
+        expect(rowMock).toHaveBeenCalledWith("", "pattern: ^(?:rm\\s+-rf\\s+/tmp/smoke)$");
+    });
+
+    it("lists baseline patterns with --full even when custom section is empty", async () => {
+        loadCustomRulesMock.mockResolvedValueOnce({
+            version: "1.0",
+            secrets: [],
+            sensitiveFiles: [],
+            destructiveCommands: [],
+            disabledBuiltInIds: [],
+        });
+
+        await rulesListCommand(undefined, { full: true });
+
+        expect(tableMock).not.toHaveBeenCalled();
+        expect(sectionMock).toHaveBeenCalledWith("Baseline (4)");
+        expect(sectionMock).toHaveBeenCalledWith("Custom (0)");
+        expect(rowMock).toHaveBeenCalledWith("BASELINE", expect.stringContaining("id: secret:openai-key"));
+    });
+
     it("removes custom rule when target is custom", async () => {
-        await rulesRemoveCommand("custom", "HotTest");
-        expect(removeCustomRuleMock).toHaveBeenCalledWith("HotTest");
+        await rulesRemoveCommand("custom", "secret:HotTest");
+        expect(saveCustomRulesMock).toHaveBeenCalled();
         expect(successMsgMock).toHaveBeenCalled();
     });
 
@@ -133,6 +164,52 @@ describe("rules command", () => {
         await expect(rulesRemoveCommand("custom", undefined)).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
         exitSpy.mockRestore();
+    });
+
+    it("fails remove when custom id format is invalid", async () => {
+        const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+            throw new Error(`EXIT_${code}`);
+        }) as never);
+        await expect(rulesRemoveCommand("custom", "HotTest")).rejects.toThrow("EXIT_1");
+        expect(failureMsgMock).toHaveBeenCalled();
+        exitSpy.mockRestore();
+    });
+
+    it("removes file custom rule by typed id", async () => {
+        loadCustomRulesMock.mockResolvedValueOnce({
+            version: "1.0",
+            secrets: [],
+            sensitiveFiles: [{ name: "smoke-file", pattern: "/tmp/smoke-file\\.txt", addedAt: new Date().toISOString() }],
+            destructiveCommands: [],
+            disabledBuiltInIds: [],
+        });
+
+        await rulesRemoveCommand("custom", "file:smoke-file");
+        expect(saveCustomRulesMock).toHaveBeenCalled();
+        expect(successMsgMock).toHaveBeenCalled();
+    });
+
+    it("fails remove with unknown typed id", async () => {
+        const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+            throw new Error(`EXIT_${code}`);
+        }) as never);
+        await expect(rulesRemoveCommand("custom", "command:^does-not-exist$")).rejects.toThrow("EXIT_1");
+        expect(failureMsgMock).toHaveBeenCalled();
+        exitSpy.mockRestore();
+    });
+
+    it("removes by type:name even when pattern contains colon (windows-style)", async () => {
+        loadCustomRulesMock.mockResolvedValueOnce({
+            version: "1.0",
+            secrets: [],
+            sensitiveFiles: [{ name: "win-creds", pattern: "C:\\\\Users\\\\Alice\\\\.aws\\\\credentials", addedAt: new Date().toISOString() }],
+            destructiveCommands: [],
+            disabledBuiltInIds: [],
+        });
+
+        await rulesRemoveCommand("custom", "file:win-creds");
+        expect(saveCustomRulesMock).toHaveBeenCalled();
+        expect(successMsgMock).toHaveBeenCalled();
     });
 
     it("disables one baseline rule by id", async () => {

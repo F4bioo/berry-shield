@@ -5,6 +5,7 @@
     "version": "2026.2.15",
     "configSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
             "mode": {
                 "type": "string",
@@ -208,11 +209,14 @@
                             "type": "object",
                             "additionalProperties": false,
                             "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
                                 "pattern": {
                                     "type": "string"
                                 }
                             },
-                            "required": ["pattern"]
+                            "required": ["name", "pattern"]
                         },
                         "default": []
                     },
@@ -223,11 +227,14 @@
                             "type": "object",
                             "additionalProperties": false,
                             "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
                                 "pattern": {
                                     "type": "string"
                                 }
                             },
-                            "required": ["pattern"]
+                            "required": ["name", "pattern"]
                         },
                         "default": []
                     }

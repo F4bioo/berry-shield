@@ -14,7 +14,7 @@ Manage baseline and custom Berry Shield rules from one command group.
 - Centralizes rule operations under rules.
 - Reads and writes custom rule state from `pluginConfig.customRules` (single CLI/Web source).
 - Lists baseline and custom inventory with explicit status.
-- Removes custom rules by target + name.
+- Removes custom rules by target + id (`type:name`).
 - Enables or disables baseline rules by ID or in bulk.
 
 ## When to use
@@ -30,12 +30,19 @@ openclaw bshield rules list
 ```
 Expected: Shows Baseline and Custom sections with explicit status.
 
+### List inventory with full patterns
+Use this to inspect identifier and raw pattern together.
+```bash
+openclaw bshield rules list --full
+```
+Expected: Shows the same inventory plus `pattern:` lines for baseline and custom rules.
+
 ### Remove custom rule
 Use this to remove one custom rule by its stable custom identifier.
 ```bash
-openclaw bshield rules remove custom <name>
+openclaw bshield rules remove custom <id>
 ```
-Expected: Removes one custom rule by name.
+Expected: Removes one custom rule by typed id (`secret:<name> | file:<name> | command:<name>`).
 
 ### Disable one baseline rule
 Use this to disable a single baseline rule when you need a controlled exception.

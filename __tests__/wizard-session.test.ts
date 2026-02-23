@@ -134,6 +134,7 @@ describe("RuleWizardSession", () => {
             "save",            // askValidationAction (round 2)
         );
         queueText(
+            "dangerous-rm-tmp",           // askName (initial custom)
             "ls",                         // askPattern (initial custom)
             "curl.*\\|\\s*(?:ba)?sh",     // askPattern (after edit)
         );

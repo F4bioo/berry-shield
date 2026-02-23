@@ -33,8 +33,8 @@ import { theme } from "./ui/theme.js";
  * 
  * Commands:
  * - openclaw bshield add <type> --name <name> --pattern <pattern>
- * - openclaw bshield remove <name>
- * - openclaw bshield list
+ * - openclaw bshield rules remove custom <id>
+ * - openclaw bshield rules list [--full]
  * - openclaw bshield test <input>
  */
 export function registerBerryShieldCli(api: OpenClawPluginApi): void {
@@ -61,7 +61,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 bshield
                 .command("add [type]")
                 .description("Add a new security rule (interactive wizard if no args)")
-                .option("-n, --name <name>", "Rule name (required for secrets)")
+                .option("-n, --name <name>", "Rule name (required for secret, file, and command)")
                 .option("-p, --pattern <pattern>", "Regex pattern to match")
                 .option("-r, --placeholder <text>", "Custom placeholder for redaction")
                 .option("-f, --force", "Override existing rule with same name")
@@ -79,17 +79,18 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 rules
                 .command("list")
                 .description("List baseline and custom rules")
-                .action(async () => {
-                    await rulesListCommand(wrapper);
+                .option("--full", "Show full pattern details for baseline and custom rules")
+                .action(async (options: { full?: boolean }) => {
+                    await rulesListCommand(wrapper, { full: options.full });
                 }),
             );
 
             attachSubcommandHelp(
                 rules
-                .command("remove <target> [name]")
-                .description("Remove custom rule by name (target must be custom)")
-                .action(async (target: string, name: string | undefined) => {
-                    await rulesRemoveCommand(target, name, wrapper);
+                .command("remove <target> [id]")
+                .description("Remove custom rule by id (format: secret:<name> | file:<name> | command:<name>)")
+                .action(async (target: string, id: string | undefined) => {
+                    await rulesRemoveCommand(target, id, wrapper);
                 }),
             );
 

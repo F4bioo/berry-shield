@@ -29,6 +29,7 @@ export interface SecretRule {
  * Custom rule for sensitive files
  */
 export interface FileRule {
+    name: string;
     pattern: string;
     addedAt: string;
 }
@@ -37,6 +38,7 @@ export interface FileRule {
  * Custom rule for destructive commands
  */
 export interface CommandRule {
+    name: string;
     pattern: string;
     addedAt: string;
 }
@@ -168,12 +170,12 @@ function isSecretRule(value: unknown): value is SecretRule {
 
 function isFileRule(value: unknown): value is FileRule {
     if (!isRecord(value)) return false;
-    return typeof value.pattern === "string" && typeof value.addedAt === "string";
+    return typeof value.name === "string" && typeof value.pattern === "string" && typeof value.addedAt === "string";
 }
 
 function isCommandRule(value: unknown): value is CommandRule {
     if (!isRecord(value)) return false;
-    return typeof value.pattern === "string" && typeof value.addedAt === "string";
+    return typeof value.name === "string" && typeof value.pattern === "string" && typeof value.addedAt === "string";
 }
 
 function isCustomRules(value: unknown): value is CustomRules {
@@ -399,32 +401,38 @@ export async function addCustomRule(
         return { success: true, rule: newRule };
 
     } else if (type === "file") {
-        const exists = rules.sensitiveFiles.some(f => f.pattern === pattern);
+        if (!name || !name.trim()) return { success: false, error: "File rules require a name" };
+        const finalName = name.trim();
+        const normalizedName = finalName.toLowerCase();
+        const exists = rules.sensitiveFiles.some(f => f.name.toLowerCase() === normalizedName);
         if (exists && !force) {
-            return { success: false, error: "File pattern already exists. Use --force to add anyway." };
+            return { success: false, error: `Rule '${finalName}' already exists. Use --force to override.` };
         }
 
-        // Remove existing if forcing (to update timestamp or just dedup)
+        // Remove existing if forcing
         if (exists) {
-            rules.sensitiveFiles = rules.sensitiveFiles.filter(f => f.pattern !== pattern);
+            rules.sensitiveFiles = rules.sensitiveFiles.filter(f => f.name.toLowerCase() !== normalizedName);
         }
 
-        const newRule: FileRule = { pattern, addedAt: now };
+        const newRule: FileRule = { name: finalName, pattern, addedAt: now };
         rules.sensitiveFiles.push(newRule);
         await saveCustomRules(rules);
         return { success: true, rule: newRule };
 
     } else if (type === "command") {
-        const exists = rules.destructiveCommands.some(c => c.pattern === pattern);
+        if (!name || !name.trim()) return { success: false, error: "Command rules require a name" };
+        const finalName = name.trim();
+        const normalizedName = finalName.toLowerCase();
+        const exists = rules.destructiveCommands.some(c => c.name.toLowerCase() === normalizedName);
         if (exists && !force) {
-            return { success: false, error: "Command pattern already exists. Use --force to add anyway." };
+            return { success: false, error: `Rule '${finalName}' already exists. Use --force to override.` };
         }
 
         if (exists) {
-            rules.destructiveCommands = rules.destructiveCommands.filter(c => c.pattern !== pattern);
+            rules.destructiveCommands = rules.destructiveCommands.filter(c => c.name.toLowerCase() !== normalizedName);
         }
 
-        const newRule: CommandRule = { pattern, addedAt: now };
+        const newRule: CommandRule = { name: finalName, pattern, addedAt: now };
         rules.destructiveCommands.push(newRule);
         await saveCustomRules(rules);
         return { success: true, rule: newRule };
@@ -452,7 +460,7 @@ export async function removeCustomRule(identifier: string): Promise<{ success: b
     // if not found, check sensitive files by pattern
     if (!removed) {
         const initialFilesCount = rules.sensitiveFiles.length;
-        rules.sensitiveFiles = rules.sensitiveFiles.filter(f => f.pattern !== identifier);
+        rules.sensitiveFiles = rules.sensitiveFiles.filter(f => f.name.toLowerCase() !== identifier.toLowerCase());
         if (rules.sensitiveFiles.length < initialFilesCount) {
             removed = true;
             type = "file";
@@ -462,7 +470,7 @@ export async function removeCustomRule(identifier: string): Promise<{ success: b
     // if not found, check commands by pattern
     if (!removed) {
         const initialCmdsCount = rules.destructiveCommands.length;
-        rules.destructiveCommands = rules.destructiveCommands.filter(c => c.pattern !== identifier);
+        rules.destructiveCommands = rules.destructiveCommands.filter(c => c.name.toLowerCase() !== identifier.toLowerCase());
         if (rules.destructiveCommands.length < initialCmdsCount) {
             removed = true;
             type = "command";
