@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield mode` (set runtime mode to audit or enforce)"
 read_when:
   - You need to switch Berry Shield runtime behavior
@@ -27,6 +27,7 @@ Set Berry Shield runtime mode to `audit` or `enforce`.
 - Message hygiene safeguards can still apply (for example leaked policy-block stripping).
 
 ## Syntax
+
 ### Set enforce mode
 Use this form for active blocking behavior.
 ```bash
@@ -48,17 +49,11 @@ Positional argument:
 ## Examples
 
 ### Switch to enforce before deny tests
-Use this before testing blocked behavior for sensitive operations.
-```bash
-openclaw bshield mode enforce
-```
+Use the enforce syntax command shown above before testing blocked behavior for sensitive operations.
 Result: Subsequent checks run under enforce behavior.
 
 ### Switch to audit for observation
-Use this when validating policy behavior without active block expectations.
-```bash
-openclaw bshield mode audit
-```
+Use the audit syntax command shown above when validating policy behavior without active block expectations.
 Result: Mode is set to audit for shadow-mode style verification.
 
 ### Confirm mode after switch
@@ -78,10 +73,7 @@ openclaw bshield mode monitor
 Expected: CLI fails with message: invalid mode, use `audit` or `enforce`.
 
 ### Mode write failure
-Use this when mode command reports operation failure.
-```bash
-openclaw bshield mode enforce
-```
+Use this when a valid mode command (for example `openclaw bshield mode enforce`) reports operation failure.
 Expected: On failure, CLI prints operation failure and returns non-zero exit code.
 
 Possible causes:
@@ -97,6 +89,5 @@ Possible causes:
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

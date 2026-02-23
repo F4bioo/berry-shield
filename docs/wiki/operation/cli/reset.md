@@ -22,6 +22,7 @@ Restore Berry Shield defaults with explicit scope control.
 - Recovering from heavy local customization during testing.
 
 ## Syntax
+
 ### Reset built-in defaults only
 Use this to restore built-in baseline and keep custom rules.
 ```bash
@@ -94,6 +95,5 @@ Expected: CLI returns failure with valid scope values.
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

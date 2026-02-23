@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield add` (create custom security rules via wizard or direct arguments)"
 read_when:
   - You need to add custom secret, file, or command rules
@@ -22,6 +22,7 @@ Add one custom Berry Shield rule, either through an interactive wizard or direct
 - Adding custom destructive command patterns.
 
 ## Syntax
+
 ### Interactive mode
 Use this to create a rule with guided prompts.
 ```bash
@@ -69,21 +70,7 @@ openclaw bshield add command --name dangerous-rm-tmp --pattern "^(?:rm\\s+-rf\\s
 ```
 Result: Rule is persisted as a custom destructive command rule (`id: command:dangerous-rm-tmp`).
 
-### Add using wizard
-Use this when you want guided selection and validation.
-```bash
-openclaw bshield add
-```
-Result: Wizard flow creates a rule and prints success summary on save.
-
 ## Common errors
-
-### Missing required values in direct mode
-Use this to validate argument requirements.
-```bash
-openclaw bshield add secret --name MissingPattern
-```
-Expected: CLI falls back to wizard flow or fails if required values are not resolved.
 
 ### Invalid regex pattern
 Use this when pattern compilation is invalid.
@@ -92,21 +79,11 @@ openclaw bshield add secret --name BrokenRegex --pattern "(abc"
 ```
 Expected: CLI fails with pattern validation/storage error.
 
-### Duplicate rule without force
-Use this to validate duplicate handling.
-```bash
-openclaw bshield add secret --name MyToken --pattern "sk_live_[0-9a-z]{24}"
-```
-Expected: CLI fails if rule already exists and force flag is not provided.
+Other frequent failure causes:
+- Missing required values in direct mode.
+- Duplicate rule identifier without `--force`.
 
 ## Interactive wizard flow
-
-### Wizard entry
-Use this to start guided rule creation when you do not want direct flags.
-```bash
-openclaw bshield add
-```
-Expected: Wizard starts and prompts for rule category and rule details.
 
 ### Step 1: Rule type selection
 The first prompt offers:
@@ -136,7 +113,7 @@ For file/command type:
 - name is required
 - pattern is required and regex-validated
 
-Invalid regex typically prevents progress until a valid pattern is entered or the user cancels.
+Invalid regex prevents progress until a valid pattern is entered or the user cancels.
 
 ### Step 4: Broad-pattern confirmation
 If the pattern is detected as broad, the wizard asks explicit confirmation.
@@ -164,12 +141,8 @@ When save is selected, the command persists the rule and prints:
 - stored pattern
 - redaction placeholder (when available)
 
-### Wizard cancellation behavior
-Use this to validate safe exit in the middle of wizard flow.
-```bash
-openclaw bshield add
-```
-Result: Any cancel branch exits immediately and no new custom rule is written.
+### Cancellation behavior
+Cancel exits immediately and no new custom rule is written.
 
 ## Related commands
 - [index](README.md)
@@ -180,6 +153,5 @@ Result: Any cancel branch exits immediately and no new custom rule is written.
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield rules remove custom` (delete one custom security rule by typed id)"
 read_when:
   - You need to remove a custom Berry Shield rule
@@ -23,6 +23,7 @@ Remove one custom Berry Shield rule by its identifier.
 - Replacing a rule with a new pattern/version.
 
 ## Syntax
+
 ### Remove one custom rule by id
 Use this to remove one existing custom rule.
 ```bash
@@ -91,6 +92,5 @@ Expected: CLI reports that the rule was not found.
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

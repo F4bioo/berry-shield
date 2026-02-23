@@ -70,7 +70,7 @@ function printUsage(message: string): never {
     process.exit(1);
 }
 
-export async function rulesListCommand(wrapper?: ConfigWrapper, options?: { full?: boolean }): Promise<void> {
+export async function rulesListCommand(wrapper?: ConfigWrapper, options?: { detailed?: boolean }): Promise<void> {
     const customDelta = await loadCustomRules();
     const custom = wrapper ? await loadCustomRulesFromConfig(wrapper) : customDelta;
     const disabledSet = new Set((customDelta.disabledBuiltInIds ?? []).map((value) => value.toLowerCase()));
@@ -93,7 +93,7 @@ export async function rulesListCommand(wrapper?: ConfigWrapper, options?: { full
     ui.scaffold({
         header: (s) => s.header("Security Rules"),
         content: (s) => {
-            if (options?.full) {
+            if (options?.detailed) {
                 s.section(`Baseline (${baselineRows.length})`);
                 for (const rule of SECRET_PATTERNS) {
                     const disabled = disabledSet.has(rule.id.toLowerCase());

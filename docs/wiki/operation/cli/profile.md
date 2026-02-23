@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield profile` (set policy profile to strict, balanced, or minimal)"
 read_when:
   - You need to change policy behavior quickly without editing individual policy paths
@@ -21,6 +21,7 @@ Set the Berry Shield policy profile to `strict`, `balanced`, or `minimal`.
 - When setting a consistent baseline in scripts.
 
 ## Syntax
+
 ### Set strict profile
 Use this profile when full policy injection is required each turn.
 ```bash
@@ -57,11 +58,8 @@ Positional argument:
 ## Examples
 
 ### Apply balanced profile for standard operation
-Use this before routine enforce-mode workflows.
-```bash
-openclaw bshield profile balanced
-```
-Result: Policy profile is set to balanced.
+Use the balanced syntax command shown above before routine enforce-mode workflows.
+Result: Policy profile is set to balanced and adaptive behavior follows balanced defaults.
 
 ### Verify profile after update
 Use this check immediately after profile changes.
@@ -80,11 +78,8 @@ openclaw bshield profile advanced
 Expected: CLI fails with an invalid profile message listing supported values.
 
 ### Profile write failure
-Use this when profile update reports operation failure.
-```bash
-openclaw bshield profile strict
-```
-Expected: On failure, CLI prints operation failure and returns non-zero exit code.
+Use this when a valid profile update command (for example `openclaw bshield profile strict`) reports operation failure.
+Expected: CLI prints operation failure and returns non-zero exit code.
 
 Possible causes:
 - Config write permission issue.
@@ -99,6 +94,5 @@ Possible causes:
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

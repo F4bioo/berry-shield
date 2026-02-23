@@ -23,6 +23,7 @@ Manage Berry.Vine configuration and tool allowlist from CLI.
 - In scripts where Vine changes must be reproducible.
 
 ## Syntax
+
 ### Status (default action)
 Use this to print the current effective Vine configuration.
 ```bash
@@ -90,6 +91,38 @@ Supported `set` paths:
 | `retention.maxEntries` | High session churn or memory pressure appears | Decrease on constrained hosts, increase for larger workloads | Lower values save memory, higher values keep more Vine state |
 | `retention.ttlSeconds` | Session risk state expires too fast or remains too long | Increase for longer correlation, decrease for faster cleanup | Longer TTL helps traceability, shorter TTL reduces stale state |
 
+## Allowlist guide
+
+### What allowlist is for
+- Allowlist is an exception list for tool names.
+- If a tool is allowlisted, Vine does not escalate risk based on that tool output.
+- Use this only for tools you trust and control.
+
+### When to use allowlist
+- A known-safe internal tool keeps triggering Vine noise.
+- You need short-term tuning during controlled tests.
+- You validated the tool output path and ownership.
+
+### Risk to understand first
+- Allowlisting reduces Vine coverage for that tool.
+- If the allowlisted tool starts returning risky external content, Vine may not react as expected.
+- Keep the list small and review it often.
+
+### Add one tool
+Use this to create one allowlist exception.
+Use the allow command shown in Syntax with the trusted tool name.
+Expected: selected tool is added to allowlist.
+
+### Check current allowlist state
+Use this to confirm count and current Vine posture.
+Use the explicit status command shown in Syntax.
+Expected: Vine section shows current allowlist count.
+
+### Remove one tool
+Use this to restore normal Vine protection for a tool.
+Use the deny command shown in Syntax with the same tool name previously allowlisted.
+Expected: selected tool is removed from allowlist.
+
 ## Examples
 
 ### Set strict mode for aggressive blocking
@@ -106,19 +139,13 @@ openclaw bshield vine set thresholds.forcedGuardTurns 2
 ```
 Result: CLI confirms forced guard turns updated.
 
-### Allowlist one web tool
+### Allowlist one tool
 Use this when one trusted tool should not trigger Vine escalation.
-```bash
-openclaw bshield vine allow web_fetch
-```
-Result: `web_fetch` is added to allowlist.
+Result: tool is added to allowlist.
 
 ### Remove allowlisted tool
 Use this when previously trusted tool should be guarded again.
-```bash
-openclaw bshield vine deny web_fetch
-```
-Result: `web_fetch` is removed from allowlist.
+Result: tool is removed from allowlist.
 
 ## See more:
 
@@ -156,6 +183,5 @@ Expected: CLI fails with integer validation message.
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

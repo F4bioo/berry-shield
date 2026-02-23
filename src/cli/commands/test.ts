@@ -21,6 +21,10 @@ interface MatchResult {
     placeholder: string;
 }
 
+function looksLikeCustomRuleId(value: string): boolean {
+    return /^(command|file):.+/i.test(value.trim());
+}
+
 /**
  * Handler for the test command
  */
@@ -64,6 +68,14 @@ export async function testCommand(
             content: (s) => {
                 s.failureMsg("No matches found");
                 s.row("Input", theme.dim(input.length > 64 ? input.slice(0, 61) + "..." : input));
+                s.warningMsg("Scope: baseline secret/pii + custom secret (enabled rules only).");
+                if (looksLikeCustomRuleId(input)) {
+                    s.warningMsg("Input looks like a custom rule ID, not a payload value.");
+                }
+                s.row(
+                    "Inspect",
+                    theme.dim("openclaw bshield rules list --detailed (verify exists, ENABLED, active pattern)"),
+                );
             },
         });
         return;

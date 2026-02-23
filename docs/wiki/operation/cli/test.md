@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield test` (test one input against active match patterns)"
 read_when:
   - You need to verify if a string matches built-in or custom patterns
@@ -15,12 +15,27 @@ Test one input string against active built-in and custom match patterns.
 - Evaluates the provided input against active patterns.
 - Prints either no-match output or match details with rule source and redaction placeholder.
 
+## Scope and limitation
+- This command validates only:
+  - baseline secret and pii patterns
+  - custom secret rules
+- This command evaluates enabled rules only.
+- This command does not validate custom command or file rules.
+
+### Inspect file/command rules
+Use this when you need full visibility for custom file and command rules.
+```bash
+openclaw bshield rules list --detailed
+```
+Expected: CLI prints full custom and baseline inventory with ID and pattern.
+
 ## When to use
 - Validating new custom secret patterns.
 - Debugging false positives or false negatives.
 - Verifying expected redaction placeholder mapping.
 
 ## Syntax
+
 ### Test one input
 Use this command to evaluate one input string against current match rules.
 ```bash
@@ -55,6 +70,25 @@ openclaw bshield test "MY_CUSTOM_TOKEN_ABC123"
 ```
 Result: CLI reports custom match entry if the pattern is configured correctly.
 
+### Expected no-match for custom command/file strings
+Use this when checking a string that belongs to custom command or file rules.
+```bash
+openclaw bshield test "SMOKE_WEB_CMD"
+```
+Expected: `No matches found` because this command does not evaluate custom command/file rules.
+
+### Typed ID input is not a payload value
+Use this when input is a rule ID format.
+```bash
+openclaw bshield test "command:smoke-web-cmd"
+```
+Expected: no matches and guidance that typed IDs are rule identifiers, not payload values for this command.
+
+### Confirm command/file rule state
+Use this after the no-match output above.
+Use the detailed list command shown in `Inspect file/command rules`.
+Expected: command and file entries appear with full patterns so you can verify rule exists, is `ENABLED`, and has the expected active pattern.
+
 ## Common errors
 
 ### Shell quoting issue on input value
@@ -74,12 +108,12 @@ Expected: On failure, runtime reports storage/read issues for custom rule loadin
 ## Related commands
 - [index](README.md)
 - [add](add.md)
+- [rules](rules.md)
 - [list](list.md)
 - [remove](remove.md)
 
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

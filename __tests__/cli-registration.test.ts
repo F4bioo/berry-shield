@@ -17,6 +17,7 @@ class MockCommand {
     public readonly name: string;
     public readonly fullPath: string;
     public readonly children: MockCommand[] = [];
+    public readonly options: string[] = [];
     public actionHandler?: (...args: unknown[]) => Promise<void> | void;
 
     constructor(name: string, fullPath: string) {
@@ -44,6 +45,7 @@ class MockCommand {
     }
 
     option(_flags: string, _description: string): this {
+        this.options.push(_flags);
         return this;
     }
 
@@ -89,5 +91,10 @@ describe("registerBerryShieldCli", () => {
         expect(commandPaths).toContain("bshield rules enable <target> [id]");
         expect(commandPaths).toContain("bshield vine [action] [pathOrTool] [value]");
         expect(commandPaths).toContain("bshield reset <target>");
+
+        const rulesList = bshield!.children
+            .find((child) => child.name === "rules")
+            ?.children.find((child) => child.name === "list");
+        expect(rulesList?.options).toContain("-d, --detailed");
     });
 });

@@ -1,93 +1,66 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield report` (show or clear persisted audit events)"
 read_when:
-  - You need to inspect audit event summaries and recent details
-  - You need to reset audit report baseline before tests
+  - You need to inspect persisted Berry Shield audit events
+  - You need to clear audit history before controlled tests
 title: "report"
 ---
 
 # `openclaw bshield report`
 
-Show a global summary of persisted audit events or clear persisted audit log data.
+Show persisted audit report data or clear it.
 
 ## What it does
-- Reads persisted audit events from Berry Shield audit storage.
-- Builds summary counts by decision type.
-- Shows recent event details for operational inspection.
-- Clears persisted audit log when clear flag is provided.
+- Reads persisted audit events from Berry Shield storage.
+- Prints event period, summary counters, and detail rows.
+- Clears persisted events when `--clear` is provided.
 
 ## When to use
-- After security test runs to confirm blocked/would_block activity.
-- Before test runs to reset baseline.
-- During post-incident or policy tuning analysis.
+- After tests to confirm `blocked` and `would_block` activity.
+- Before tests to reset report state.
+- During incident analysis to inspect recent security decisions.
 
 ## Syntax
-### Show report
-Use this command to inspect current persisted audit events.
+
+### Show persisted report
+Use this to inspect current persisted audit events.
 ```bash
 openclaw bshield report
 ```
-Expected: CLI shows event count, period, summary counts, and recent details.
+Expected: CLI prints total events, period, summary counters, and detail rows.
 
-### Clear report data
-Use this command to clear persisted audit events.
+### Clear persisted report
+Use this to clear persisted audit events before a new test cycle.
 ```bash
 openclaw bshield report --clear
 ```
-Expected: CLI confirms how many events were cleared.
+Expected: CLI confirms clear operation and reports how many events were removed.
 
 ## Options
-Flags:
-- `--clear`: clear persisted audit log data instead of printing report.
-
-## Examples
-
-### Print current report
-Use this to inspect current security event volume and decision distribution.
-```bash
-openclaw bshield report
-```
-Result: Report output includes total events, summary counters, and recent details.
-
-### Clear report before a test cycle
-Use this to start from a clean event baseline.
-```bash
-openclaw bshield report --clear
-```
-Result: Persisted report data is cleared and clear count is displayed.
-
-### Confirm baseline after clear
-Use this to verify report state after clearing.
-```bash
-openclaw bshield report
-```
-Result: CLI shows no audit events found until new events are generated.
+- `--clear`: clear persisted audit report data instead of printing it.
 
 ## Common errors
 
-### Report generation failure
-Use this when report command returns operation failure unexpectedly.
-```bash
-openclaw bshield report
-```
-Expected: On failure, CLI prints report generation error and returns non-zero exit code.
+### Report backend read failure
+Use this when report rendering fails unexpectedly.
+Expected: CLI prints a report generation error and returns non-zero exit code.
 
-### Clear operation race expectation
-Use this when new events appear shortly after clear due to in-flight writes.
-```bash
-openclaw bshield report --clear
-```
-Expected: CLI clears persisted data, but very recent buffered writes can still appear later.
+Possible causes:
+- Audit storage file is not readable.
+- Runtime/config path permission issue.
+- Corrupted persisted report payload.
+
+### In-flight write visibility after clear
+Use this when events appear shortly after `--clear`.
+Expected: clear succeeds, but buffered in-flight events may still be written after the clear operation.
 
 ## Related commands
 - [index](README.md)
 - [status](status.md)
 - [mode](mode.md)
-- [policy](policy.md)
 
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

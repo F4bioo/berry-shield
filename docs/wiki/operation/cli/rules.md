@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield rules` (baseline/custom rule management)"
 read_when:
   - You need to manage baseline and custom rule state from one namespace
@@ -23,6 +23,7 @@ Manage baseline and custom Berry Shield rules from one command group.
 - Cleanup or rotation of custom patterns.
 
 ## Syntax
+
 ### List inventory
 Use this to review the current baseline and custom inventory before applying any change.
 ```bash
@@ -30,10 +31,10 @@ openclaw bshield rules list
 ```
 Expected: Shows Baseline and Custom sections with explicit status.
 
-### List inventory with full patterns
+### List inventory with detailed patterns
 Use this to inspect identifier and raw pattern together.
 ```bash
-openclaw bshield rules list --full
+openclaw bshield rules list --detailed
 ```
 Expected: Shows the same inventory plus `pattern:` lines for baseline and custom rules.
 
@@ -106,6 +107,5 @@ Expected: Operation failure (`Unknown baseline rule id`).
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

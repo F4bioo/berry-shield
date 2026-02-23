@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "Berry Shield CLI reference index for openclaw bshield commands"
 read_when:
   - Adding or changing Berry Shield CLI commands

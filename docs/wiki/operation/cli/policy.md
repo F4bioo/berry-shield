@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield policy` (interactive wizard, deterministic get/set)"
 read_when:
   - You need to edit policy settings beyond profile-only changes
@@ -22,6 +22,7 @@ Manage Berry Shield policy values through an interactive wizard or deterministic
 - Debugging current policy values quickly.
 
 ## Syntax
+
 ### Launch policy wizard
 Use this to edit policy values interactively with prompts and confirmation.
 ```bash
@@ -81,10 +82,7 @@ Validation rules:
 ## Examples
 
 ### Open wizard for manual policy updates
-Use this when a human operator is tuning multiple values.
-```bash
-openclaw bshield policy
-```
+Use the wizard command shown in Syntax when tuning multiple policy values in one flow.
 Result: Interactive flow collects values and asks for save confirmation.
 
 ### Set profile through deterministic path
@@ -141,10 +139,7 @@ Expected: CLI fails with an integer validation message.
 ## Interactive wizard flow
 
 ### Wizard entry
-Use this to edit policy values interactively in one guided flow.
-```bash
-openclaw bshield policy
-```
+Use the wizard command shown in Syntax to edit policy values interactively in one guided flow.
 Expected: Wizard prompts for profile, adaptive fields, and retention fields.
 
 ### Step 1: Profile selection
@@ -190,10 +185,7 @@ If confirmed, each policy path is written to config.
 If canceled or declined, no policy values are written.
 
 ### Wizard cancellation behavior
-Use this to validate safe exit before persistence.
-```bash
-openclaw bshield policy
-```
+Use this to validate safe exit before persistence while running the interactive wizard command.
 Result: Any cancel branch exits the flow and preserves previous policy values.
 
 ## Related commands
@@ -206,6 +198,5 @@ Result: Any cancel branch exits the flow and preserves previous policy values.
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

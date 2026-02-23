@@ -107,7 +107,7 @@ describe("rules command", () => {
         expect(tableMock).toHaveBeenCalledTimes(2);
     });
 
-    it("lists full patterns when --full is provided", async () => {
+    it("lists full patterns when --detailed is provided", async () => {
         loadCustomRulesMock.mockResolvedValueOnce({
             version: "1.0",
             secrets: [{ name: "HotTest", pattern: "HOT_[A-Z0-9]{12}", placeholder: "[HOT_REDACTED]", addedAt: new Date().toISOString() }],
@@ -116,7 +116,7 @@ describe("rules command", () => {
             disabledBuiltInIds: [],
         });
 
-        await rulesListCommand(undefined, { full: true });
+        await rulesListCommand(undefined, { detailed: true });
 
         expect(tableMock).not.toHaveBeenCalled();
         expect(sectionMock).toHaveBeenCalledWith("Baseline (4)");
@@ -125,7 +125,7 @@ describe("rules command", () => {
         expect(rowMock).toHaveBeenCalledWith("", "pattern: ^(?:rm\\s+-rf\\s+/tmp/smoke)$");
     });
 
-    it("lists baseline patterns with --full even when custom section is empty", async () => {
+    it("lists baseline patterns with --detailed even when custom section is empty", async () => {
         loadCustomRulesMock.mockResolvedValueOnce({
             version: "1.0",
             secrets: [],
@@ -134,7 +134,7 @@ describe("rules command", () => {
             disabledBuiltInIds: [],
         });
 
-        await rulesListCommand(undefined, { full: true });
+        await rulesListCommand(undefined, { detailed: true });
 
         expect(tableMock).not.toHaveBeenCalled();
         expect(sectionMock).toHaveBeenCalledWith("Baseline (4)");

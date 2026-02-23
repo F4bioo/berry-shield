@@ -1,76 +1,52 @@
-﻿---
-summary: "CLI reference for `openclaw bshield init` (initialize Berry Shield plugin config)"
+---
+summary: "CLI reference for `openclaw bshield init` (initialize Berry Shield config with defaults)"
 read_when:
-  - You are enabling Berry Shield in a new environment
-  - You need to restore missing plugin defaults in config
+  - You need to bootstrap Berry Shield configuration on a new environment
+  - You want to ensure the plugin config entry exists before running other commands
 title: "init"
 ---
 
 # `openclaw bshield init`
 
-Initialize Berry Shield configuration under the plugin config path and ensure the plugin is enabled.
+Initialize Berry Shield configuration if it does not exist.
 
 ## What it does
-- Checks whether Berry Shield plugin config already exists.
-- If missing, writes default Berry Shield config values.
-- Forces plugin enabled state to `true`.
-- If config already exists, returns without overwriting existing values.
+- Checks whether the Berry Shield plugin config entry already exists.
+- If config already exists, it exits successfully without overwriting it.
+- If config is missing, it writes default Berry Shield settings.
+- Sets the Berry Shield enabled flag during initialization.
 
 ## When to use
-- First setup of Berry Shield in a workspace.
-- Recovery when plugin config entry was removed.
-- Verification that plugin defaults exist before running policy/rule commands.
+- First setup on a new host/profile.
+- Recovery after config resets where the plugin entry is missing.
+- Preflight before mode/profile/policy commands on unknown environments.
 
 ## Syntax
-### Base command
-Use this command to initialize Berry Shield configuration with defaults.
+
+### Initialize config
+Use this to create Berry Shield config only when it is missing.
 ```bash
 openclaw bshield init
 ```
-Expected: CLI reports successful initialization or reports that configuration already exists.
-
-## Options
-This command has no specific flags or positional arguments.
-
-## Examples
-
-### Initialize Berry Shield defaults
-Use this in a fresh or repaired environment before other Berry Shield commands.
-```bash
-openclaw bshield init
-```
-Result: Berry Shield config is created if missing and plugin enabled state is set to true.
-
-### Verify initialization state
-Use this after initialization to confirm mode, profile, and layers are available.
-```bash
-openclaw bshield status
-```
-Result: Status output includes Berry Shield mode, policy values, and active layer states.
+Expected: CLI shows either `Configuration already exists.` or `Initialized successfully with default settings.`
 
 ## Common errors
 
-### Config write failed
-Use this diagnosis when the command reports initialization failure.
-```bash
-openclaw bshield init
-```
-Expected: On failure, CLI shows an operation failure message and returns non-zero exit code.
+### Write or config backend failure
+Use this when init reports operation failure during config write/bootstrap.
+Expected: CLI prints `Failed to initialize: ...` and exits with a non-zero code.
 
 Possible causes:
-- Config file path is not writable.
-- Invalid runtime permissions for OpenClaw state directory.
-- Unexpected config backend/runtime error.
+- No write permission to the OpenClaw config/state path.
+- Runtime/config backend unavailable.
+- Invalid or corrupted config store state.
 
 ## Related commands
 - [index](README.md)
 - [status](status.md)
-- [mode](mode.md)
-- [policy](policy.md)
 
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

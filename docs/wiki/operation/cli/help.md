@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield --help` and command-specific help output"
 read_when:
   - You are discovering available Berry Shield commands
@@ -21,6 +21,7 @@ Show Berry Shield command discovery output and command-specific usage details.
 - During troubleshooting for wrong argument shape.
 
 ## Syntax
+
 ### Global help
 Use this form to inspect the full Berry Shield command surface.
 ```bash
@@ -41,13 +42,6 @@ Help output is exposed through standard help flags:
 - `-h`
 
 ## Examples
-
-### Discover all bshield commands
-Use this when you need to choose the next command from the available surface.
-```bash
-openclaw bshield --help
-```
-Result: Output includes command names such as init, status, mode, profile, policy, vine, rules, reset, and report.
 
 ### Inspect one command before execution
 Use this when you need argument details for policy operations.
@@ -85,6 +79,5 @@ Expected: OpenClaw global command index is shown instead of bshield-only help.
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

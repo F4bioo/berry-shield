@@ -34,7 +34,7 @@ import { theme } from "./ui/theme.js";
  * Commands:
  * - openclaw bshield add <type> --name <name> --pattern <pattern>
  * - openclaw bshield rules remove custom <id>
- * - openclaw bshield rules list [--full]
+ * - openclaw bshield rules list [--detailed]
  * - openclaw bshield test <input>
  */
 export function registerBerryShieldCli(api: OpenClawPluginApi): void {
@@ -79,9 +79,9 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 rules
                 .command("list")
                 .description("List baseline and custom rules")
-                .option("--full", "Show full pattern details for baseline and custom rules")
-                .action(async (options: { full?: boolean }) => {
-                    await rulesListCommand(wrapper, { full: options.full });
+                .option("-d, --detailed", "Show detailed pattern view for baseline and custom rules")
+                .action(async (options: { detailed?: boolean }) => {
+                    await rulesListCommand(wrapper, { detailed: options.detailed });
                 }),
             );
 
