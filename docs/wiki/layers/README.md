@@ -56,7 +56,6 @@ Use this index in two passes:
 2. Return to this map to confirm where a failure or mismatch belongs.
 
 ## Related pages
-
 - [wiki index](../README.md)
 - [decision modes](../decision/modes.md)
 - [decision patterns](../decision/patterns.md)
@@ -65,6 +64,5 @@ Use this index in two passes:
 ---
 
 ## Navigation
-
 - [Back to Wiki Index](../README.md)
 - [Back to Repository README](../../../README.md)

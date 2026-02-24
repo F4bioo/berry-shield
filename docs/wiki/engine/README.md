@@ -41,7 +41,6 @@ flowchart TD
 - Performance page explains cost drivers, optimization levers, and tradeoffs.
 
 ## Related pages
-
 - [wiki index](../README.md)
 - [layers index](../layers/README.md)
 - [decision patterns](../decision/patterns.md)
@@ -49,7 +48,6 @@ flowchart TD
 ---
 
 ## Navigation
-
 - [Back to Wiki Index](../README.md)
 - [Back to Repository README](../../../README.md)
 

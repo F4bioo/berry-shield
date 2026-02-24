@@ -115,7 +115,6 @@ Use this quick check during runtime validation:
 - [pulp](pulp.md)
 
 ## Related pages
-
 - [layers index](README.md)
 - [decision modes](../decision/modes.md)
 - [decision patterns](../decision/patterns.md)
@@ -123,6 +122,5 @@ Use this quick check during runtime validation:
 ---
 
 ## Navigation
-
 - [Back to Layers Index](README.md)
 - [Back to Wiki Index](../README.md)

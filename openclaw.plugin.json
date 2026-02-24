@@ -196,9 +196,13 @@
                                 },
                                 "placeholder": {
                                     "type": "string"
+                                },
+                                "enabled": {
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             },
-                            "required": ["name", "pattern", "placeholder"]
+                            "required": ["name", "pattern", "placeholder", "enabled"]
                         },
                         "default": []
                     },
@@ -214,9 +218,13 @@
                                 },
                                 "pattern": {
                                     "type": "string"
+                                },
+                                "enabled": {
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             },
-                            "required": ["name", "pattern"]
+                            "required": ["name", "pattern", "enabled"]
                         },
                         "default": []
                     },
@@ -232,9 +240,13 @@
                                 },
                                 "pattern": {
                                     "type": "string"
+                                },
+                                "enabled": {
+                                    "type": "boolean",
+                                    "default": true
                                 }
                             },
-                            "required": ["name", "pattern"]
+                            "required": ["name", "pattern", "enabled"]
                         },
                         "default": []
                     }

@@ -36,7 +36,6 @@ Choose source-truth when you need repository-level auditability; choose release-
 5. Verify runtime mode/status/report.
 
 ## Related pages
-
 - [wiki index](../README.md)
 - [operation index](../operation/README.md)
 - [CLI init](../operation/cli/init.md)
@@ -45,6 +44,5 @@ Choose source-truth when you need repository-level auditability; choose release-
 ---
 
 ## Navigation
-
 - [Back to Wiki Index](../README.md)
 - [Back to Repository README](../../../README.md)

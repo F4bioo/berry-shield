@@ -103,7 +103,6 @@ Expected:
 - If an event is missing, verify you exercised a path covered by current rules.
 
 ## Related pages
-
 - [tutorial index](README.md)
 - [decision modes](../decision/modes.md)
 - [CLI mode command](../operation/cli/mode.md)
@@ -112,6 +111,5 @@ Expected:
 ---
 
 ## Navigation
-
 - [Back to Tutorials Index](README.md)
 - [Back to Wiki Index](../README.md)

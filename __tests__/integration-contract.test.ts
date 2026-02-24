@@ -60,7 +60,7 @@ describe("Contract Protection: Integrated Security Motor", () => {
             const initialCount = getAllRedactionPatterns().length;
 
             const customRules: BerryShieldCustomRulesConfig = {
-                secrets: [{ name: "ContractTestKey", pattern: "CONTRACT_SECRET_[0-9]+", placeholder: "[BLOCKED]" }],
+                secrets: [{ name: "ContractTestKey", pattern: "CONTRACT_SECRET_[0-9]+", placeholder: "[BLOCKED]", enabled: true }],
                 sensitiveFiles: [],
                 destructiveCommands: [],
             };

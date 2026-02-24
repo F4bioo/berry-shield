@@ -65,7 +65,6 @@ Result: Executes preflight, updates version, then runs postflight validation aga
 - For full versioned release process, run release.
 
 ## Related pages
-
 - [deploy index](README.md)
 - [installation](installation.md)
 - [auditing](auditing.md)
@@ -73,6 +72,5 @@ Result: Executes preflight, updates version, then runs postflight validation aga
 ---
 
 ## Navigation
-
 - [Back to Deploy Index](README.md)
 - [Back to Wiki Index](../README.md)

@@ -12,6 +12,8 @@ const {
     disableBuiltInRuleMock,
     restoreBuiltInRuleMock,
     saveCustomRulesMock,
+    loadCustomRulesFromConfigMock,
+    saveCustomRulesToConfigMock,
     confirmMock,
     isCancelMock,
     cancelMock,
@@ -27,6 +29,8 @@ const {
     disableBuiltInRuleMock: vi.fn(),
     restoreBuiltInRuleMock: vi.fn(),
     saveCustomRulesMock: vi.fn(),
+    loadCustomRulesFromConfigMock: vi.fn(),
+    saveCustomRulesToConfigMock: vi.fn(),
     confirmMock: vi.fn(),
     isCancelMock: vi.fn(),
     cancelMock: vi.fn(),
@@ -67,6 +71,11 @@ vi.mock("../src/cli/storage.js", () => ({
     saveCustomRules: saveCustomRulesMock,
 }));
 
+vi.mock("../src/cli/custom-rules-config.js", () => ({
+    loadCustomRulesFromConfig: loadCustomRulesFromConfigMock,
+    saveCustomRulesToConfig: saveCustomRulesToConfigMock,
+}));
+
 vi.mock("../src/patterns/index.js", () => ({
     SECRET_PATTERNS: [{ id: "secret:openai-key", name: "OpenAI Key", pattern: /x/, category: "secret", placeholder: "x" }],
     PII_PATTERNS: [{ id: "pii:email", name: "Email", pattern: /x/, category: "pii", placeholder: "x" }],
@@ -94,6 +103,12 @@ describe("rules command", () => {
         disableBuiltInRuleMock.mockResolvedValue({ success: true });
         restoreBuiltInRuleMock.mockResolvedValue({ success: true, restored: true });
         saveCustomRulesMock.mockResolvedValue(undefined);
+        loadCustomRulesFromConfigMock.mockResolvedValue({
+            secrets: [{ name: "HotTest", pattern: "x", placeholder: "[X]", enabled: true }],
+            sensitiveFiles: [{ name: "smoke-file", pattern: "/tmp/smoke-file\\.txt", enabled: true }],
+            destructiveCommands: [{ name: "dangerous-rm-tmp", pattern: "^(?:rm\\s+-rf\\s+/tmp/smoke)$", enabled: true }],
+        });
+        saveCustomRulesToConfigMock.mockResolvedValue(undefined);
         confirmMock.mockResolvedValue(true);
         isCancelMock.mockReturnValue(false);
     });
@@ -296,6 +311,52 @@ describe("rules command", () => {
         await expect(rulesEnableCommand("custom", "secret:openai-key", {})).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
         exitSpy.mockRestore();
+    });
+
+    it("disables one custom rule by id", async () => {
+        const wrapper = {} as any;
+        await rulesDisableCommand("custom", "secret:HotTest", {}, wrapper);
+        expect(saveCustomRulesToConfigMock).toHaveBeenCalled();
+        expect(successMsgMock).toHaveBeenCalledWith("Custom rule disabled successfully.");
+    });
+
+    it("enables one custom rule by id", async () => {
+        loadCustomRulesFromConfigMock.mockResolvedValueOnce({
+            secrets: [{ name: "HotTest", pattern: "x", placeholder: "[X]", enabled: false }],
+            sensitiveFiles: [],
+            destructiveCommands: [],
+        });
+        const wrapper = {} as any;
+        await rulesEnableCommand("custom", "secret:HotTest", {}, wrapper);
+        expect(saveCustomRulesToConfigMock).toHaveBeenCalled();
+        expect(successMsgMock).toHaveBeenCalledWith("Custom rule enabled successfully.");
+    });
+
+    it("disables all custom rules with --all", async () => {
+        const wrapper = {} as any;
+        await rulesDisableCommand("custom", undefined, { all: true, yes: true }, wrapper);
+        expect(saveCustomRulesToConfigMock).toHaveBeenCalled();
+        expect(successMsgMock).toHaveBeenCalledWith("All custom rules disabled.");
+    });
+
+    it("enables all rules globally with --all and no target", async () => {
+        loadCustomRulesMock.mockResolvedValueOnce({
+            version: "1.0",
+            secrets: [],
+            sensitiveFiles: [],
+            destructiveCommands: [],
+            disabledBuiltInIds: ["secret:openai-key"],
+        });
+        loadCustomRulesFromConfigMock.mockResolvedValueOnce({
+            secrets: [{ name: "HotTest", pattern: "x", placeholder: "[X]", enabled: false }],
+            sensitiveFiles: [],
+            destructiveCommands: [],
+        });
+        const wrapper = {} as any;
+        await rulesEnableCommand(undefined, undefined, { all: true, yes: true }, wrapper);
+        expect(saveCustomRulesToConfigMock).toHaveBeenCalled();
+        expect(saveCustomRulesMock).toHaveBeenCalled();
+        expect(successMsgMock).toHaveBeenCalledWith("Baseline and custom rules enabled.");
     });
 
     it("fails enable with unknown baseline id", async () => {

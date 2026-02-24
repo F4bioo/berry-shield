@@ -292,7 +292,9 @@ function compileCustomPatterns(
 ): PatternCache {
     const disabledIds = new Set(disabledBuiltInIds.map(id => id.toLowerCase()));
 
-    const customSecrets: SecurityPattern[] = customRules.secrets.map(s => {
+    const customSecrets: SecurityPattern[] = customRules.secrets
+    .filter((s) => s.enabled !== false)
+    .map(s => {
         let pattern = s.pattern;
         let flags = "gi";
 
@@ -315,11 +317,15 @@ function compileCustomPatterns(
         }
     }).filter((r): r is SecurityPattern => r !== null);
 
-    const customFiles = customRules.sensitiveFiles.map(f => {
+    const customFiles = customRules.sensitiveFiles
+    .filter((f) => f.enabled !== false)
+    .map(f => {
         try { return new RegExp(f.pattern, "i"); } catch { return null; }
     }).filter((r): r is RegExp => r !== null);
 
-    const customCmds = customRules.destructiveCommands.map(c => {
+    const customCmds = customRules.destructiveCommands
+    .filter((c) => c.enabled !== false)
+    .map(c => {
         try { return new RegExp(c.pattern, "i"); } catch { return null; }
     }).filter((r): r is RegExp => r !== null);
 

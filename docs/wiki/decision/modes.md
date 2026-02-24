@@ -161,7 +161,6 @@ For operational command usage:
 - [CLI vine command](../operation/cli/vine.md)
 
 ## Related pages
-
 - [decision index](README.md)
 - [patterns](patterns.md)
 - [security posture](posture.md)
@@ -173,6 +172,5 @@ For operational command usage:
 ---
 
 ## Navigation
-
 - [Back to Decision Index](README.md)
 - [Back to Wiki Index](../README.md)

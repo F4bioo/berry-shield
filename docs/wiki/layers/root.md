@@ -117,7 +117,6 @@ Root is useful for:
 - [pulp](pulp.md)
 
 ## Related pages
-
 - [layers index](README.md)
 - [decision modes](../decision/modes.md)
 - [decision posture](../decision/posture.md)
@@ -127,6 +126,5 @@ Root is useful for:
 ---
 
 ## Navigation
-
 - [Back to Layers Index](README.md)
 - [Back to Wiki Index](../README.md)

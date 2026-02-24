@@ -87,7 +87,6 @@ Expected:
 - Use clear rule names that encode source or owner context.
 
 ## Related pages
-
 - [tutorial index](README.md)
 - [add command reference](../operation/cli/add.md)
 - [test command reference](../operation/cli/test.md)
@@ -96,6 +95,5 @@ Expected:
 ---
 
 ## Navigation
-
 - [Back to Tutorials Index](README.md)
 - [Back to Wiki Index](../README.md)

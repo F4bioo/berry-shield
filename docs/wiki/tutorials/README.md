@@ -28,7 +28,6 @@ Use these pages when you want guided execution rather than command reference.
 - Use tutorials first, then jump to CLI pages for advanced tuning.
 
 ## Related pages
-
 - [operation index](../operation/README.md)
 - [CLI reference](../operation/cli/README.md)
 - [decision modes](../decision/modes.md)
@@ -37,6 +36,5 @@ Use these pages when you want guided execution rather than command reference.
 ---
 
 ## Navigation
-
 - [Back to Wiki Index](../README.md)
 - [Back to Repository README](../../../README.md)

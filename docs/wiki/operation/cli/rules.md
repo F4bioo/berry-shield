@@ -15,7 +15,7 @@ Manage baseline and custom Berry Shield rules from one command group.
 - Reads and writes custom rule state from `pluginConfig.customRules` (single CLI/Web source).
 - Lists baseline and custom inventory with explicit status.
 - Removes custom rules by target + id (`type:name`).
-- Enables or disables baseline rules by ID or in bulk.
+- Enables or disables baseline and custom rules by ID or in bulk.
 
 ## When to use
 - Day-to-day rule operations in terminal automation.
@@ -52,12 +52,26 @@ openclaw bshield rules disable baseline <id>
 ```
 Expected: Marks one baseline rule as disabled.
 
+### Disable one custom rule
+Use this to disable one custom rule without deleting it.
+```bash
+openclaw bshield rules disable custom <id>
+```
+Expected: Marks one custom rule as disabled and keeps it in inventory.
+
 ### Enable one baseline rule
 Use this to re-enable a previously disabled baseline rule by ID.
 ```bash
 openclaw bshield rules enable baseline <id>
 ```
 Expected: Marks one baseline rule as enabled.
+
+### Enable one custom rule
+Use this to re-enable one custom rule by ID.
+```bash
+openclaw bshield rules enable custom <id>
+```
+Expected: Marks one custom rule as enabled.
 
 ### Disable all baseline rules
 Use this only in controlled testing scenarios where default baseline coverage must be turned off.
@@ -73,13 +87,42 @@ openclaw bshield rules enable baseline --all --yes
 ```
 Expected: Re-enables all baseline IDs.
 
+### Disable all custom rules
+Use this to keep custom entries persisted but inactive.
+```bash
+openclaw bshield rules disable custom --all --yes
+```
+Expected: Disables all custom entries across secret, file, and command categories.
+
+### Enable all custom rules
+Use this to reactivate all custom entries in one operation.
+```bash
+openclaw bshield rules enable custom --all --yes
+```
+Expected: Enables all custom entries across secret, file, and command categories.
+
+### Disable all rules globally
+Use this to disable baseline and custom rules together.
+```bash
+openclaw bshield rules disable --all --yes
+```
+Expected: Applies disable to full rule scope (`baseline + custom`) with impact warning.
+
+### Enable all rules globally
+Use this to restore full baseline and custom coverage in one step.
+```bash
+openclaw bshield rules enable --all --yes
+```
+Expected: Applies enable to full rule scope (`baseline + custom`).
+
 ## Option rules
 - disable/enable accept exactly one mode:
   - `<id>` OR `--all`
+- target is optional only for global `--all`.
 - Invalid combinations return usage failure:
   - `<id> + --all`
   - neither `<id>` nor `--all`
-- `--yes` skips interactive confirmation for `--all` operations.
+- `--yes` is meaningful only for `--all` operations.
 
 ## Common errors
 
@@ -96,6 +139,13 @@ Use this check to validate error handling when an ID does not exist in baseline 
 openclaw bshield rules disable baseline secret:does-not-exist
 ```
 Expected: Operation failure (`Unknown baseline rule id`).
+
+### Unknown custom ID
+Use this check to validate error handling when a custom rule is not found.
+```bash
+openclaw bshield rules disable custom secret:does-not-exist
+```
+Expected: Operation failure (`Unknown custom rule id`).
 
 ## Related commands
 - [index](README.md)

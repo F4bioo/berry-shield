@@ -38,6 +38,21 @@ describe("custom-rules-config", () => {
         expect(customRules.destructiveCommands).toEqual([]);
     });
 
+    it("normalizes missing enabled to true on load", async () => {
+        const wrapper = createWrapper({
+            customRules: {
+                secrets: [{ name: "HotTest", pattern: "HOT_[A-Z0-9]{12}", placeholder: "[HOT_REDACTED]" }],
+                sensitiveFiles: [{ name: "smoke-file", pattern: "/tmp/smoke-file\\.txt" }],
+                destructiveCommands: [{ name: "dangerous-rm", pattern: "^rm\\s+-rf\\s+/tmp/smoke$" }],
+            },
+        });
+
+        const customRules = await loadCustomRulesFromConfig(wrapper);
+        expect(customRules.secrets[0].enabled).toBe(true);
+        expect(customRules.sensitiveFiles[0].enabled).toBe(true);
+        expect(customRules.destructiveCommands[0].enabled).toBe(true);
+    });
+
     it("adds a secret rule and persists to config", async () => {
         const wrapper = createWrapper(emptyConfig);
         const result = await addCustomRuleToConfig(wrapper, "secret", {
@@ -80,7 +95,7 @@ describe("custom-rules-config", () => {
         const wrapper = createWrapper({
             customRules: {
                 secrets: [],
-                sensitiveFiles: [{ name: "team-key", pattern: "/srv/keys/old.key" }],
+                sensitiveFiles: [{ name: "team-key", pattern: "/srv/keys/old.key", enabled: true }],
                 destructiveCommands: [],
             },
         });
@@ -101,7 +116,7 @@ describe("custom-rules-config", () => {
     it("removes custom rule by name", async () => {
         const wrapper = createWrapper({
             customRules: {
-                secrets: [{ name: "HotTest", pattern: "HOT_[A-Z0-9]{12}", placeholder: "[HOT_REDACTED]" }],
+                secrets: [{ name: "HotTest", pattern: "HOT_[A-Z0-9]{12}", placeholder: "[HOT_REDACTED]", enabled: true }],
                 sensitiveFiles: [],
                 destructiveCommands: [],
             },
@@ -120,6 +135,7 @@ describe("custom-rules-config", () => {
                 name: `S-${idx}`,
                 pattern: "S_[A-Z0-9]{4}",
                 placeholder: "[S_REDACTED]",
+                enabled: true,
             })),
             sensitiveFiles: [],
             destructiveCommands: [],

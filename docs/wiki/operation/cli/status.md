@@ -47,8 +47,8 @@ Result expected for an active deployment:
 ### Rules counters
 Command for this check: `openclaw bshield status`.
 Result expected:
-- `Built-in` count represents baseline shipped protections.
-- `Custom` count represents user-defined entries currently loaded.
+- `BASELINE` count represents baseline shipped protections.
+- `CUSTOM` count represents user-defined entries currently loaded.
 
 ### Policy section
 Command for this check: `openclaw bshield status`.

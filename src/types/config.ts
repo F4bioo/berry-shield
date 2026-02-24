@@ -113,6 +113,7 @@ export interface BerryShieldCustomSecretRule {
     name: string;
     pattern: string;
     placeholder: string;
+    enabled: boolean;
 }
 
 /**
@@ -121,6 +122,7 @@ export interface BerryShieldCustomSecretRule {
 export interface BerryShieldCustomFileRule {
     name: string;
     pattern: string;
+    enabled: boolean;
 }
 
 /**
@@ -129,6 +131,7 @@ export interface BerryShieldCustomFileRule {
 export interface BerryShieldCustomCommandRule {
     name: string;
     pattern: string;
+    enabled: boolean;
 }
 
 /**

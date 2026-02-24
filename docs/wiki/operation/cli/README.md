@@ -73,7 +73,7 @@ Use this to inspect baseline and custom rules in one place.
 ```bash
 openclaw bshield rules list
 ```
-Expected: CLI shows baseline IDs and custom names, including `[ENABLED]` and `[DISABLED]` status.
+Expected: CLI shows baseline and custom IDs, including `[ENABLED]` and `[DISABLED]` status.
 
 ### 6) Disable one baseline rule
 Use this to disable one baseline rule by stable ID.
@@ -82,7 +82,14 @@ openclaw bshield rules disable baseline secret:openai-key
 ```
 Expected: CLI marks the target baseline rule as disabled.
 
-### 7) Tune Vine mode for smoke tests
+### 7) Disable one custom rule
+Use this to keep a custom rule stored but inactive.
+```bash
+openclaw bshield rules disable custom secret:my-token-rule
+```
+Expected: CLI marks the target custom rule as disabled.
+
+### 8) Tune Vine mode for smoke tests
 Use this to switch Vine behavior deterministically.
 ```bash
 openclaw bshield vine set mode strict

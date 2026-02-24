@@ -271,7 +271,6 @@ Expected: command returns to prompt and the folder is removed.
 ---
 
 ## Related pages
-
 - [deploy index](README.md)
 - [build](build.md)
 - [CLI init](../operation/cli/init.md)
@@ -281,6 +280,5 @@ Expected: command returns to prompt and the folder is removed.
 ---
 
 ## Navigation
-
 - [Back to Deploy Index](README.md)
 - [Back to Wiki Index](../README.md)

@@ -96,23 +96,23 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
 
             attachSubcommandHelp(
                 rules
-                .command("disable <target> [id]")
-                .description("Disable baseline rule by id or disable all baseline rules")
-                .option("--all", "Apply operation to all baseline rules")
+                .command("disable [target] [id]")
+                .description("Disable baseline/custom rule by id, target --all, or global --all")
+                .option("--all", "Apply operation to all rules in scope")
                 .option("--yes", "Skip confirmation prompt")
-                .action(async (target: string, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
-                    await rulesDisableCommand(target, id, options);
+                .action(async (target: string | undefined, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
+                    await rulesDisableCommand(target, id, options, wrapper);
                 }),
             );
 
             attachSubcommandHelp(
                 rules
-                .command("enable <target> [id]")
-                .description("Enable baseline rule by id or enable all baseline rules")
-                .option("--all", "Apply operation to all baseline rules")
+                .command("enable [target] [id]")
+                .description("Enable baseline/custom rule by id, target --all, or global --all")
+                .option("--all", "Apply operation to all rules in scope")
                 .option("--yes", "Skip confirmation prompt")
-                .action(async (target: string, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
-                    await rulesEnableCommand(target, id, options);
+                .action(async (target: string | undefined, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
+                    await rulesEnableCommand(target, id, options, wrapper);
                 }),
             );
 

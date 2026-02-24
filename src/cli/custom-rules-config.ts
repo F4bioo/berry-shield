@@ -54,20 +54,40 @@ function enforceListLimit<T>(entries: T[], label: string): void {
     }
 }
 
+function normalizeCustomRulesConfig(customRules: BerryShieldCustomRulesConfig): BerryShieldCustomRulesConfig {
+    return {
+        secrets: customRules.secrets.map((rule) => ({
+            ...rule,
+            enabled: typeof rule.enabled === "boolean" ? rule.enabled : true,
+        })),
+        sensitiveFiles: customRules.sensitiveFiles.map((rule) => ({
+            ...rule,
+            enabled: typeof rule.enabled === "boolean" ? rule.enabled : true,
+        })),
+        destructiveCommands: customRules.destructiveCommands.map((rule) => ({
+            ...rule,
+            enabled: typeof rule.enabled === "boolean" ? rule.enabled : true,
+        })),
+    };
+}
+
 function validateCustomRulesConfig(customRules: BerryShieldCustomRulesConfig): void {
     for (const rule of customRules.secrets) {
         if (!rule.name.trim()) throw new Error("Secret rule name cannot be empty.");
         if (!rule.placeholder.trim()) throw new Error(`Secret rule '${rule.name}' placeholder cannot be empty.`);
+        if (typeof rule.enabled !== "boolean") throw new Error(`Secret rule '${rule.name}' enabled must be boolean.`);
         const validation = validateRegex(rule.pattern);
         if (!validation.valid) throw new Error(`Invalid secret regex for '${rule.name}': ${validation.error}`);
     }
     for (const rule of customRules.sensitiveFiles) {
         if (!rule.name.trim()) throw new Error("Sensitive file rule name cannot be empty.");
+        if (typeof rule.enabled !== "boolean") throw new Error(`Sensitive file rule '${rule.name}' enabled must be boolean.`);
         const validation = validateRegex(rule.pattern);
         if (!validation.valid) throw new Error(`Invalid sensitive file regex for '${rule.name}': ${validation.error}`);
     }
     for (const rule of customRules.destructiveCommands) {
         if (!rule.name.trim()) throw new Error("Destructive command rule name cannot be empty.");
+        if (typeof rule.enabled !== "boolean") throw new Error(`Destructive command rule '${rule.name}' enabled must be boolean.`);
         const validation = validateRegex(rule.pattern);
         if (!validation.valid) throw new Error(`Invalid destructive command regex for '${rule.name}': ${validation.error}`);
     }
@@ -99,15 +119,16 @@ async function pruneRootRuleArrays(wrapper: ConfigWrapper): Promise<void> {
 
 export async function loadCustomRulesFromConfig(wrapper: ConfigWrapper): Promise<BerryShieldCustomRulesConfig> {
     const config = await loadEffectiveConfig(wrapper);
-    return config.customRules;
+    return normalizeCustomRulesConfig(config.customRules);
 }
 
 export async function saveCustomRulesToConfig(
     wrapper: ConfigWrapper,
     customRules: BerryShieldCustomRulesConfig
 ): Promise<void> {
-    validateCustomRulesConfig(customRules);
-    await wrapper.set(CONFIG_PATHS.CUSTOM_RULES_CONFIG, customRules);
+    const normalized = normalizeCustomRulesConfig(customRules);
+    validateCustomRulesConfig(normalized);
+    await wrapper.set(CONFIG_PATHS.CUSTOM_RULES_CONFIG, normalized);
     await pruneRootRuleArrays(wrapper);
 }
 
@@ -141,6 +162,7 @@ export async function addCustomRuleToConfig(
             name: name.trim(),
             pattern,
             placeholder: placeholder ?? generatePlaceholder(name),
+            enabled: true,
         };
         customRules.secrets.push(rule);
         await saveCustomRulesToConfig(wrapper, customRules);
@@ -157,7 +179,7 @@ export async function addCustomRuleToConfig(
         if (exists) {
             customRules.sensitiveFiles = customRules.sensitiveFiles.filter((rule) => normalizeName(rule.name) !== normalized);
         }
-        const rule: BerryShieldCustomFileRule = { name: name.trim(), pattern };
+        const rule: BerryShieldCustomFileRule = { name: name.trim(), pattern, enabled: true };
         customRules.sensitiveFiles.push(rule);
         await saveCustomRulesToConfig(wrapper, customRules);
         return { success: true, rule };
@@ -172,7 +194,7 @@ export async function addCustomRuleToConfig(
     if (exists) {
         customRules.destructiveCommands = customRules.destructiveCommands.filter((rule) => normalizeName(rule.name) !== normalized);
     }
-    const rule: BerryShieldCustomCommandRule = { name: name.trim(), pattern };
+    const rule: BerryShieldCustomCommandRule = { name: name.trim(), pattern, enabled: true };
     customRules.destructiveCommands.push(rule);
     await saveCustomRulesToConfig(wrapper, customRules);
     return { success: true, rule };

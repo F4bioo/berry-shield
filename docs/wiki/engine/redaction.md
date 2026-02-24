@@ -108,7 +108,6 @@ For object keys recognized as sensitive:
 4. Verify escaped-token samples are detected after normalization.
 
 ## Related pages
-
 - [engine index](README.md)
 - [match engine](match-engine.md)
 - [performance](performance.md)
@@ -117,6 +116,5 @@ For object keys recognized as sensitive:
 ---
 
 ## Navigation
-
 - [Back to Engine Index](README.md)
 - [Back to Wiki Index](../README.md)

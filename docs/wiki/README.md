@@ -105,5 +105,4 @@ Installation tracks, build gates, and doc quality gates.
 ---
 
 ## Navigation
-
 - [Back to Repository README](../../README.md)

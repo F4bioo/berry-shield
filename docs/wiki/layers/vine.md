@@ -141,7 +141,6 @@ Important scope:
 - [leaf](leaf.md)
 
 ## Related pages
-
 - [layers index](README.md)
 - [decision modes](../decision/modes.md)
 - [decision patterns](../decision/patterns.md)
@@ -151,6 +150,5 @@ Important scope:
 ---
 
 ## Navigation
-
 - [Back to Layers Index](README.md)
 - [Back to Wiki Index](../README.md)

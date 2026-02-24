@@ -113,7 +113,7 @@ For file/command type:
 - name is required
 - pattern is required and regex-validated
 
-Invalid regex prevents progress until a valid pattern is entered or the user cancels.
+Invalid regex can block progress until a valid pattern is entered or the user cancels.
 
 ### Step 4: Broad-pattern confirmation
 If the pattern is detected as broad, the wizard asks explicit confirmation.

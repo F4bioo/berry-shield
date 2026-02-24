@@ -87,7 +87,6 @@ Expected:
 - Report evidence is available for post-rollout review.
 
 ## Related pages
-
 - [tutorial index](README.md)
 - [secure session](secure-session.md)
 - [mode command reference](../operation/cli/mode.md)
@@ -96,6 +95,5 @@ Expected:
 ---
 
 ## Navigation
-
 - [Back to Tutorials Index](README.md)
 - [Back to Wiki Index](../README.md)

@@ -51,7 +51,7 @@ export async function testCommand(
         }
     }
 
-    for (const rule of custom.secrets) {
+    for (const rule of custom.secrets.filter((entry) => entry.enabled !== false)) {
         if (matchAgainstPattern(input, rule.pattern)) {
             matches.push({
                 name: rule.name,

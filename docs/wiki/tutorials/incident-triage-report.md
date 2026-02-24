@@ -87,7 +87,6 @@ Expected:
 - If behavior differs across sessions, verify mode/profile and session context first.
 
 ## Related pages
-
 - [tutorial index](README.md)
 - [build custom rules](build-custom-rules.md)
 - [report command reference](../operation/cli/report.md)
@@ -96,6 +95,5 @@ Expected:
 ---
 
 ## Navigation
-
 - [Back to Tutorials Index](README.md)
 - [Back to Wiki Index](../README.md)

@@ -60,6 +60,7 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
                 name: entry.name as string,
                 pattern: entry.pattern as string,
                 placeholder: entry.placeholder as string,
+                enabled: typeof entry.enabled === "boolean" ? entry.enabled : true,
             }))
         : DEFAULT_CONFIG.customRules.secrets;
 
@@ -70,6 +71,7 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
             .map((entry) => ({
                 name: entry.name as string,
                 pattern: entry.pattern as string,
+                enabled: typeof entry.enabled === "boolean" ? entry.enabled : true,
             }))
         : DEFAULT_CONFIG.customRules.sensitiveFiles;
 
@@ -80,6 +82,7 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
             .map((entry) => ({
                 name: entry.name as string,
                 pattern: entry.pattern as string,
+                enabled: typeof entry.enabled === "boolean" ? entry.enabled : true,
             }))
         : DEFAULT_CONFIG.customRules.destructiveCommands;
 
