@@ -103,6 +103,23 @@ describe("CLI Storage", () => {
             expect(rules).toEqual(mockRules);
         });
 
+        it("remaps disabledBuiltInIds aliases on async load", async () => {
+            const mockRules = {
+                version: "1.0",
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+                disabledBuiltInIds: ["secret:gitleaks:gitlab-runner-token"],
+            };
+
+            vi.mocked(fs.access).mockResolvedValue(undefined);
+            vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(mockRules));
+
+            const rules = await loadCustomRules();
+
+            expect(rules.disabledBuiltInIds).toEqual(["secret:gitleaks:gitlab-runner-authentication-token"]);
+        });
+
         it("returns empty rules on parse error", async () => {
             vi.mocked(fs.access).mockResolvedValue(undefined);
             vi.mocked(fs.readFile).mockResolvedValue("invalid json");
@@ -163,6 +180,23 @@ describe("CLI Storage", () => {
             const rules = loadCustomRulesSync();
 
             expect(rules).toEqual(mockRules);
+        });
+
+        it("remaps disabledBuiltInIds aliases on sync load", () => {
+            const mockRules = {
+                version: "1.0",
+                secrets: [],
+                sensitiveFiles: [],
+                destructiveCommands: [],
+                disabledBuiltInIds: ["secret:gitleaks:gitlab-runner-token"],
+            };
+
+            vi.mocked(fsSync.accessSync).mockImplementation(() => undefined);
+            vi.mocked(fsSync.readFileSync).mockReturnValue(JSON.stringify(mockRules));
+
+            const rules = loadCustomRulesSync();
+
+            expect(rules.disabledBuiltInIds).toEqual(["secret:gitleaks:gitlab-runner-authentication-token"]);
         });
 
         it("backs up corrupted file and restores defaults on parse error", () => {

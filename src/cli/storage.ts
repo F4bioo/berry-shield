@@ -10,6 +10,7 @@ import * as fsSync from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { theme, symbols } from "./ui/theme.js";
+import { remapDisabledBuiltInIds } from "../patterns/id-aliases.js";
 
 // Storage location outside plugin directory
 const CONFIG_DIR = path.join(os.homedir(), ".openclaw", "config", "berry-shield");
@@ -70,7 +71,7 @@ function emptyRules(): CustomRules {
 function normalizeRules(rules: CustomRules): CustomRules {
     return {
         ...rules,
-        disabledBuiltInIds: (rules.disabledBuiltInIds ?? []).map((id) => id.toLowerCase()),
+        disabledBuiltInIds: remapDisabledBuiltInIds(rules.disabledBuiltInIds ?? []),
     };
 }
 
