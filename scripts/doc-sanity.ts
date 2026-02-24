@@ -12,6 +12,7 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
 import { join, extname, relative, dirname, resolve, basename } from "path";
+import { fileURLToPath } from "url";
 import ts from "typescript";
 
 // Configuration
@@ -206,6 +207,14 @@ function buildExportIndex(files: string[]): Set<string> {
 
 function hasExport(node: ts.Node): boolean {
     return (ts.getCombinedModifierFlags(node as ts.Declaration) & ts.ModifierFlags.Export) !== 0;
+}
+
+export function isLikelyApiSymbol(token: string): boolean {
+    // Lower camelCase: walkAndRedact
+    if (/^[a-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/.test(token)) return true;
+    // PascalCase with more than one capitalized segment and mixed case: ConfigWrapper, ApiClient
+    if (/^[A-Z][a-z0-9]+(?:[A-Z][A-Za-z0-9]*)+$/.test(token)) return true;
+    return false;
 }
 
 function countWords(text: string): number {
@@ -452,7 +461,7 @@ class SanityAuditor {
             while ((match = symbolRegex.exec(contentForSymbolCheck)) !== null) {
                 const sym = match[1];
                 if (!RESERVED_WORDS.has(sym.toLowerCase()) && !this.exportedSymbols.has(sym)) {
-                    if (/^[a-z][a-zA-Z0-9]+$/.test(sym) || /^[A-Z][A-Z]?[a-z]/.test(sym)) {
+                    if (isLikelyApiSymbol(sym)) {
                         this.errors.push(`${relPath}: Factual integrity risk. Symbol \`${sym}\` mentioned but not exported in code.`);
                     }
                 }
@@ -616,8 +625,16 @@ class SanityAuditor {
     }
 }
 
+function isDirectExecution(): boolean {
+    const cliTarget = process.argv[1];
+    if (!cliTarget) return false;
+    return resolve(cliTarget) === resolve(fileURLToPath(import.meta.url));
+}
+
 // Execution Layer
-const auditor = new SanityAuditor();
-const docs = getAuditTargets();
-docs.forEach(d => auditor.auditFile(d));
-auditor.report();
+if (isDirectExecution()) {
+    const auditor = new SanityAuditor();
+    const docs = getAuditTargets();
+    docs.forEach(d => auditor.auditFile(d));
+    auditor.report();
+}

@@ -258,5 +258,23 @@
                 }
             }
         }
+    },
+    "uiHints": {
+        "customRules.secrets[].name": {
+            "label": "Name",
+            "sensitive": false
+        },
+        "customRules.secrets[].pattern": {
+            "label": "Pattern",
+            "sensitive": true
+        },
+        "customRules.secrets[].placeholder": {
+            "label": "Placeholder",
+            "sensitive": false
+        },
+        "customRules.secrets[].enabled": {
+            "label": "Enabled",
+            "sensitive": false
+        }
     }
 }
