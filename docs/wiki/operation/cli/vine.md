@@ -22,6 +22,11 @@ Manage Berry.Vine configuration and tool allowlist from CLI.
 - During incident response for false-positive tuning.
 - In scripts where Vine changes must be reproducible.
 
+## Deterministic smoke note
+- For deterministic preflight checks with `berry_check`, pass the current session key explicitly.
+- Recommended sequence: resolve current session key first, then run external ingestion, then run `berry_check` with that same key.
+- Without the same session key, preflight may not reflect the active Vine risk state for that session.
+
 ## Syntax
 
 ### Status (default action)

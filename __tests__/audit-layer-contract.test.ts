@@ -103,11 +103,14 @@ describe("Contract: Audit mode per-layer behavior", () => {
             runAuditScenario: async () => {
                 const { api, handlers } = createApi();
                 registerBerryVine(api as any, createAuditConfig());
-                handlers.get(HOOKS.AFTER_TOOL_CALL)!({
+                handlers.get(HOOKS.TOOL_RESULT_PERSIST)!({
                     toolName: "web_search",
-                    params: { query: "x" },
-                    result: { externalContent: { untrusted: true } },
-                }, { sessionKey: "s1" });
+                    toolCallId: "tc-contract-vine",
+                    message: [{ type: "text", text: "external result" }],
+                }, {
+                    sessionKey: "s1",
+                    toolName: "web_search",
+                });
                 const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)!({
                     toolName: "run_command",
                     params: { command: "bash -lc 'echo VINE > /tmp/vine-contract.txt'" },

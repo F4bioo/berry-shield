@@ -50,11 +50,11 @@ describe("Berry.Vine", () => {
             vine: { mode: "balanced" },
         }));
 
-        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
             toolName: "browser_fetch",
-            params: {},
-            result: { ok: true },
-        }, { sessionKey: "s1" });
+            toolCallId: "tc-balanced-1",
+            message: [{ type: "text", text: "external" }],
+        }, { toolName: "browser_fetch", sessionKey: "s1" });
 
         const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
             toolName: "run_command",
@@ -71,11 +71,11 @@ describe("Berry.Vine", () => {
             vine: { mode: "strict" },
         }));
 
-        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
             toolName: "web_search",
-            params: { q: "test" },
-            result: { externalContent: { untrusted: true } },
-        }, { sessionKey: "s1" });
+            toolCallId: "tc-strict-1",
+            message: [{ type: "text", text: "external" }],
+        }, { toolName: "web_search", sessionKey: "s1" });
 
         const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
             toolName: "run_command",
@@ -95,11 +95,11 @@ describe("Berry.Vine", () => {
             vine: { mode: "balanced" },
         }));
 
-        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
             toolName: "browser_fetch",
-            params: {},
-            result: { ok: true },
-        }, { sessionKey: "s1" });
+            toolCallId: "tc-audit-1",
+            message: [{ type: "text", text: "external" }],
+        }, { toolName: "browser_fetch", sessionKey: "s1" });
 
         const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
             toolName: "run_command",
@@ -120,11 +120,11 @@ describe("Berry.Vine", () => {
             vine: { mode: "strict" },
         }));
 
-        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
             toolName: "web_search",
-            params: { q: "test" },
-            result: { externalContent: { untrusted: true } },
-        }, { sessionKey: "s1" });
+            toolCallId: "tc-audit-2",
+            message: [{ type: "text", text: "external" }],
+        }, { toolName: "web_search", sessionKey: "s1" });
 
         const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
             toolName: "run_command",
@@ -184,11 +184,11 @@ describe("Berry.Vine", () => {
             vine: { mode: "balanced" },
         }));
 
-        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
             toolName: "browser_fetch",
-            params: {},
-            result: { ok: true },
-        }, { sessionKey: "s1" });
+            toolCallId: "tc-session-end",
+            message: [{ type: "text", text: "external" }],
+        }, { toolName: "browser_fetch", sessionKey: "s1" });
 
         handlers.get(HOOKS.SESSION_END)?.({
             sessionId: "s1",
@@ -213,11 +213,11 @@ describe("Berry.Vine", () => {
         });
         registerBerryVine(api as any, snapshotConfig);
 
-        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
             toolName: "web_search",
-            params: { q: "inject" },
-            result: { externalContent: { untrusted: true } },
-        }, { sessionKey: "s1" });
+            toolCallId: "tc-runtime-audit",
+            message: [{ type: "text", text: "external" }],
+        }, { toolName: "web_search", sessionKey: "s1" });
 
         // Simulate operator changed mode to AUDIT after registration.
         (api as any).pluginConfig = { mode: "audit" };
@@ -231,5 +231,197 @@ describe("Berry.Vine", () => {
         const lastEvent = appendAuditEventMock.mock.calls.at(-1)?.[0];
         expect(lastEvent?.layer).toBe("vine");
         expect(lastEvent?.decision).toBe("would_block");
+    });
+
+    it("marks risk from tool_result_persist even when after_tool_call has no session context", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "strict",
+                thresholds: {
+                    externalSignalsToEscalate: 1,
+                    forcedGuardTurns: 1,
+                },
+            },
+        }));
+
+        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+            toolName: "web_fetch",
+            params: { url: "https://example.com", mode: "markdown" },
+            result: { externalContent: { untrusted: true } },
+        }, { toolName: "web_fetch" });
+
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
+            toolName: "web_fetch",
+            toolCallId: "tc1",
+            message: [{ type: "text", text: "external result" }],
+        }, {
+            toolName: "web_fetch",
+            sessionKey: "s1",
+        });
+
+        const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: "bash -lc 'echo VINE > /tmp/vine-proof.txt'" },
+        }, { sessionKey: "s1", agentId: "agent-main" });
+
+        expect(result?.block).toBe(true);
+    });
+
+    it("does not cross-contaminate concurrent sessions with tool_result_persist session keys", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "strict",
+                thresholds: {
+                    externalSignalsToEscalate: 1,
+                    forcedGuardTurns: 1,
+                },
+            },
+        }));
+
+        handlers.get(HOOKS.AFTER_TOOL_CALL)?.({
+            toolName: "web_fetch",
+            params: { url: "https://example.com/a" },
+            result: { externalContent: { untrusted: true } },
+        }, { toolName: "web_fetch" });
+
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
+            toolName: "web_fetch",
+            toolCallId: "tcA",
+            message: [{ type: "text", text: "external result A" }],
+        }, {
+            toolName: "web_fetch",
+            sessionKey: "sA",
+        });
+
+        const blockedA = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: "bash -lc 'echo A > /tmp/vine-a.txt'" },
+        }, { sessionKey: "sA", agentId: "agent-a" });
+
+        const blockedB = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: "bash -lc 'echo B > /tmp/vine-b.txt'" },
+        }, { sessionKey: "sB", agentId: "agent-b" });
+
+        expect(blockedA?.block).toBe(true);
+        expect(blockedB).toBeUndefined();
+    });
+
+    it("does not mark risk from tool_result_persist for non-external tools", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "strict",
+                thresholds: {
+                    externalSignalsToEscalate: 1,
+                    forcedGuardTurns: 1,
+                },
+            },
+        }));
+
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
+            toolName: "session_status",
+            toolCallId: "tc-no-risk",
+            message: [{ type: "text", text: "status ok" }],
+        }, {
+            toolName: "session_status",
+            sessionKey: "s1",
+        });
+
+        const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: "bash -lc 'echo SHOULD_PASS > /tmp/safe-no-risk.txt'" },
+        }, { sessionKey: "s1", agentId: "agent-main" });
+
+        expect(result).toBeUndefined();
+    });
+
+    it("balanced relaxes risk after safe turns without new external signals", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "balanced",
+                thresholds: {
+                    externalSignalsToEscalate: 1,
+                    forcedGuardTurns: 1,
+                },
+            },
+        }));
+
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
+            toolName: "web_fetch",
+            toolCallId: "tc-balanced-relax",
+            message: [{ type: "text", text: "external" }],
+        }, { toolName: "web_fetch", sessionKey: "s1" });
+
+        handlers.get(HOOKS.BEFORE_AGENT_START)?.({
+            prompt: "turn-1",
+            messages: [],
+        }, { sessionKey: "s1", sessionId: "sid-1" });
+
+        handlers.get(HOOKS.MESSAGE_RECEIVED)?.({
+            content: "ok, continue",
+            from: "user",
+        }, { channelId: "web", conversationId: "conv-1", sessionKey: "s1" });
+
+        handlers.get(HOOKS.MESSAGE_RECEIVED)?.({
+            content: "still safe",
+            from: "user",
+        }, { channelId: "web", conversationId: "conv-1", sessionKey: "s1" });
+
+        const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: "bash -lc 'echo SAFE > /tmp/safe.txt'" },
+        }, { sessionKey: "s1", agentId: "agent-main" });
+
+        expect(result).toBeUndefined();
+    });
+
+    it("strict does not relax risk after safe turns only", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "strict",
+                thresholds: {
+                    externalSignalsToEscalate: 1,
+                    forcedGuardTurns: 1,
+                },
+            },
+        }));
+
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
+            toolName: "web_fetch",
+            toolCallId: "tc-strict-no-relax",
+            message: [{ type: "text", text: "external" }],
+        }, { toolName: "web_fetch", sessionKey: "s1" });
+
+        handlers.get(HOOKS.BEFORE_AGENT_START)?.({
+            prompt: "turn-1",
+            messages: [],
+        }, { sessionKey: "s1", sessionId: "sid-1" });
+
+        handlers.get(HOOKS.MESSAGE_RECEIVED)?.({
+            content: "ok, continue",
+            from: "user",
+        }, { channelId: "web", conversationId: "conv-1", sessionKey: "s1" });
+
+        handlers.get(HOOKS.MESSAGE_RECEIVED)?.({
+            content: "still safe",
+            from: "user",
+        }, { channelId: "web", conversationId: "conv-1", sessionKey: "s1" });
+
+        const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: "bash -lc 'echo BLOCKED > /tmp/blocked.txt'" },
+        }, { sessionKey: "s1", agentId: "agent-main" });
+
+        expect(result?.block).toBe(true);
     });
 });

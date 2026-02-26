@@ -42,6 +42,12 @@ const SENSITIVE_ACTION_TOOL_HINTS = [
     "edit",
 ];
 
+interface SessionResolutionInput {
+    sessionKey?: string;
+    sessionId?: string;
+    conversationId?: string;
+}
+
 function stripWrappingQuotes(value: string): string {
     const trimmed = value.trim();
     if (
@@ -74,6 +80,26 @@ function extractWriteLikeTarget(command: string): string | undefined {
 
 function normalizeName(value: string): string {
     return value.trim().toLowerCase();
+}
+
+function readOptionalString(record: Record<string, unknown>, field: string): string | undefined {
+    const value = record[field];
+    return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+    if (typeof value !== "object" || value === null) {
+        return undefined;
+    }
+    return value as Record<string, unknown>;
+}
+
+function readOptionalContextString(ctx: unknown, field: string): string | undefined {
+    const record = asRecord(ctx);
+    if (!record) {
+        return undefined;
+    }
+    return readOptionalString(record, field);
 }
 
 function looksExternalTool(toolName: string): boolean {
@@ -166,11 +192,7 @@ function isSensitiveAction(toolName: string, params: Record<string, unknown>): {
     return { sensitive: false, target: toolName };
 }
 
-function resolveSessionKey(input: {
-    sessionKey?: string;
-    sessionId?: string;
-    conversationId?: string;
-}): string {
+function resolveSessionKey(input: SessionResolutionInput): string {
     return input.sessionKey ?? input.sessionId ?? input.conversationId ?? "global_session";
 }
 
@@ -198,9 +220,11 @@ function resolveRuntimeGlobalMode(
     api: OpenClawPluginApi,
     fallback: BerryShieldPluginConfig["mode"]
 ): BerryShieldPluginConfig["mode"] {
-    const runtimeConfig = (api as unknown as { pluginConfig?: { mode?: unknown } }).pluginConfig;
-    return runtimeConfig?.mode === "audit" || runtimeConfig?.mode === "enforce"
-        ? runtimeConfig.mode
+    const apiRecord = asRecord(api);
+    const runtimeConfig = apiRecord ? asRecord(apiRecord.pluginConfig) : undefined;
+    const runtimeMode = runtimeConfig?.mode;
+    return runtimeMode === "audit" || runtimeMode === "enforce"
+        ? runtimeMode
         : fallback;
 }
 
@@ -214,16 +238,67 @@ export function registerBerryVine(
     }
 
     const vineState = getSharedVineStateManager(config.vine.retention);
+    const sessionIdToSessionKey = new Map<string, string>();
+    const conversationIdToSessionKey = new Map<string, string>();
+    const requiredSafeTurns = Math.max(2, config.vine.thresholds.forcedGuardTurns);
+
+    function bindKnownSession(input: SessionResolutionInput, sessionKey: string): void {
+        if (sessionKey === "global_session") return;
+        if (input.sessionId) {
+            sessionIdToSessionKey.set(input.sessionId, sessionKey);
+        }
+        if (input.conversationId) {
+            conversationIdToSessionKey.set(input.conversationId, sessionKey);
+        }
+    }
+
+    function resolveKnownSession(input: SessionResolutionInput): string {
+        if (input.sessionKey) return input.sessionKey;
+        if (input.sessionId) {
+            const fromSessionId = sessionIdToSessionKey.get(input.sessionId);
+            if (fromSessionId) return fromSessionId;
+        }
+        if (input.conversationId) {
+            const fromConversationId = conversationIdToSessionKey.get(input.conversationId);
+            if (fromConversationId) return fromConversationId;
+        }
+        return resolveSessionKey(input);
+    }
+
+    function cleanupSessionBindings(sessionId: string, resolvedSessionKey?: string): void {
+        sessionIdToSessionKey.delete(sessionId);
+        const targetSessionKey = resolvedSessionKey ?? sessionId;
+
+        for (const [conversationId, mappedSessionKey] of conversationIdToSessionKey.entries()) {
+            if (mappedSessionKey === targetSessionKey) {
+                conversationIdToSessionKey.delete(conversationId);
+            }
+        }
+    }
+
+    function maybeRelaxBalancedRisk(sessionKey: string): void {
+        if (config.vine.mode !== "balanced") return;
+        vineState.tryClearBalancedRisk(sessionKey, requiredSafeTurns);
+    }
 
     api.on(
         HOOKS.MESSAGE_RECEIVED,
         (event, ctx) => {
-            const sessionKey = resolveSessionKey({ conversationId: ctx.conversationId });
+            const resolutionInput: SessionResolutionInput = {
+                sessionKey: readOptionalContextString(ctx, "sessionKey"),
+                sessionId: readOptionalContextString(ctx, "sessionId"),
+                conversationId: ctx.conversationId,
+            };
+            const sessionKey = resolveKnownSession(resolutionInput);
+            bindKnownSession(resolutionInput, sessionKey);
+
             // Unknown signal: direct user text may include pasted external payloads/URLs.
             if (/\bhttps?:\/\/\S+/i.test(event.content)) {
                 vineState.markUnknownSignal(sessionKey);
             } else {
+                // Safe human turns help balanced mode decay risk after guarded turns.
                 vineState.markSafeHumanSignal(sessionKey);
+                maybeRelaxBalancedRisk(sessionKey);
             }
         },
         { priority: 190 }
@@ -231,21 +306,52 @@ export function registerBerryVine(
 
     api.on(
         HOOKS.AFTER_TOOL_CALL,
+        (_event, ctx) => {
+            const resolutionInput: SessionResolutionInput = {
+                sessionKey: ctx.sessionKey,
+                sessionId: readOptionalContextString(ctx, "sessionId"),
+                conversationId: readOptionalContextString(ctx, "conversationId"),
+            };
+
+            const sessionKey = resolveKnownSession(resolutionInput);
+
+            // Keep session bindings warm even when this hook lacks external-risk semantics.
+            if (sessionKey === "global_session") {
+                return;
+            }
+
+            bindKnownSession(resolutionInput, sessionKey);
+        },
+        { priority: 190 }
+    );
+
+    api.on(
+        HOOKS.TOOL_RESULT_PERSIST,
         (event, ctx) => {
-            const sessionKey = resolveSessionKey({ sessionKey: ctx.sessionKey });
-            if (isAllowlistedTool(event.toolName, config.vine.toolAllowlist)) {
-                return;
+            // Runtime source of truth for external-ingestion correlation in current OpenClaw.
+            const sessionKey = resolveKnownSession({ sessionKey: ctx.sessionKey });
+            if (sessionKey === "global_session") {
+                return event;
             }
-            if (!looksExternalTool(event.toolName)) {
-                return;
+
+            const toolName = event.toolName ?? ctx.toolName;
+            if (!toolName) {
+                return event;
             }
+            if (isAllowlistedTool(toolName, config.vine.toolAllowlist)) {
+                return event;
+            }
+            if (!looksExternalTool(toolName)) {
+                return event;
+            }
+
             vineState.markExternalSignal({
                 sessionKey,
                 escalationThreshold: config.vine.thresholds.externalSignalsToEscalate,
                 forcedGuardTurns: config.vine.thresholds.forcedGuardTurns,
-                sourceToolCallId: event.toolName,
+                sourceToolCallId: toolName,
             });
-            api.logger.debug?.(`[berry-shield] Berry.Vine: external signal captured for session ${sessionKey}`);
+            return event;
         },
         { priority: 190 }
     );
@@ -253,8 +359,17 @@ export function registerBerryVine(
     api.on(
         HOOKS.BEFORE_AGENT_START,
         (_event, ctx) => {
-            const sessionKey = resolveSessionKey({ sessionKey: ctx.sessionKey, sessionId: ctx.sessionId });
+            const resolutionInput: SessionResolutionInput = {
+                sessionKey: ctx.sessionKey,
+                sessionId: ctx.sessionId,
+                conversationId: readOptionalContextString(ctx, "conversationId"),
+            };
+            const sessionKey = resolveKnownSession(resolutionInput);
+            bindKnownSession(resolutionInput, sessionKey);
+
+            // Turn lifecycle tick for forced-guard counters and balanced relaxation.
             vineState.beginTurn(sessionKey);
+            maybeRelaxBalancedRisk(sessionKey);
             if (!vineState.shouldInjectContext(sessionKey)) {
                 return undefined;
             }
@@ -266,7 +381,16 @@ export function registerBerryVine(
     api.on(
         HOOKS.BEFORE_TOOL_CALL,
         (event, ctx) => {
-            const sessionKey = resolveSessionKey({ sessionKey: ctx.sessionKey });
+            const resolutionInput: SessionResolutionInput = {
+                sessionKey: ctx.sessionKey,
+                sessionId: readOptionalContextString(ctx, "sessionId"),
+                conversationId: readOptionalContextString(ctx, "conversationId"),
+            };
+            const sessionKey = resolveKnownSession(resolutionInput);
+            bindKnownSession(resolutionInput, sessionKey);
+            maybeRelaxBalancedRisk(sessionKey);
+
+            // Read runtime mode at call time to avoid stale closure behavior after mode switches.
             const runtimeMode = resolveRuntimeGlobalMode(api, config.mode);
 
             if (isAllowlistedTool(event.toolName, config.vine.toolAllowlist)) {
@@ -292,6 +416,8 @@ export function registerBerryVine(
             // Enforce strict: unknown and risk both block.
             if (config.vine.mode === "strict" && (hasGuardRisk || hasUnknownSignal)) {
                 emitBlockEvent(api, config, "external-untrusted instruction risk", sensitive.target);
+                // Record a blocked attempt so balanced mode does not clear risk prematurely.
+                vineState.markSensitiveAttemptBlocked(sessionKey);
                 vineState.consumeForcedGuardTurn(sessionKey);
                 return {
                     block: true,
@@ -302,6 +428,8 @@ export function registerBerryVine(
             // Enforce balanced: block only when explicit external risk is active.
             if (hasGuardRisk) {
                 emitBlockEvent(api, config, "external-untrusted instruction risk", sensitive.target);
+                // Record a blocked attempt so balanced mode does not clear risk prematurely.
+                vineState.markSensitiveAttemptBlocked(sessionKey);
                 vineState.consumeForcedGuardTurn(sessionKey);
                 return {
                     block: true,
@@ -322,7 +450,13 @@ export function registerBerryVine(
     api.on(
         HOOKS.SESSION_END,
         (event) => {
+            // State is keyed by resolved session key; cleanup both resolved and raw ids defensively.
+            const resolvedSessionKey = sessionIdToSessionKey.get(event.sessionId);
+            if (resolvedSessionKey) {
+                vineState.delete(resolvedSessionKey);
+            }
             vineState.delete(event.sessionId);
+            cleanupSessionBindings(event.sessionId, resolvedSessionKey);
         },
         { priority: 190 }
     );

@@ -12,6 +12,7 @@ interface VineSessionState {
     sourceToolCallId?: string;
     lastInjectedAt?: number;
     unknownSignalsCount: number;
+    blockedSensitiveAttemptsCount: number;
 }
 
 interface MarkExternalSignalInput {
@@ -51,6 +52,7 @@ export class VineStateManager {
             sourceToolCallId: undefined,
             lastInjectedAt: undefined,
             unknownSignalsCount: 0,
+            blockedSensitiveAttemptsCount: 0,
         };
 
         current.lastSeenAt = nowTs;
@@ -66,6 +68,8 @@ export class VineStateManager {
                 Math.max(1, input.forcedGuardTurns)
             );
             current.stickyExternalRisk = true;
+            current.safeClearingSignalsCount = 0;
+            current.blockedSensitiveAttemptsCount = 0;
             current.riskWindowId = `vine-${nowTs}-${Math.random().toString(36).slice(2, 8)}`;
         }
 
@@ -78,6 +82,9 @@ export class VineStateManager {
         const entry = this.state.get(sessionKey);
         if (!entry) return undefined;
         entry.lastSeenAt = this.now();
+        if (entry.forcedGuardTurnsRemaining > 0) {
+            entry.forcedGuardTurnsRemaining -= 1;
+        }
         return entry;
     }
 
@@ -126,10 +133,30 @@ export class VineStateManager {
             sourceToolCallId: undefined,
             lastInjectedAt: undefined,
             unknownSignalsCount: 0,
+            blockedSensitiveAttemptsCount: 0,
         };
         entry.lastSeenAt = nowTs;
         entry.unknownSignalsCount += 1;
         this.state.set(sessionKey, entry);
+    }
+
+    public markSensitiveAttemptBlocked(sessionKey: string): void {
+        const entry = this.state.get(sessionKey);
+        if (!entry) return;
+        entry.blockedSensitiveAttemptsCount += 1;
+        entry.lastSeenAt = this.now();
+    }
+
+    public tryClearBalancedRisk(sessionKey: string, requiredSafeTurns: number): boolean {
+        const entry = this.state.get(sessionKey);
+        if (!entry) return false;
+        if (!entry.stickyExternalRisk) return false;
+        if (entry.forcedGuardTurnsRemaining > 0) return false;
+        if (entry.blockedSensitiveAttemptsCount > 0) return false;
+        if (entry.safeClearingSignalsCount < Math.max(1, requiredSafeTurns)) return false;
+
+        this.clearRisk(sessionKey);
+        return true;
     }
 
     public hasUnknownSignal(sessionKey: string): boolean {
@@ -149,6 +176,7 @@ export class VineStateManager {
         entry.riskWindowId = "";
         entry.sourceToolCallId = undefined;
         entry.unknownSignalsCount = 0;
+        entry.blockedSensitiveAttemptsCount = 0;
     }
 
     public delete(sessionKey: string): void {

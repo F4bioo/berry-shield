@@ -1,6 +1,6 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { mergeConfig } from "./config/utils.js";
-import { VERSION } from "./constants.js";
+import { VERSION, BRAND_SYMBOL } from "./constants.js";
 import { registerBerryRoot } from "./layers/root.js";
 import { registerBerryPulp } from "./layers/pulp.js";
 import { registerBerryThorn } from "./layers/thorn.js";
@@ -15,7 +15,7 @@ import { loadCustomRulesSync } from "./cli/storage.js";
 /**
  * Berry Shield - Security architecture for OpenClaw
  *
- * 5-layer security architecture:
+ * 6-layer security architecture:
  * - Berry.Root: Prompt Guard (injects security policies)
  * - Berry.Pulp: Output Scanner (redacts detected secrets/PII)
  * - Berry.Thorn: Tool Blocker (mitigates flagged commands)
@@ -50,7 +50,7 @@ export default {
 
         // Warn when running in audit (Shadow Mode) — data is NOT protected
         if (config.mode === "audit") {
-            api.logger.warn("\n[berry-shield] ⚠️ Running in AUDIT (Shadow Mode) — actions will NOT be blocked and output will NOT be redacted.");
+            api.logger.warn(`[berry-shield] ${BRAND_SYMBOL} Running in AUDIT (Shadow Mode) — actions will NOT be blocked and output will NOT be redacted.`);
         }
 
         // Register CLI commands (bshield)
