@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a product or developer-experience improvement
+title: "feat: <short description>"
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and risks
+      description: Mention runtime, security, and compatibility impact.
+    validations:
+      required: true
+

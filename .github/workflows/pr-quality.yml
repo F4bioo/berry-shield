@@ -1,0 +1,92 @@
+name: PR Quality
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches:
+      - develop
+      - master
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title and description
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const title = (pr?.title || "").trim();
+            const body = (pr?.body || "").trim();
+
+            const titleRegex = /^(feat|fix|docs|refactor|test|chore|ci|build|perf|revert)(\([a-z0-9._\-\/]+\))?:\s.{10,}$/i;
+            const requiredSections = [
+              "## Problem",
+              "## Scope",
+              "## Validation",
+              "## Risk & Rollback",
+            ];
+
+            const errors = [];
+
+            if (!titleRegex.test(title)) {
+              errors.push("Title must match: `type(scope): description` with at least 10 chars in description.");
+            }
+
+            for (const section of requiredSections) {
+              if (!body.includes(section)) {
+                errors.push(`Missing section in PR body: \`${section}\``);
+              }
+            }
+
+            const marker = "<!-- berry-pr-quality -->";
+            const message = `${marker}
+            ## PR quality check failed
+            ${errors.map((e) => `- ${e}`).join("\n")}
+
+            Please update title/body and push again.`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              per_page: 100,
+            });
+
+            const previous = comments.find(c =>
+              c.user?.type === "Bot" && typeof c.body === "string" && c.body.includes(marker)
+            );
+
+            if (errors.length > 0) {
+              if (previous) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: previous.id,
+                  body: message,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: message,
+                });
+              }
+              core.setFailed("PR quality checks failed.");
+              return;
+            }
+
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: previous.id,
+                body: `${marker}\n✅ PR quality check passed.`,
+              });
+            }

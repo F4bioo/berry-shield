@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+  push:
+    branches:
+      - develop
+      - master
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Version sync check (constants VERSION == package.json version)
+        run: |
+          node -e "const fs=require('fs'); const c=fs.readFileSync('src/constants.ts','utf8'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); const m=c.match(/export const VERSION\\s*=\\s*\"([^\"]+)\"/); if(!m){console.error('VERSION constant not found in src/constants.ts'); process.exit(1);} const cv=m[1]; const pv=p.version; if(cv!==pv){console.error(`Version mismatch: constants=${cv} package.json=${pv}`); process.exit(1);} console.log(`Version sync OK: ${cv}`);"
+
+      - name: Wiki sanity
+        run: npm run wiki:claim
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npx vitest run __tests__
+
+      - name: Build
+        run: npm run build
+
+      - name: Package dry-run
+        run: npm pack --dry-run
+

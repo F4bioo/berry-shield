@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible bug in Berry Shield
+title: "bug: <short description>"
+labels:
+  - bug
+body:
+  - type: input
+    id: openclaw_version
+    attributes:
+      label: OpenClaw version
+      placeholder: "e.g. 2026.2.26"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Berry Shield mode
+      options:
+        - enforce
+        - audit
+    validations:
+      required: true
+  - type: input
+    id: layer
+    attributes:
+      label: Layer (if known)
+      placeholder: "e.g. vine, stem, pulp"
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Provide exact steps/commands.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence (report/log snippets)
+      description: Include relevant `openclaw bshield report` and logs.
+    validations:
+      required: true
+
