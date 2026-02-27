@@ -87,12 +87,10 @@ Installed at: 2026-02-22T18:18:52.793Z
 ```
 
 ## Related pages
-
 - [Installation Guide](docs/wiki/deploy/installation.md)
 - [Security Posture](docs/wiki/decision/posture.md)
 
 ---
 
 ## Navigation
-
 - [Back to Repository README](README.md)
