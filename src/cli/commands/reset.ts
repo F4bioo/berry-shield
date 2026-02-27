@@ -4,6 +4,7 @@ import { CONFIG_PATHS } from "../../constants.js";
 import type { OpenClawPluginCliContext } from "../../types/openclaw-local.js";
 import type { ConfigWrapper } from "../../config/wrapper.js";
 import { loadCustomRules, saveCustomRules } from "../storage.js";
+import { mergeConfig } from "../../config/utils.js";
 import { ui } from "../ui/tui.js";
 
 type ResetScope = "builtins" | "all";
@@ -53,18 +54,29 @@ export async function resetCommand(
         }
     }
 
-    const rules = await loadCustomRules();
-    const previouslyDisabled = (rules.disabledBuiltInIds ?? []).length;
-    rules.disabledBuiltInIds = [];
+    const rulesDelta = await loadCustomRules();
+    const previouslyDisabled = (rulesDelta.disabledBuiltInIds ?? []).length;
+    rulesDelta.disabledBuiltInIds = [];
+
+    let previousCustomCount = 0;
+    let customRules = DEFAULT_CONFIG.customRules;
 
     if (scope === "all") {
-        rules.secrets = [];
-        rules.sensitiveFiles = [];
-        rules.destructiveCommands = [];
+        const rawPluginConfig = await wrapper.get<unknown>(CONFIG_PATHS.PLUGIN_CONFIG) || {};
+        const shieldConfig = mergeConfig(rawPluginConfig);
+        customRules = shieldConfig.customRules;
+        previousCustomCount = customRules.secrets.length + customRules.sensitiveFiles.length + customRules.destructiveCommands.length;
+
+        customRules.secrets = [];
+        customRules.sensitiveFiles = [];
+        customRules.destructiveCommands = [];
     }
 
     try {
-        await saveCustomRules(rules);
+        await saveCustomRules(rulesDelta);
+        if (scope === "all") {
+            await wrapper.set(CONFIG_PATHS.CUSTOM_RULES_CONFIG, customRules);
+        }
         if (scope === "all") {
             await wrapper.set(CONFIG_PATHS.POLICY_CONFIG, DEFAULT_CONFIG.policy);
         }
@@ -76,7 +88,7 @@ export async function resetCommand(
                 s.row("Scope", scope.toUpperCase());
                 s.row("Disabled built-ins cleared", String(previouslyDisabled));
                 if (scope === "all") {
-                    s.row("Custom rules cleared", "true");
+                    s.row("Custom rules cleared", String(previousCustomCount));
                     s.row("Policy restored", "true");
                 }
             },

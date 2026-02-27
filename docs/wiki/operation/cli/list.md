@@ -1,79 +1,67 @@
-﻿---
-summary: "CLI reference for `openclaw bshield rules list` (show baseline and custom rule inventory)"
+---
+summary: "CLI reference for `openclaw bshield rules list` (compact vs detailed inventory)"
 read_when:
-  - You need to inspect active Berry Shield rule inventory
-  - You are auditing baseline vs custom rule coverage
+  - You need to inspect current baseline/custom rule state
+  - You need to confirm ENABLED or DISABLED status after rule changes
 title: "list"
 ---
 
 # `openclaw bshield rules list`
 
-List Berry Shield rules grouped by source (baseline/custom) with explicit status.
+Show current Berry Shield rule inventory grouped by source and status.
 
 ## What it does
-- Loads baseline IDs and custom rules from persisted storage.
-- Displays baseline rows as `BASELINE id: <id> [ENABLED|DISABLED]`.
-- Displays custom rows as `CUSTOM name: <name|pattern> [ENABLED]`.
-- Prints one inventory view for operational review.
+- Loads rule state from plugin config/runtime.
+- Prints two sections: baseline and custom.
+- Shows each rule with status marker:
+  - `[ENABLED]`
+  - `[DISABLED]`
+- In detailed mode, adds one `pattern:` line per rule.
 
 ## When to use
-- Before and after adding/removing custom rules.
-- During rule inventory audits.
-- While diagnosing missing pattern coverage.
+- Before rule updates to capture a state snapshot.
+- After `rules enable` or `rules disable` to confirm final state.
+- During troubleshooting when behavior and expected coverage differ.
 
 ## Syntax
-### List all rules
-Use this command to inspect current baseline and custom rules.
+
+### Compact inventory
+Use this for quick state checks.
 ```bash
 openclaw bshield rules list
 ```
-Expected: CLI prints sections for Baseline and Custom with explicit status markers.
+Expected:
+- Prints Baseline and Custom sections.
+- Shows IDs and status markers only.
+
+### Detailed inventory
+Use this when you need exact regex visibility.
+```bash
+openclaw bshield rules list --detailed
+```
+Expected:
+- Prints the same sections and statuses as compact mode.
+- Adds one `pattern:` line for each rule entry.
+
+### Short flag for detailed mode
+Use this as a compact equivalent of `--detailed`.
+```bash
+openclaw bshield rules list -d
+```
+Expected: same output as `--detailed`.
 
 ## Options
-This command has no command-specific flags or positional arguments.
-
-## Examples
-
-### Inspect complete rule inventory
-Use this as the primary inventory view for active protections.
-```bash
-openclaw bshield rules list
-```
-Result: Output is grouped by source and displays explicit enabled/disabled state.
-
-### Verify custom rule presence after add
-Use this after adding one custom rule.
-```bash
-openclaw bshield rules list
-```
-Result: New rule appears under Custom entries.
-
-### Verify custom rule absence after remove
-Use this after removing one custom rule.
-```bash
-openclaw bshield rules list
-```
-Result: Removed custom rule no longer appears in custom entries.
-
-### Verify baseline disable status
-Use this after disabling a baseline rule by ID.
-```bash
-openclaw bshield rules list
-```
-Result: Target baseline entry appears with `[DISABLED]` marker.
+- `--detailed` (`-d`): include raw pattern details for all listed entries.
 
 ## Common errors
 
-### Rule storage read failure
-Use this when output is incomplete or command fails unexpectedly.
-```bash
-openclaw bshield rules list
-```
-Expected: On failure, CLI/runtime reports storage or read error.
+### Runtime/config read failure
+Use this when command output is incomplete or the command fails unexpectedly while reading runtime/config state.
+Expected: CLI reports a runtime/config read error.
 
 Possible causes:
-- Custom rules file unreadable.
-- Runtime permission issue for custom rules path.
+- Invalid custom rule structure in config.
+- Read failure on plugin config storage path.
 
 ## Related commands
 - [index](README.md)
@@ -86,6 +74,5 @@ Possible causes:
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

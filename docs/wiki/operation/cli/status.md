@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield status` (runtime mode, policy, rules, and layers)"
 read_when:
   - You need to verify current Berry Shield runtime configuration
@@ -8,77 +8,96 @@ title: "status"
 
 # `openclaw bshield status`
 
-Show the current Berry Shield state resolved from plugin config plus defaults.
+Show the effective Berry Shield runtime state resolved from OpenClaw plugin config plus Berry defaults.
 
 ## What it does
 - Reads plugin config from OpenClaw config storage.
 - Merges config with Berry Shield defaults.
-- Shows current mode, rule counts, and plugin enabled state.
-- Shows policy values (profile and adaptive settings).
-- Shows active/inactive state for each security layer.
+- Prints current plugin state (`Status`, `Mode`, and rule counters).
+- Prints policy state (`Profile`, adaptive values, and global escalation toggle).
+- Prints Vine state (`Mode`, thresholds, retention, and allowlist size).
+- Prints each security layer status as `ACTIVE` or `OFF`.
 
 ## When to use
-- After changing mode or profile.
-- After editing policy values with wizard or deterministic set.
-- Before running security validation tests.
+- After changing `mode`, `profile`, or `policy`.
+- After toggling a layer.
+- Before and after smoke tests to confirm runtime posture.
+- During incident triage to verify what is effectively active.
 
 ## Syntax
+
 ### Base command
 Use this command to inspect the full Berry Shield state.
 ```bash
 openclaw bshield status
 ```
-Expected: Output includes Status, Mode, Rules, Policy, and Security Layers sections.
+Expected: Output includes Status, Mode, Rules, Policy, Vine, and Security Layers sections.
 
 ## Options
 This command has no command-specific flags or positional arguments.
 
-## Examples
+## Output interpretation guide
 
-### Verify plugin is enabled and in enforce mode
-Use this check before running deny/block tests.
-```bash
-openclaw bshield status
-```
-Result: Status is ENABLED and mode shows ENFORCE when enforce mode is active.
+### Status and mode
+Command for this check: `openclaw bshield status`.
+Result expected for an active deployment:
+- `Status` should be `ENABLED`.
+- `Mode` should be either `AUDIT` or `ENFORCE`, matching your intended test posture.
 
-### Verify policy values after profile update
-Use this after changing profile or adaptive settings.
-```bash
-openclaw bshield status
-```
-Result: Policy section reflects current profile, escalation turns, stale timeout, heartbeat, and global escalation.
+### Rules counters
+Command for this check: `openclaw bshield status`.
+Result expected:
+- `BASELINE` count represents baseline shipped protections.
+- `CUSTOM` count represents user-defined entries currently loaded.
 
-### Verify layer state after toggle
-Use this after toggling one layer for diagnostics.
-```bash
-openclaw bshield status
-```
-Result: Security Layers section shows ACTIVE or OFF for each layer.
+### Policy section
+Command for this check: `openclaw bshield status`.
+Result expected:
+- `Profile` is one of `STRICT`, `BALANCED`, `MINIMAL`.
+- `Escalation`, `Stale (min)`, `Heartbeat`, and `Global Escalation` reflect configured values.
+
+### Vine section
+Command for this check: `openclaw bshield status`.
+Result expected:
+- `Mode` shows Vine behavior (`BALANCED` or `STRICT`).
+- Thresholds and retention values match expected operational tuning.
+- `Allowlist` shows the number of exempt tools.
+
+### Security layers section
+Command for this check: `openclaw bshield status`.
+Result expected:
+- Each layer is explicitly shown as `ACTIVE` or `OFF`.
+- Use this as the authoritative source before any behavior validation run.
 
 ## Common errors
 
 ### Status command fails due to config read error
-Use this check when status command exits with operation failure.
-```bash
-openclaw bshield status
-```
-Expected: On failure, the CLI prints a failure message and returns non-zero exit code.
+Use this check when the status command exits with operation failure.
+Expected: CLI prints a failure message and returns non-zero exit code.
 
 Possible causes:
 - OpenClaw config path is unavailable or corrupted.
 - Runtime permission issue when reading config.
 - Unexpected config wrapper/backend failure.
 
+### Output does not reflect a recent change
+Use this check when you changed config in Web or CLI but output still looks stale.
+Expected: after OpenClaw restarts its gateway, `status` reflects the new effective values.
+
+Possible causes:
+- Gateway restart has not happened yet.
+- You edited a different environment/root than the active OpenClaw runtime.
+- Another write operation overwrote your previous setting.
+
 ## Related commands
 - [index](README.md)
 - [mode](mode.md)
 - [profile](profile.md)
 - [policy](policy.md)
+- [vine](vine.md)
 
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

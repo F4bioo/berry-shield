@@ -44,7 +44,6 @@ Operational implication:
 4. Resolve tone and consistency warnings according to team policy.
 
 ## Related pages
-
 - [deploy index](README.md)
 - [build](build.md)
 - [installation](installation.md)
@@ -52,7 +51,6 @@ Operational implication:
 ---
 
 ## Navigation
-
 - [Back to Deploy Index](README.md)
 - [Back to Wiki Index](../README.md)
 

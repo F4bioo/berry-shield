@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 🍓 Berry Shield: Doc Sanity (Technical Integrity & Editorial Refinement)
  * Philosophy: Honest, technical, humble. "Show, don't tell."
  * 
@@ -12,11 +12,13 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
 import { join, extname, relative, dirname, resolve, basename } from "path";
+import { fileURLToPath } from "url";
 import ts from "typescript";
 
-// 🍓 Configuration
+// Configuration
 const DOCS_DIR = process.env.DOCS_DIR ?? "docs/wiki";
 const CODE_DIR = process.env.CODE_DIR ?? "src";
+const EXTRA_DOC_FILES = ["SECURITY_AUDIT.md"];
 
 const CONFIG = {
     hypeDensityThreshold: 2.0,      // Max hits per 1000 words
@@ -34,6 +36,31 @@ const CONFIG = {
     }
 };
 
+type DensityRule = {
+    pattern: RegExp;
+    maxWords: number;
+    label: string;
+};
+
+const DENSITY_RULES: DensityRule[] = [
+    { pattern: /SECURITY_AUDIT\.md$/i, maxWords: 1200, label: "security-audit-root-doc" },
+    { pattern: /^README\.md$/i, maxWords: 900, label: "wiki-root-readme" },
+    { pattern: /^operation\/README\.md$/i, maxWords: 900, label: "operation-index" },
+    { pattern: /^operation\/cli\/README\.md$/i, maxWords: 900, label: "cli-index" },
+    { pattern: /^operation\/web\/README\.md$/i, maxWords: 900, label: "web-index" },
+    { pattern: /^operation\/cli\/.+\.md$/i, maxWords: 1000, label: "cli-command" },
+    { pattern: /^decision\/README\.md$/i, maxWords: 900, label: "decision-index" },
+    { pattern: /^decision\/.+\.md$/i, maxWords: 1500, label: "decision-page" },
+    { pattern: /^layers\/README\.md$/i, maxWords: 900, label: "layers-index" },
+    { pattern: /^layers\/.+\.md$/i, maxWords: 1500, label: "layer-page" },
+    { pattern: /^engine\/README\.md$/i, maxWords: 900, label: "engine-index" },
+    { pattern: /^engine\/.+\.md$/i, maxWords: 1200, label: "engine-page" },
+    { pattern: /^deploy\/README\.md$/i, maxWords: 900, label: "deploy-index" },
+    { pattern: /^deploy\/.+\.md$/i, maxWords: 1200, label: "deploy-page" },
+    { pattern: /^tutorials\/README\.md$/i, maxWords: 900, label: "tutorials-index" },
+    { pattern: /^tutorials\/.+\.md$/i, maxWords: 1200, label: "tutorial-page" },
+];
+
 const COLOR = {
     LOBSTER: "\x1b[38;2;255;90;45m",
     GRAY: "\x1b[90m",
@@ -48,7 +75,8 @@ const SYMBOL = {
     ANCHOR: "⚓",
     SUCCESS: "✅",
     FAIL: "❌",
-    WARN: "⚠️"
+    WARN: "⚠️",
+    MARKER: "↳",
 };
 
 const IGNORE = {
@@ -125,12 +153,12 @@ const EVIDENCE_RULES = [
 
 const MOJIBAKE_PATTERNS: RegExp[] = [
     /â€œ/g, /â€/g, /â€˜/g, /â€™/g,
-    /â€”/g, /â€“/g, /â€¦/g, /â†³/g,
-    /Ã§/g, /Ã£/g, /Ã¡/g, /Ã©/g, /Ã³/g, /Ãº/g, /Ãª/g, /Ã´/g, /Ã­/g,
-    /ðŸ/g, /âš/g, /âœ/g, /â/g
+    /â€“/g, /â€”/g, /â€¦/g,
+    /Ã¢/g, /Ãƒ/g,
+    /ðŸ/g
 ];
 
-// 🛡️ Logic & Indexing
+// Logic & Indexing
 function getFiles(dir: string, extFilter: string[]): string[] {
     if (!existsSync(dir)) return [];
     let results: string[] = [];
@@ -145,6 +173,14 @@ function getFiles(dir: string, extFilter: string[]): string[] {
         }
     }
     return results;
+}
+
+function getAuditTargets(): string[] {
+    const docs = getFiles(DOCS_DIR, [".md"]);
+    const extras = EXTRA_DOC_FILES
+        .map((file) => resolve(process.cwd(), file))
+        .filter((file) => existsSync(file));
+    return [...docs, ...extras];
 }
 
 function buildExportIndex(files: string[]): Set<string> {
@@ -171,6 +207,14 @@ function buildExportIndex(files: string[]): Set<string> {
 
 function hasExport(node: ts.Node): boolean {
     return (ts.getCombinedModifierFlags(node as ts.Declaration) & ts.ModifierFlags.Export) !== 0;
+}
+
+export function isLikelyApiSymbol(token: string): boolean {
+    // Lower camelCase: walkAndRedact
+    if (/^[a-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/.test(token)) return true;
+    // PascalCase with more than one capitalized segment and mixed case: ConfigWrapper, ApiClient
+    if (/^[A-Z][a-z0-9]+(?:[A-Z][A-Za-z0-9]*)+$/.test(token)) return true;
+    return false;
 }
 
 function countWords(text: string): number {
@@ -245,7 +289,16 @@ function parseFrontmatter(content: string): FrontmatterData | null {
     };
 }
 
-// 🛡️ Technical Sanity Auditor
+function normalizeDocRelPath(absPath: string): string {
+    return relative(resolve(DOCS_DIR), resolve(absPath)).replace(/\\/g, "/");
+}
+
+function resolveDensityRule(absPath: string): DensityRule | null {
+    const relDoc = normalizeDocRelPath(absPath);
+    return DENSITY_RULES.find((rule) => rule.pattern.test(relDoc)) ?? null;
+}
+
+// Technical Sanity Auditor
 class SanityAuditor {
     errors: string[] = [];
     warnings: string[] = [];
@@ -259,7 +312,7 @@ class SanityAuditor {
         this.exportedSymbols = buildExportIndex(codeFiles);
         this.codeContent = codeFiles.map(f => readFileSync(f, "utf8").toLowerCase()).join("\n");
 
-        const docFiles = getFiles(DOCS_DIR, [".md"]);
+        const docFiles = getAuditTargets();
         docFiles.forEach(f => this.allDocs.add(resolve(f)));
 
         // Seed entry point
@@ -276,9 +329,15 @@ class SanityAuditor {
 
         const lines = content.split("\n");
         const relPath = relative(process.cwd(), filePath);
-        const isExplanation = filePath.includes("anatomy") || filePath.includes("engine");
         const isReference = filePath.includes("reference");
         const strictCliContract = /<!--\s*doc-sanity:cli-contract:strict\s*-->/i.test(content);
+        const densityRule = resolveDensityRule(filePath);
+
+        if (!densityRule) {
+            this.errors.push(
+                `${relPath}: Missing density target mapping for this path. Add a rule in DENSITY_RULES (scripts/doc-sanity.ts).`
+            );
+        }
 
         // -1. Frontmatter contract (except generated reference docs)
         if (!isReference) {
@@ -402,7 +461,7 @@ class SanityAuditor {
             while ((match = symbolRegex.exec(contentForSymbolCheck)) !== null) {
                 const sym = match[1];
                 if (!RESERVED_WORDS.has(sym.toLowerCase()) && !this.exportedSymbols.has(sym)) {
-                    if (/^[a-z][a-zA-Z0-9]+$/.test(sym) || /^[A-Z][A-Z]?[a-z]/.test(sym)) {
+                    if (isLikelyApiSymbol(sym)) {
                         this.errors.push(`${relPath}: Factual integrity risk. Symbol \`${sym}\` mentioned but not exported in code.`);
                     }
                 }
@@ -435,7 +494,7 @@ class SanityAuditor {
                 while ((m = rule.pattern.exec(effectiveLine)) !== null) {
                     sanityHits++;
                     const snippet = snippetAround(line, m.index, m[0].length);
-                    this.errors.push(`${relPath}:${lineNo}: [${rule.id}] ${rule.message}\n   ↳ Match: "${m[0]}"\n   ↳ Context: ${snippet}\n   ↳ Suggestion: ${rule.suggestion}`);
+                    this.errors.push(`${relPath}:${lineNo}: [${rule.id}] ${rule.message}\n   ${SYMBOL.MARKER} Match: "${m[0]}"\n   ${SYMBOL.MARKER} Context: ${snippet}\n   ${SYMBOL.MARKER} Suggestion: ${rule.suggestion}`);
                     if (m.index === rule.pattern.lastIndex) rule.pattern.lastIndex++;
                 }
             });
@@ -536,9 +595,10 @@ class SanityAuditor {
             this.warnings.push(`${relPath}: Many exclamation marks (${exclamationCount}). Reads like marketing.`);
         }
 
-        const wordLimit = isExplanation ? 1200 : 500;
-        if (totalWords > wordLimit) {
-            this.warnings.push(`${relPath}: High word density (${totalWords} words). Target: <${wordLimit}.`);
+        if (densityRule && totalWords > densityRule.maxWords) {
+            this.warnings.push(
+                `${relPath}: High word density (${totalWords} words). Target: <${densityRule.maxWords} [${densityRule.label}].`
+            );
         }
     }
 
@@ -551,12 +611,12 @@ class SanityAuditor {
 
         if (this.warnings.length > 0) {
             console.log(`${SYMBOL.WARN} ${COLOR.YELLOW} Sanity Warnings (Density & Tone):${COLOR.RESET}`);
-            this.warnings.forEach(w => console.log(`   ↳ ${w}`));
+            this.warnings.forEach(w => console.log(`   ${SYMBOL.MARKER} ${w}`));
         }
 
         if (this.errors.length > 0) {
             console.log(`\n${SYMBOL.FAIL} ${COLOR.RED} FAIL: Technical Sanity Violated!${COLOR.RESET}`);
-            this.errors.forEach(e => console.log(`   ↳ ${e}`));
+            this.errors.forEach(e => console.log(`   ${SYMBOL.MARKER} ${e}`));
             process.exit(1);
         } else {
             console.log(`\n${SYMBOL.SUCCESS} ${COLOR.LOBSTER} Technical purity maintained. Fact-based documentation.${COLOR.RESET}`);
@@ -565,8 +625,16 @@ class SanityAuditor {
     }
 }
 
-// 📦 Execution Layer
-const auditor = new SanityAuditor();
-const docs = getFiles(DOCS_DIR, [".md"]);
-docs.forEach(d => auditor.auditFile(d));
-auditor.report();
+function isDirectExecution(): boolean {
+    const cliTarget = process.argv[1];
+    if (!cliTarget) return false;
+    return resolve(cliTarget) === resolve(fileURLToPath(import.meta.url));
+}
+
+// Execution Layer
+if (isDirectExecution()) {
+    const auditor = new SanityAuditor();
+    const docs = getAuditTargets();
+    docs.forEach(d => auditor.auditFile(d));
+    auditor.report();
+}

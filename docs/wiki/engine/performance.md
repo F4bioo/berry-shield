@@ -101,7 +101,6 @@ Large deeply nested payloads with broad aggressive patterns still increase cost 
 4. Confirm catastrophic regex patterns are bounded in CLI safe matcher paths.
 
 ## Related pages
-
 - [engine index](README.md)
 - [redaction](redaction.md)
 - [match engine](match-engine.md)
@@ -110,7 +109,6 @@ Large deeply nested payloads with broad aggressive patterns still increase cost 
 ---
 
 ## Navigation
-
 - [Back to Engine Index](README.md)
 - [Back to Wiki Index](../README.md)
 

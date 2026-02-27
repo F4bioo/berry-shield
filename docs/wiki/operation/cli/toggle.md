@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield toggle` (enable or disable one security layer)"
 read_when:
   - You need to temporarily disable or re-enable one Berry Shield layer
@@ -22,6 +22,7 @@ Toggle one Berry Shield security layer between enabled and disabled states.
 - Temporary layer disable/enable during rule tuning.
 
 ## Syntax
+
 ### Toggle one layer
 Use this to invert the current state of a selected layer.
 ```bash
@@ -85,6 +86,5 @@ Possible causes:
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

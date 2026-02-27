@@ -99,7 +99,6 @@ Expected:
 - Output shows `false` for the selected path
 
 ## Related pages
-
 - [tutorial index](README.md)
 - [choose profile](choose-profile.md)
 - [policy command reference](../operation/cli/policy.md)
@@ -108,6 +107,5 @@ Expected:
 ---
 
 ## Navigation
-
 - [Back to Tutorials Index](README.md)
 - [Back to Wiki Index](../README.md)

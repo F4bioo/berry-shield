@@ -78,7 +78,6 @@ This engine provides:
 4. Confirm wizard/test commands produce consistent matching decisions.
 
 ## Related pages
-
 - [engine index](README.md)
 - [redaction](redaction.md)
 - [performance](performance.md)
@@ -87,7 +86,6 @@ This engine provides:
 ---
 
 ## Navigation
-
 - [Back to Engine Index](README.md)
 - [Back to Wiki Index](../README.md)
 

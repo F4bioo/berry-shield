@@ -38,13 +38,11 @@ See full posture and limits:
 5. Layer returns allow, block, redact, or audit event path.
 
 ## Notes
-
 - Decision docs must be aligned with runtime behavior, not intended behavior.
 - Claims about security behavior must be scoped and evidence-based.
 
 ---
 
 ## Navigation
-
 - [Back to Wiki Index](../README.md)
 - [Back to Repository README](../../../README.md)

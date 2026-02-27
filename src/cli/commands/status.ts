@@ -1,6 +1,5 @@
 import { OpenClawPluginCliContext } from "../../types/openclaw-local.js";
 import { mergeConfig } from "../../config/utils.js";
-import { loadCustomRules } from "../storage.js";
 import {
     SECRET_PATTERNS,
     PII_PATTERNS,
@@ -26,8 +25,9 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
             CONFIG_PATHS.ENABLED
         ) ?? false;
 
-        const customRules = await loadCustomRules();
-        const customCount = customRules.secrets.length + customRules.sensitiveFiles.length + customRules.destructiveCommands.length;
+        const customCount = shieldConfig.customRules.secrets.length
+            + shieldConfig.customRules.sensitiveFiles.length
+            + shieldConfig.customRules.destructiveCommands.length;
 
         const builtInCount = SECRET_PATTERNS.length + PII_PATTERNS.length +
             SENSITIVE_FILE_PATTERNS.length + DESTRUCTIVE_COMMAND_PATTERNS.length;
@@ -44,6 +44,7 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
             { name: "Thorn (Tool Blocker)", active: shieldConfig.layers.thorn },
             { name: "Leaf (Input Audit)", active: shieldConfig.layers.leaf },
             { name: "Stem (Security Gate)", active: shieldConfig.layers.stem },
+            { name: "Vine (External Guard)", active: shieldConfig.layers.vine },
         ];
 
         ui.scaffold({
@@ -63,6 +64,17 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
                     { label: "Stale (min)", value: String(shieldConfig.policy.adaptive.staleAfterMinutes) },
                     { label: "Heartbeat", value: String(shieldConfig.policy.adaptive.heartbeatEveryTurns) },
                     { label: "Global Escalation", value: shieldConfig.policy.adaptive.allowGlobalEscalation ? theme.warning("ON") : theme.muted("OFF") },
+                ]);
+
+                s.spacer();
+                s.section("Vine");
+                s.table([
+                    { label: "Mode", value: shieldConfig.vine.mode.toUpperCase() },
+                    { label: "Signals to Escalate", value: String(shieldConfig.vine.thresholds.externalSignalsToEscalate) },
+                    { label: "Guard Turns", value: String(shieldConfig.vine.thresholds.forcedGuardTurns) },
+                    { label: "Retention (entries)", value: String(shieldConfig.vine.retention.maxEntries) },
+                    { label: "Retention (ttl sec)", value: String(shieldConfig.vine.retention.ttlSeconds) },
+                    { label: "Allowlist", value: `${shieldConfig.vine.toolAllowlist.length} tool(s)` },
                 ]);
 
                 s.spacer();

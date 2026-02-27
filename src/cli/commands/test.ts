@@ -8,16 +8,21 @@
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
 type PluginLogger = OpenClawPluginApi["logger"];
 
-import { loadCustomRules } from "../storage.js";
+import { loadCustomRulesFromConfig } from "../custom-rules-config.js";
 import { SECRET_PATTERNS, PII_PATTERNS } from "../../patterns/index.js";
 import { matchAgainstPattern } from "../utils/match.js";
 import { ui } from "../ui/tui.js";
 import { theme } from "../ui/theme.js";
+import { type ConfigWrapper } from "../../config/wrapper.js";
 
 interface MatchResult {
     name: string;
     source: "built-in" | "custom";
     placeholder: string;
+}
+
+function looksLikeCustomRuleId(value: string): boolean {
+    return /^(command|file):.+/i.test(value.trim());
 }
 
 /**
@@ -26,9 +31,10 @@ interface MatchResult {
 export async function testCommand(
     input: string,
     _config: OpenClawConfig,
-    logger: PluginLogger
+    logger: PluginLogger,
+    wrapper: ConfigWrapper
 ): Promise<void> {
-    const custom = await loadCustomRules();
+    const custom = await loadCustomRulesFromConfig(wrapper);
     logger.debug?.(`[berry-shield] CLI: Testing input: ${input.substring(0, 20)}...`);
     const matches: MatchResult[] = [];
 
@@ -45,7 +51,7 @@ export async function testCommand(
         }
     }
 
-    for (const rule of custom.secrets) {
+    for (const rule of custom.secrets.filter((entry) => entry.enabled !== false)) {
         if (matchAgainstPattern(input, rule.pattern)) {
             matches.push({
                 name: rule.name,
@@ -62,6 +68,14 @@ export async function testCommand(
             content: (s) => {
                 s.failureMsg("No matches found");
                 s.row("Input", theme.dim(input.length > 64 ? input.slice(0, 61) + "..." : input));
+                s.warningMsg("Scope: baseline secret/pii + custom secret (enabled rules only).");
+                if (looksLikeCustomRuleId(input)) {
+                    s.warningMsg("Input looks like a custom rule ID, not a payload value.");
+                }
+                s.row(
+                    "Inspect",
+                    theme.dim("openclaw bshield rules list --detailed (verify exists, ENABLED, active pattern)"),
+                );
             },
         });
         return;

@@ -17,6 +17,7 @@ import { toggleCommand } from "./commands/toggle.js";
 import { reportCommand } from "./commands/report.js";
 import { profileCommand } from "./commands/profile.js";
 import { policyCommand } from "./commands/policy.js";
+import { vineCommand } from "./commands/vine.js";
 import {
     rulesListCommand,
     rulesRemoveCommand,
@@ -32,8 +33,8 @@ import { theme } from "./ui/theme.js";
  * 
  * Commands:
  * - openclaw bshield add <type> --name <name> --pattern <pattern>
- * - openclaw bshield remove <name>
- * - openclaw bshield list
+ * - openclaw bshield rules remove custom <id>
+ * - openclaw bshield rules list [--detailed]
  * - openclaw bshield test <input>
  */
 export function registerBerryShieldCli(api: OpenClawPluginApi): void {
@@ -60,12 +61,12 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 bshield
                 .command("add [type]")
                 .description("Add a new security rule (interactive wizard if no args)")
-                .option("-n, --name <name>", "Rule name (required for secrets)")
+                .option("-n, --name <name>", "Rule name (required for secret, file, and command)")
                 .option("-p, --pattern <pattern>", "Regex pattern to match")
                 .option("-r, --placeholder <text>", "Custom placeholder for redaction")
                 .option("-f, --force", "Override existing rule with same name")
                 .action(async (type: string | undefined, options: any) => {
-                    await addCommand(type, options, config, logger);
+                    await addCommand(type, options, config, logger, wrapper);
                 }),
             );
 
@@ -78,39 +79,40 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 rules
                 .command("list")
                 .description("List baseline and custom rules")
-                .action(async () => {
-                    await rulesListCommand();
+                .option("-d, --detailed", "Show detailed pattern view for baseline and custom rules")
+                .action(async (options: { detailed?: boolean }) => {
+                    await rulesListCommand(wrapper, { detailed: options.detailed });
                 }),
             );
 
             attachSubcommandHelp(
                 rules
-                .command("remove <target> [name]")
-                .description("Remove custom rule by name (target must be custom)")
-                .action(async (target: string, name: string | undefined) => {
-                    await rulesRemoveCommand(target, name);
+                .command("remove <target> [id]")
+                .description("Remove custom rule by id (format: secret:<name> | file:<name> | command:<name>)")
+                .action(async (target: string, id: string | undefined) => {
+                    await rulesRemoveCommand(target, id, wrapper);
                 }),
             );
 
             attachSubcommandHelp(
                 rules
-                .command("disable <target> [id]")
-                .description("Disable baseline rule by id or disable all baseline rules")
-                .option("--all", "Apply operation to all baseline rules")
+                .command("disable [target] [id]")
+                .description("Disable baseline/custom rule by id, target --all, or global --all")
+                .option("--all", "Apply operation to all rules in scope")
                 .option("--yes", "Skip confirmation prompt")
-                .action(async (target: string, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
-                    await rulesDisableCommand(target, id, options);
+                .action(async (target: string | undefined, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
+                    await rulesDisableCommand(target, id, options, wrapper);
                 }),
             );
 
             attachSubcommandHelp(
                 rules
-                .command("enable <target> [id]")
-                .description("Enable baseline rule by id or enable all baseline rules")
-                .option("--all", "Apply operation to all baseline rules")
+                .command("enable [target] [id]")
+                .description("Enable baseline/custom rule by id, target --all, or global --all")
+                .option("--all", "Apply operation to all rules in scope")
                 .option("--yes", "Skip confirmation prompt")
-                .action(async (target: string, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
-                    await rulesEnableCommand(target, id, options);
+                .action(async (target: string | undefined, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
+                    await rulesEnableCommand(target, id, options, wrapper);
                 }),
             );
 
@@ -120,7 +122,7 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .command("test <input>")
                 .description("Test if input matches any security pattern")
                 .action(async (input: string) => {
-                    await testCommand(input, config, logger);
+                    await testCommand(input, config, logger, wrapper);
                 }),
             );
 
@@ -171,6 +173,16 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 .description("Manage policy settings (wizard, get, set)")
                 .action(async (action: string | undefined, path: string | undefined, value: string | undefined) => {
                     await policyCommand(action, path, value, context, wrapper);
+                }),
+            );
+
+            // Vine command
+            attachSubcommandHelp(
+                bshield
+                .command("vine [action] [pathOrTool] [value]")
+                .description("Manage Berry.Vine settings and tool allowlist")
+                .action(async (action: string | undefined, pathOrTool: string | undefined, value: string | undefined) => {
+                    await vineCommand(action, pathOrTool, value, context, wrapper);
                 }),
             );
 

@@ -26,7 +26,14 @@ export async function initCommand(context: OpenClawPluginCliContext, wrapper: Co
 
         // 2. Inject default configuration using the wrapper
         // We set the whole config object at once
-        await wrapper.set(CONFIG_PATHS.PLUGIN_CONFIG, DEFAULT_CONFIG);
+        const configForInit = {
+            mode: DEFAULT_CONFIG.mode,
+            layers: DEFAULT_CONFIG.layers,
+            policy: DEFAULT_CONFIG.policy,
+            vine: DEFAULT_CONFIG.vine,
+            customRules: DEFAULT_CONFIG.customRules,
+        };
+        await wrapper.set(CONFIG_PATHS.PLUGIN_CONFIG, configForInit);
 
         // 3. Ensure plugin is enabled
         await wrapper.set(CONFIG_PATHS.ENABLED, true);

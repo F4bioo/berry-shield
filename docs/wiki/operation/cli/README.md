@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "Berry Shield CLI reference index for openclaw bshield commands"
 read_when:
   - Adding or changing Berry Shield CLI commands
@@ -20,6 +20,7 @@ If command behavior changes, update this index and the command pages.
 - [mode](mode.md)
 - [profile](profile.md)
 - [policy](policy.md)
+- [vine](vine.md)
 - [toggle](toggle.md)
 - [add](add.md)
 - [rules](rules.md)
@@ -72,7 +73,7 @@ Use this to inspect baseline and custom rules in one place.
 ```bash
 openclaw bshield rules list
 ```
-Expected: CLI shows baseline IDs and custom names, including `[ENABLED]` and `[DISABLED]` status.
+Expected: CLI shows baseline and custom IDs, including `[ENABLED]` and `[DISABLED]` status.
 
 ### 6) Disable one baseline rule
 Use this to disable one baseline rule by stable ID.
@@ -80,6 +81,20 @@ Use this to disable one baseline rule by stable ID.
 openclaw bshield rules disable baseline secret:openai-key
 ```
 Expected: CLI marks the target baseline rule as disabled.
+
+### 7) Disable one custom rule
+Use this to keep a custom rule stored but inactive.
+```bash
+openclaw bshield rules disable custom secret:my-token-rule
+```
+Expected: CLI marks the target custom rule as disabled.
+
+### 8) Tune Vine mode for smoke tests
+Use this to switch Vine behavior deterministically.
+```bash
+openclaw bshield vine set mode strict
+```
+Expected: CLI confirms strict Vine mode for external-content guard behavior.
 
 ## Documentation structure
 

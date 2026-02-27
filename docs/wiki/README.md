@@ -20,6 +20,7 @@ It is not host isolation or operating-system hardening.
 
 Known host/runtime constraints are documented in:
 - [Security Posture](decision/posture.md)
+- [Security Audit (root)](../../SECURITY_AUDIT.md)
 
 ## Start Here (By Goal)
 
@@ -104,6 +105,4 @@ Installation tracks, build gates, and doc quality gates.
 ---
 
 ## Navigation
-
 - [Back to Repository README](../../README.md)
-

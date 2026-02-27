@@ -7,6 +7,7 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { loadCustomRules } from "../storage.js";
+import { loadCustomRulesFromConfig } from "../custom-rules-config.js";
 import {
     SECRET_PATTERNS,
     PII_PATTERNS,
@@ -15,6 +16,7 @@ import {
 } from "../../patterns/index.js";
 
 type PluginLogger = OpenClawPluginApi["logger"];
+import { type ConfigWrapper } from "../../config/wrapper.js";
 
 /**
  * Validates generic types for checking
@@ -34,10 +36,12 @@ interface GenericRule {
 import { ui } from "../ui/tui.js";
 
 export async function listCommand(
-    logger: PluginLogger
+    logger: PluginLogger,
+    wrapper: ConfigWrapper
 ): Promise<void> {
-    const custom = await loadCustomRules();
-    const disabledBuiltIns = new Set((custom.disabledBuiltInIds ?? []).map((entry) => entry.toLowerCase()));
+    const deltaState = await loadCustomRules();
+    const custom = await loadCustomRulesFromConfig(wrapper);
+    const disabledBuiltIns = new Set((deltaState.disabledBuiltInIds ?? []).map((entry) => entry.toLowerCase()));
     logger.debug?.("[berry-shield] CLI: Listing security rules");
 
     const allRules: GenericRule[] = [];

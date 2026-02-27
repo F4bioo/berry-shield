@@ -24,6 +24,7 @@ export const CONFIG_PATHS = {
     PLUGIN_ROOT: `plugins.entries.${PLUGIN_ID}`,
     PLUGIN_CONFIG: `plugins.entries.${PLUGIN_ID}.config`,
     POLICY_CONFIG: `plugins.entries.${PLUGIN_ID}.config.policy`,
+    CUSTOM_RULES_CONFIG: `plugins.entries.${PLUGIN_ID}.config.customRules`,
     ENABLED: `plugins.entries.${PLUGIN_ID}.enabled`,
 };
 
@@ -67,6 +68,7 @@ export const HOOKS = {
     MESSAGE_RECEIVED: "message_received",
     MESSAGE_SENDING: "message_sending",
     BEFORE_TOOL_CALL: "before_tool_call",
+    AFTER_TOOL_CALL: "after_tool_call",
     TOOL_RESULT_PERSIST: "tool_result_persist",
     SESSION_END: "session_end",
 } as const;
@@ -85,9 +87,10 @@ export const AUDIT_HOOKS = [
 ] as const;
 
 /** Compatibility policy source of truth used by automated contract tests */
+const MIN_OPENCLAW_VERSION = "2026.2.3-1" as const;
 export const COMPAT_POLICY = {
-    MIN_OPENCLAW_VERSION: "2026.2.3-1",
-    PEER_RANGE: "^2026.2.3-1",
+    MIN_OPENCLAW_VERSION,
+    PEER_RANGE: `^${MIN_OPENCLAW_VERSION}`,
 } as const;
 
 /** Audit event decision labels used by structured logging */
@@ -103,6 +106,7 @@ export const SECURITY_LAYERS = {
     STEM: "stem",
     PULP: "pulp",
     THORN: "thorn",
+    VINE: "vine",
 } as const;
 
 /** Audit log persistence configuration */

@@ -7,9 +7,10 @@
 
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
 import {
-    addCustomRule,
     isBroadPattern
 } from "../storage.js";
+import { addCustomRuleToConfig } from "../custom-rules-config.js";
+import { type ConfigWrapper } from "../../config/wrapper.js";
 import { ui } from "../ui/tui.js";
 import { RuleWizardSession } from "../ui/wizard.js";
 
@@ -34,13 +35,13 @@ function printSuccess(
         header: (s) => s.header(`Added ${type.toUpperCase()} Rule`),
         content: (s) => {
             s.successMsg("Rule added successfully.");
-            s.row("Name/ID", name || pattern);
+            s.row("ID", `${type}:${name}`);
             s.row("Pattern", pattern);
             if (placeholder) s.row("Redaction", placeholder);
         },
         bottom: (s) => s.footer("Berry Shield updated! Changes are applied instantly."),
     });
-    logger.info(`[berry-shield] CLI: Added ${type} rule: ${name || pattern}`);
+    logger.info(`[berry-shield] CLI: Added ${type} rule: ${type}:${name}`);
 }
 
 function printError(message: string, logger: PluginLogger): void {
@@ -55,7 +56,8 @@ export async function addCommand(
     type: string | undefined,
     options: AddOptions,
     _config: OpenClawConfig,
-    logger: PluginLogger
+    logger: PluginLogger,
+    wrapper: ConfigWrapper
 ): Promise<void> {
 
     let finalType = type;
@@ -80,7 +82,15 @@ export async function addCommand(
     const { name, pattern, placeholder, force } = finalOptions;
     if (!pattern || !finalType) return;
 
-    const result = await addCustomRule(finalType, { name, pattern, placeholder, force });
+    const normalizedType = finalType === "secret" || finalType === "file" || finalType === "command"
+        ? finalType
+        : undefined;
+    if (!normalizedType) {
+        printError("Invalid type. Use: secret, file, command", logger);
+        return;
+    }
+
+    const result = await addCustomRuleToConfig(wrapper, normalizedType, { name, pattern, placeholder, force });
 
     if (!result.success || !result.rule) {
         printError(result.error || "Unknown error", logger);
@@ -88,12 +98,14 @@ export async function addCommand(
     }
 
     const rule = result.rule;
-    let displayIdentifier = rule.pattern;
+    let displayIdentifier = "";
     let displayPlaceholder: string | undefined = undefined;
 
     if ('name' in rule) {
         displayIdentifier = rule.name;
-        displayPlaceholder = rule.placeholder;
+        if ('placeholder' in rule) {
+            displayPlaceholder = rule.placeholder;
+        }
     }
 
     printSuccess(finalType, displayIdentifier, rule.pattern, displayPlaceholder, logger);

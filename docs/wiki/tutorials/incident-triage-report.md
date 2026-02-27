@@ -48,7 +48,7 @@ Expected:
 
 Use this command to quickly patch detection coverage for a validated gap.
 ```bash
-openclaw bshield add file --name newservice_creds_rule --pattern "/home/.*/.config/newservice/credentials.json"
+openclaw bshield add file --name newservice-creds --pattern "/home/.*/.config/newservice/credentials.json"
 ```
 Expected:
 - CLI confirms custom file rule persistence
@@ -60,7 +60,7 @@ Use this command to ensure the new rule is visible in active rule inventory.
 openclaw bshield rules list
 ```
 Expected:
-- Custom list includes `newservice_creds_rule`
+- Custom list includes `id: file:/home/.*/.config/newservice/credentials.json`
 
 ## Step 6: Re-check detection behavior
 
@@ -87,7 +87,6 @@ Expected:
 - If behavior differs across sessions, verify mode/profile and session context first.
 
 ## Related pages
-
 - [tutorial index](README.md)
 - [build custom rules](build-custom-rules.md)
 - [report command reference](../operation/cli/report.md)
@@ -96,6 +95,5 @@ Expected:
 ---
 
 ## Navigation
-
 - [Back to Tutorials Index](README.md)
 - [Back to Wiki Index](../README.md)

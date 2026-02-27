@@ -22,7 +22,7 @@ import { registerBerryPulp } from "../src/layers/pulp";
 function createConfig() {
     return {
         mode: "enforce" as const,
-        layers: { root: true, pulp: true, thorn: true, leaf: true, stem: true },
+        layers: { root: true, pulp: true, thorn: true, leaf: true, stem: true, vine: true },
         policy: {
             profile: "balanced" as const,
             adaptive: {
@@ -35,6 +35,23 @@ function createConfig() {
                 maxEntries: 10000,
                 ttlSeconds: 86400,
             },
+        },
+        vine: {
+            mode: "balanced" as const,
+            retention: {
+                maxEntries: 10000,
+                ttlSeconds: 86400,
+            },
+            thresholds: {
+                externalSignalsToEscalate: 1,
+                forcedGuardTurns: 3,
+            },
+            toolAllowlist: [],
+        },
+        customRules: {
+            secrets: [],
+            sensitiveFiles: [],
+            destructiveCommands: [],
         },
         sensitiveFilePaths: [],
         destructiveCommands: [],

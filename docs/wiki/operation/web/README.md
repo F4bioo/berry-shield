@@ -16,7 +16,6 @@ Web operation pages are not published yet.
 When web workflows are defined, add pages under this directory.
 
 ## Planned topics
-
 - web configuration workflow
 - web mode/profile/policy editing behavior
 - web verification flows and troubleshooting
@@ -24,6 +23,5 @@ When web workflows are defined, add pages under this directory.
 ---
 
 ## Navigation
-
 - [Back to Operation Index](../README.md)
 - [Back to Wiki Index](../../README.md)

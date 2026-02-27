@@ -11,7 +11,8 @@ export const DEFAULT_CONFIG: BerryShieldPluginConfig = {
         thorn: true,
         stem: true,
         leaf: true,
-        root: true
+        root: true,
+        vine: true,
     },
     policy: {
         profile: "balanced",
@@ -25,6 +26,23 @@ export const DEFAULT_CONFIG: BerryShieldPluginConfig = {
             maxEntries: 10000,
             ttlSeconds: 86400,
         },
+    },
+    vine: {
+        mode: "balanced",
+        retention: {
+            maxEntries: 10000,
+            ttlSeconds: 86400,
+        },
+        thresholds: {
+            externalSignalsToEscalate: 1,
+            forcedGuardTurns: 3,
+        },
+        toolAllowlist: [],
+    },
+    customRules: {
+        secrets: [],
+        sensitiveFiles: [],
+        destructiveCommands: [],
     },
     sensitiveFilePaths: [],
     destructiveCommands: []

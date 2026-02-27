@@ -106,6 +106,10 @@ Practical implication:
 - audit: emits would_block events and does not hard-block the call.
 - enforce: emits blocked events and returns block response.
 
+### Vine (external-content trust guard)
+- audit: records trust-risk outcomes as would_block without hard-block.
+- enforce: can block sensitive actions when external-risk state is active.
+
 ### Pulp (output scanner hooks)
 - audit: emits would_redact events and preserves content for observation paths.
 - enforce: emits redacted events and returns redacted content.
@@ -154,19 +158,19 @@ For operational command usage:
 - [CLI status command](../operation/cli/status.md)
 - [CLI profile command](../operation/cli/profile.md)
 - [CLI policy command](../operation/cli/policy.md)
+- [CLI vine command](../operation/cli/vine.md)
 
 ## Related pages
-
 - [decision index](README.md)
 - [patterns](patterns.md)
 - [security posture](posture.md)
 - [stem layer](../layers/stem.md)
 - [thorn layer](../layers/thorn.md)
+- [vine layer](../layers/vine.md)
 - [pulp layer](../layers/pulp.md)
 
 ---
 
 ## Navigation
-
 - [Back to Decision Index](README.md)
 - [Back to Wiki Index](../README.md)

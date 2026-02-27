@@ -1,10 +1,11 @@
 {
     "id": "berry-shield",
     "name": "Berry Shield",
-    "description": "Security plugin - blocks destructive commands, redacts secrets and PII",
+    "description": "Security plugin that helps to block destructive commands, redact secrets and PII",
     "version": "2026.2.15",
     "configSchema": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
             "mode": {
                 "type": "string",
@@ -43,6 +44,11 @@
                         "type": "boolean",
                         "default": true,
                         "description": "Enable Berry.Stem (security gate)"
+                    },
+                    "vine": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Enable Berry.Vine (external content guard)"
                     }
                 }
             },
@@ -110,22 +116,165 @@
                     }
                 }
             },
-            "sensitiveFilePaths": {
-                "type": "array",
-                "items": {
-                    "type": "string"
-                },
-                "default": [],
-                "description": "Additional file path patterns (regex)"
+            "vine": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "External-content guardrail tuning for Berry.Vine",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": [
+                            "balanced",
+                            "strict"
+                        ],
+                        "default": "balanced",
+                        "description": "balanced = conservative on unknown, strict = block sensitive actions on unknown/external risk"
+                    },
+                    "retention": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "maxEntries": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 10000,
+                                "description": "Maximum Vine session entries kept in memory"
+                            },
+                            "ttlSeconds": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 86400,
+                                "description": "Vine runtime state TTL in seconds"
+                            }
+                        }
+                    },
+                    "thresholds": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "externalSignalsToEscalate": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 1,
+                                "description": "Number of external signals required to mark session risk"
+                            },
+                            "forcedGuardTurns": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 3,
+                                "description": "Number of guarded turns after escalation"
+                            }
+                        }
+                    },
+                    "toolAllowlist": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "default": [],
+                        "description": "Tool names exempt from Vine escalation"
+                    }
+                }
             },
-            "destructiveCommands": {
-                "type": "array",
-                "items": {
-                    "type": "string"
+            "customRules": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Custom rules synchronized across CLI and Web settings",
+                "properties": {
+                    "secrets": {
+                        "type": "array",
+                        "description": "Custom secret redaction entries",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "pattern": {
+                                    "type": "string"
+                                },
+                                "placeholder": {
+                                    "type": "string"
+                                },
+                                "enabled": {
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            },
+                            "required": ["name", "pattern", "placeholder", "enabled"]
+                        },
+                        "default": []
+                    },
+                    "sensitiveFiles": {
+                        "type": "array",
+                        "description": "Additional sensitive file path regex entries",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "pattern": {
+                                    "type": "string"
+                                },
+                                "enabled": {
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            },
+                            "required": ["name", "pattern", "enabled"]
+                        },
+                        "default": []
+                    },
+                    "destructiveCommands": {
+                        "type": "array",
+                        "description": "Additional destructive command regex entries",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "pattern": {
+                                    "type": "string"
+                                },
+                                "enabled": {
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            },
+                            "required": ["name", "pattern", "enabled"]
+                        },
+                        "default": []
+                    }
                 },
-                "default": [],
-                "description": "Additional command patterns (regex)"
+                "default": {
+                    "secrets": [],
+                    "sensitiveFiles": [],
+                    "destructiveCommands": []
+                }
             }
+        }
+    },
+    "uiHints": {
+        "customRules.secrets[].name": {
+            "label": "Name",
+            "sensitive": false
+        },
+        "customRules.secrets[].pattern": {
+            "label": "Pattern",
+            "sensitive": true
+        },
+        "customRules.secrets[].placeholder": {
+            "label": "Placeholder",
+            "sensitive": false
+        },
+        "customRules.secrets[].enabled": {
+            "label": "Enabled",
+            "sensitive": false
         }
     }
 }

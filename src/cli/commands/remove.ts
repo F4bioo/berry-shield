@@ -6,8 +6,9 @@
  */
 
 import type { OpenClawPluginApi, OpenClawConfig } from "openclaw/plugin-sdk";
-import { removeCustomRule } from "../storage.js";
+import { removeCustomRuleFromConfig } from "../custom-rules-config.js";
 import { ui } from "../ui/tui.js";
+import { type ConfigWrapper } from "../../config/wrapper.js";
 
 type PluginLogger = OpenClawPluginApi["logger"];
 
@@ -17,9 +18,10 @@ type PluginLogger = OpenClawPluginApi["logger"];
 export async function removeCommand(
     name: string,
     _config: OpenClawConfig,
-    logger: PluginLogger
+    logger: PluginLogger,
+    wrapper: ConfigWrapper
 ): Promise<void> {
-    const result = await removeCustomRule(name);
+    const result = await removeCustomRuleFromConfig(wrapper, name);
 
     if (!result.removed) {
         ui.scaffold({

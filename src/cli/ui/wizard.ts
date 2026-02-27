@@ -78,11 +78,9 @@ export class RuleWizardSession {
             placeholder = preset.placeholder;
         } else {
             // Fallback to manual questions
-            if (type === 'secret') {
-                const nameInput = await this.askName();
-                if (nameInput === null) return null;
-                name = nameInput;
-            }
+            const nameInput = await this.askName(type);
+            if (nameInput === null) return null;
+            name = nameInput;
 
             const patternInput = await this.askPattern(type);
             if (patternInput === null) return null;
@@ -180,12 +178,17 @@ export class RuleWizardSession {
         return found || "custom";
     }
 
-    private async askName(): Promise<string | null> {
+    private async askName(type: RuleType): Promise<string | null> {
+        const placeholders: Record<RuleType, string> = {
+            secret: "my-secret-key",
+            file: "my-sensitive-file",
+            command: "my-dangerous-command",
+        };
         const result = await text({
-            message: theme.accent('Rule Name') + ' (e.g. "openai-key")',
-            placeholder: 'my-secret-key',
+            message: theme.accent('Rule Name') + ' (stable identifier)',
+            placeholder: placeholders[type],
             validate(value) {
-                if (!value || value.length === 0) return 'Name is required for secrets';
+                if (!value || value.length === 0) return 'Name is required';
             },
         });
 

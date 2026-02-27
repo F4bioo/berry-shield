@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "CLI reference for `openclaw bshield policy` (interactive wizard, deterministic get/set)"
 read_when:
   - You need to edit policy settings beyond profile-only changes
@@ -22,6 +22,7 @@ Manage Berry Shield policy values through an interactive wizard or deterministic
 - Debugging current policy values quickly.
 
 ## Syntax
+
 ### Launch policy wizard
 Use this to edit policy values interactively with prompts and confirmation.
 ```bash
@@ -66,13 +67,22 @@ Validation rules:
 - `retention.maxEntries`: integer `>= 1`
 - `retention.ttlSeconds`: integer `>= 1`
 
+## Tuning guide
+
+| Field | Change when | Typical direction | Tradeoff |
+| --- | --- | --- | --- |
+| `profile` | You need broader or quieter policy injection behavior | `balanced -> strict` for stronger visibility, `balanced -> minimal` for lower noise | Stronger profiles improve policy visibility but can increase prompt overhead |
+| `adaptive.allowGlobalEscalation` | Session identity is missing and escalation still must apply | `false -> true` only in controlled single-session contexts | Useful fallback for missing identity, risky in multi-session environments |
+| `adaptive.escalationTurns` | Full-policy escalation feels too short or too long after denied events | Increase for stronger persistence, decrease for faster recovery | Higher values improve guard persistence but increase context load |
+| `adaptive.heartbeatEveryTurns` | Long sessions need periodic reminder, or reminder noise is too high | Increase interval to reduce reminders, set `0` to disable | More heartbeat improves continuity, less heartbeat reduces token usage |
+| `adaptive.staleAfterMinutes` | Session is considered stale too early or too late | Increase for longer continuity, decrease for faster stale detection | Longer windows reduce resets, shorter windows refresh posture sooner |
+| `retention.maxEntries` | High session churn or memory pressure appears | Decrease on constrained hosts, increase for larger workloads | Lower values save memory, higher values keep more adaptive history |
+| `retention.ttlSeconds` | Adaptive state expires too fast or remains too long | Increase for longer correlation, decrease for faster cleanup | Longer TTL helps continuity, shorter TTL reduces stale state risk |
+
 ## Examples
 
 ### Open wizard for manual policy updates
-Use this when a human operator is tuning multiple values.
-```bash
-openclaw bshield policy
-```
+Use the wizard command shown in Syntax when tuning multiple policy values in one flow.
 Result: Interactive flow collects values and asks for save confirmation.
 
 ### Set profile through deterministic path
@@ -129,10 +139,7 @@ Expected: CLI fails with an integer validation message.
 ## Interactive wizard flow
 
 ### Wizard entry
-Use this to edit policy values interactively in one guided flow.
-```bash
-openclaw bshield policy
-```
+Use the wizard command shown in Syntax to edit policy values interactively in one guided flow.
 Expected: Wizard prompts for profile, adaptive fields, and retention fields.
 
 ### Step 1: Profile selection
@@ -178,10 +185,7 @@ If confirmed, each policy path is written to config.
 If canceled or declined, no policy values are written.
 
 ### Wizard cancellation behavior
-Use this to validate safe exit before persistence.
-```bash
-openclaw bshield policy
-```
+Use this to validate safe exit before persistence while running the interactive wizard command.
 Result: Any cancel branch exits the flow and preserves previous policy values.
 
 ## Related commands
@@ -189,10 +193,10 @@ Result: Any cancel branch exits the flow and preserves previous policy values.
 - [profile](profile.md)
 - [status](status.md)
 - [mode](mode.md)
+- [vine](vine.md)
 
 ---
 
 ## Navigation
-
 - [Back to CLI Index](README.md)
 - [Back to Wiki Index](../../README.md)

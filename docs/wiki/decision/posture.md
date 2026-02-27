@@ -64,6 +64,5 @@ For posture verification operations, see:
 ---
 
 ## Navigation
-
 - [Back to Decision Index](README.md)
 - [Back to Wiki Index](../README.md)

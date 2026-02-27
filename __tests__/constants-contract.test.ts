@@ -50,6 +50,7 @@ describe("Constants Contract", () => {
         expect(HOOKS.MESSAGE_RECEIVED).toBe("message_received");
         expect(HOOKS.MESSAGE_SENDING).toBe("message_sending");
         expect(HOOKS.BEFORE_TOOL_CALL).toBe("before_tool_call");
+        expect(HOOKS.AFTER_TOOL_CALL).toBe("after_tool_call");
         expect(HOOKS.TOOL_RESULT_PERSIST).toBe("tool_result_persist");
     });
 
@@ -84,6 +85,7 @@ describe("Constants Contract", () => {
             expect(DEFAULT_CONFIG.layers.stem).toBe(true);
             expect(DEFAULT_CONFIG.layers.leaf).toBe(true);
             expect(DEFAULT_CONFIG.layers.root).toBe(true);
+            expect(DEFAULT_CONFIG.layers.vine).toBe(true);
         });
     });
 
@@ -98,5 +100,6 @@ describe("Constants Contract", () => {
         expect(SECURITY_LAYERS.STEM).toBe("stem");
         expect(SECURITY_LAYERS.PULP).toBe("pulp");
         expect(SECURITY_LAYERS.THORN).toBe("thorn");
+        expect(SECURITY_LAYERS.VINE).toBe("vine");
     });
 });

@@ -16,9 +16,10 @@
 
 import type { AuditBlockEvent } from "../types/audit-event.js";
 import { formatAuditEvent } from "../types/audit-event.js";
-import { AUDIT_DECISIONS, SECURITY_LAYERS } from "../constants.js";
+import { AUDIT_DECISIONS, HOOKS, SECURITY_LAYERS } from "../constants.js";
 import { appendAuditEvent } from "../audit/writer.js";
 import { notifyPolicyDenied } from "../policy/runtime-state.js";
+import { getSharedVineStateManager } from "../vine/runtime-state.js";
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
@@ -200,6 +201,101 @@ This command could cause irreversible damage.
 ACTION: Do NOT execute this command. Suggest a safer alternative to the user.`;
 }
 
+function formatDeniedVine(target: string): string {
+    return `${BRAND_SYMBOL} Berry Shield
+
+STATUS: DENIED
+REASON: External untrusted content risk (Vine)
+TARGET: ${target}
+
+This action is blocked because external-content risk is active in this session.
+ACTION: Ask for explicit user confirmation or continue with non-sensitive steps only.`;
+}
+
+function stripWrappingQuotes(value: string): string {
+    const trimmed = value.trim();
+    if (
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))
+        || (trimmed.startsWith("\"") && trimmed.endsWith("\""))
+    ) {
+        return trimmed.slice(1, -1);
+    }
+    return trimmed;
+}
+
+function extractWriteLikeTarget(command: string): string | undefined {
+    const redirectMatch = command.match(/(?:^|[^\w])>>?\s*([^\s|;&]+)/);
+    if (redirectMatch?.[1]) {
+        return stripWrappingQuotes(redirectMatch[1]);
+    }
+
+    const teeMatch = command.match(/\btee\b(?:\s+-a)?\s+([^\s|;&]+)/);
+    if (teeMatch?.[1]) {
+        return stripWrappingQuotes(teeMatch[1]);
+    }
+
+    const catRedirectMatch = command.match(/\bcat\b[\s\S]*?>>?\s*([^\s|;&]+)/);
+    if (catRedirectMatch?.[1]) {
+        return stripWrappingQuotes(catRedirectMatch[1]);
+    }
+
+    return undefined;
+}
+
+function maybeApplyVineGuard(
+    api: OpenClawPluginApi,
+    config: BerryShieldPluginConfig,
+    operation: OperationType,
+    target: string,
+    sessionKey?: string
+): {
+    blocked: boolean;
+    writeLikeTarget?: string;
+} {
+    if (!config.layers.vine || !sessionKey) {
+        return { blocked: false };
+    }
+
+    const writeLikeTarget = operation === "exec"
+        ? extractWriteLikeTarget(target)
+        : (operation === "write" ? target : undefined);
+
+    if (!writeLikeTarget) {
+        return { blocked: false };
+    }
+
+    const vineState = getSharedVineStateManager(config.vine.retention);
+    const hasGuardRisk = vineState.shouldGuardSensitiveAction(sessionKey);
+    const hasUnknownSignal = vineState.hasUnknownSignal(sessionKey);
+    const shouldBlock = config.vine.mode === "strict"
+        ? (hasGuardRisk || hasUnknownSignal)
+        : hasGuardRisk;
+
+    if (!shouldBlock) {
+        return { blocked: false, writeLikeTarget };
+    }
+
+    const decision = config.mode === "audit" ? AUDIT_DECISIONS.WOULD_BLOCK : AUDIT_DECISIONS.BLOCKED;
+    const event: AuditBlockEvent = {
+        mode: config.mode,
+        decision,
+        layer: SECURITY_LAYERS.VINE,
+        reason: "external-untrusted instruction risk",
+        target: writeLikeTarget.slice(0, 120),
+        ts: new Date().toISOString(),
+    };
+    if (config.mode === "audit") {
+        api.logger.warn(`[berry-shield] Berry.Vine: ${formatAuditEvent(event)}`);
+        appendAuditEvent(event);
+        return { blocked: false, writeLikeTarget };
+    }
+
+    appendAuditEvent(event);
+    vineState.markSensitiveAttemptBlocked(sessionKey);
+    vineState.consumeForcedGuardTurn(sessionKey);
+    return { blocked: true, writeLikeTarget };
+}
+
 /**
  * Registers the Berry.Stem layer (Security Gate).
  *
@@ -215,6 +311,35 @@ export function registerBerryStem(
         api.logger.debug?.("[berry-shield] Berry.Stem layer disabled");
         return;
     }
+
+    api.on(
+        HOOKS.BEFORE_TOOL_CALL,
+        (event, ctx) => {
+            if (event.toolName !== "berry_check") {
+                return undefined;
+            }
+
+            const existing = event.params.sessionKey;
+            if (typeof existing === "string" && existing.trim().length > 0) {
+                return undefined;
+            }
+
+            const runtimeSessionKey = typeof ctx.sessionKey === "string"
+                ? ctx.sessionKey.trim()
+                : "";
+            if (!runtimeSessionKey) {
+                return undefined;
+            }
+
+            return {
+                params: {
+                    ...event.params,
+                    sessionKey: runtimeSessionKey,
+                },
+            };
+        },
+        { priority: 220 }
+    );
 
     api.registerTool({
         name: "berry_check",
@@ -317,6 +442,16 @@ export function registerBerryStem(
                         };
                     }
                 }
+
+                const vineGuard = maybeApplyVineGuard(api, config, operation, target, sessionKey);
+                if (vineGuard.blocked) {
+                    return {
+                        content: [
+                            { type: "text", text: formatDeniedVine(vineGuard.writeLikeTarget ?? target) },
+                        ],
+                        details: { status: "denied", reason: "external untrusted content risk (vine)" },
+                    };
+                }
             }
 
             // Check for sensitive files on read/write operations
@@ -349,6 +484,18 @@ export function registerBerryStem(
                                 { type: "text", text: formatDeniedSensitiveFile(target) },
                             ],
                             details: { status: "denied", reason: "sensitive file access" },
+                        };
+                    }
+                }
+
+                if (operation === "write") {
+                    const vineGuard = maybeApplyVineGuard(api, config, operation, target, sessionKey);
+                    if (vineGuard.blocked) {
+                        return {
+                            content: [
+                                { type: "text", text: formatDeniedVine(vineGuard.writeLikeTarget ?? target) },
+                            ],
+                            details: { status: "denied", reason: "external untrusted content risk (vine)" },
                         };
                     }
                 }
