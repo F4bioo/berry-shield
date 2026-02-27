@@ -64,6 +64,28 @@ Result: Executes preflight, updates version, then runs postflight validation aga
 - For release candidate verification, run release:preflight.
 - For full versioned release process, run release.
 
+## Common failure: compatibility policy test
+
+Symptom:
+- `__tests__/compat-policy.test.ts` fails after local SDK updates.
+
+Why:
+- local `node_modules/openclaw` version does not satisfy `package.json` peer range, or
+- peer range is not aligned with `COMPAT_POLICY` constants.
+
+How to fix:
+1. Check local SDK version:
+```bash
+npm ls openclaw
+```
+Expected: installed version satisfies `peerDependencies.openclaw`.
+
+2. Reinstall dependencies if local graph is stale:
+```bash
+npm install
+```
+Expected: dependency graph is refreshed and tests can validate policy contract.
+
 ## Related pages
 - [deploy index](README.md)
 - [installation](installation.md)

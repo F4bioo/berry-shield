@@ -21,13 +21,117 @@ The goal of `Berry Shield` is to reduce that risk in day-to-day usage by adding 
 
 ---
 
-## 🎯 What Berry Shield does
+## ✓ What it is / ✗ What it is not
 
+### ✓ What it is
+
+- `Berry Shield` is an `OpenClaw` plugin that adds layered guardrails, audit, and redaction for agent workflows.
 - Enforces a pre-flight security gate with `berry_check` before risky operations.
 - Intercepts tool calls and blocks destructive or sensitive access patterns.
 - Scans and redacts sensitive output before persistence and outbound delivery.
 - Supports `enforce` and `audit` modes for rollout and validation.
 - Provides CLI management for status, mode, policy, layers, rules, and report.
+
+### ✗ What it is not
+
+- Not a sandbox, VM, container isolation, or kernel boundary.
+- Not a replacement for host hardening, least privilege, or secrets management.
+- Not a guarantee against fully compromised hosts or malicious dependencies.
+
+---
+
+## 🧭 When to use / When not to use
+
+### Use Berry Shield when
+
+- Your agent has command/file capabilities and you need to reduce accidental leakage.
+- You operate on chat surfaces where unsafe output can be exposed quickly.
+- You need auditability for security decisions (`allowed`, `blocked`, `redacted`, `would_*`).
+
+### Do not use Berry Shield as
+
+- The only security boundary in untrusted multi-tenant environments.
+- A compliance silver bullet without operational governance.
+
+---
+
+## ⚡ 90-second demo
+
+Baseline runtime state before the demo (plugin enabled, `enforce` mode, all core layers active):
+
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/berry-shield-status.jpeg" alt="Berry Shield Status" width="720" />
+
+---
+
+### 1) Enforce: external-risk action is blocked (Vine)
+
+```bash
+# in chat/runtime: ingest external content with web_fetch, then preflight an exec write
+bash -lc 'printf DEMO_VINE > /tmp/demo-vine-proof.txt'
+```
+
+Expected: denied in `enforce` after external untrusted ingestion.
+
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/Berry.Vine-ENFORCE.gif" alt="Berry.Vine Enforce" />
+
+---
+
+### 2) Audit: same flow is allowed but logged as would_block
+
+```bash
+# same write-like operation under audit mode
+bash -lc 'printf VINE_AUDIT > /tmp/vine-audit-proof.txt'
+```
+
+Expected: allowed execution plus `would_block` evidence in report/audit logs.
+
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/Berry.Vine-AUDIT.gif" alt="Berry.Vine Audit" />
+
+---
+
+### 3) Sensitive file read is blocked (Stem)
+
+Expected: denied read when attempting to access protected files.
+
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/berry-shield-Berry.Stem-layer.jpeg" alt="Berry.Stem Block" width="520" />
+
+Runtime evidence:
+
+```text
+2026-02-27T15:53:59.195Z [gateway] [berry-shield] Berry.Stem: DENIED read - sensitive file: /home/zyn/.openclaw/openclaw.json
+```
+
+---
+
+### 4) Redaction: sensitive output is sanitized (Pulp)
+
+```bash
+openclaw config get channels.telegram
+```
+
+Expected: sensitive fields are masked in tool output, e.g. `botToken` becomes `[BOTTOKEN_REDACTED]`.
+
+Why this matters: even read-only tools can still return sensitive values during normal operations.
+Operator intent ("do not expose secrets") is useful, but not sufficient by itself; protection must happen in the output path.
+
+Implementation basis:
+- Berry.Pulp scans tool outputs at `tool_result_persist` and redacts matched secrets/PII before transcript persistence.
+- Berry.Pulp also scans `message_sending` to redact sensitive data in outgoing assistant messages when supported by runtime hooks.
+- In `audit`, events are logged as `would_redact`; in `enforce`, values are actively redacted.
+
+Evidence (real redacted output):
+
+```json
+{
+  "enabled": true,
+  "dmPolicy": "pairing",
+  "botToken": "[BOTTOKEN_REDACTED]",
+  "groupPolicy": "allowlist",
+  "streaming": "partial"
+}
+```
+
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/berry-shield-Berry.Pulp-layer.jpeg" alt="Berry.Pulp Redaction" width="520" />
 
 ---
 
@@ -73,27 +177,7 @@ See more:
 
 Berry Shield is designed with multiple layers. The idea is that if an interaction isn't caught by one layer, it might be caught by another.
 
-```mermaid
-flowchart LR
-    U[User message] --> R[Berry.Root policy context]
-    U --> L[Berry.Leaf input audit]
-
-    R --> A[Agent reasoning]
-    A --> S[Berry.Stem berry_check]
-
-    S -->|DENIED| A
-    S -->|ALLOWED| H[Berry.Thorn before_tool_call]
-    H -->|ALLOWED| V[Berry.Vine trust guard]
-
-    H -->|BLOCKED| A
-    V -->|BLOCKED| A
-    V -->|ALLOWED| T[Tool execution]
-
-    T --> P[Berry.Pulp output scan]
-    T --> V
-    P --> A
-    A --> O[User response]
-```
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/mental-model-single-flow.jpeg" alt="Mental Model Single Flow" />
 
 ## 🧬 Layers in plain language
 
@@ -138,8 +222,8 @@ See more:
 
 Berry Shield's effectiveness is tied to the underlying OpenClaw SDK capabilities. We maintain a detailed diary that tracks known bugs and blind spots across OpenClaw versions.
 
-### Key Points for v2026.2.14:
-*   **Hook Reliability**: In our v2026.2.14 checkpoint, `before_tool_call` and `message_sending` were observed as functional, but hook behavior remains runtime/version-dependent.
+### Key Points for v2026.2.26:
+*   **Hook Reliability**: In our v2026.2.26 checkpoint, `before_tool_call` and `message_sending` were observed as functional, but hook behavior remains runtime/version-dependent.
 *   **Soft Guardrails**: Prompt-based defenses (`Berry.Root`) are advisory and can be bypassed by clever user instructions.
 *   **Timing Gaps**: Redaction happens during persistence, which might create a transient data exposure.
 

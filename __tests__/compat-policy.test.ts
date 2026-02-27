@@ -65,17 +65,9 @@ describe("Compatibility Policy Contract", () => {
         expect(satisfiesCaretRange(sdkPkg.version, peerRange as string)).toBe(true);
     });
 
-    it("keeps floor version declared in the versioning plan", () => {
-        const planPath = path.join(
-            process.cwd(),
-            ".backstage",
-            "plans",
-            "plan-versionamento-compat-openclaw-2026-02-15.md",
-        );
-        expect(fs.existsSync(planPath)).toBe(true);
-
-        const planContent = fs.readFileSync(planPath, "utf-8");
-        expect(planContent).toContain(COMPAT_POLICY.MIN_OPENCLAW_VERSION);
+    it("keeps floor version encoded in compat policy constants", () => {
+        expect(COMPAT_POLICY.MIN_OPENCLAW_VERSION).toBeTruthy();
+        expect(COMPAT_POLICY.PEER_RANGE).toBe(`^${COMPAT_POLICY.MIN_OPENCLAW_VERSION}`);
     });
 });
 
