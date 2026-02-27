@@ -16,7 +16,7 @@
 
 import type { AuditBlockEvent } from "../types/audit-event.js";
 import { formatAuditEvent } from "../types/audit-event.js";
-import { AUDIT_DECISIONS, SECURITY_LAYERS } from "../constants.js";
+import { AUDIT_DECISIONS, HOOKS, SECURITY_LAYERS } from "../constants.js";
 import { appendAuditEvent } from "../audit/writer.js";
 import { notifyPolicyDenied } from "../policy/runtime-state.js";
 import { getSharedVineStateManager } from "../vine/runtime-state.js";
@@ -311,6 +311,35 @@ export function registerBerryStem(
         api.logger.debug?.("[berry-shield] Berry.Stem layer disabled");
         return;
     }
+
+    api.on(
+        HOOKS.BEFORE_TOOL_CALL,
+        (event, ctx) => {
+            if (event.toolName !== "berry_check") {
+                return undefined;
+            }
+
+            const existing = event.params.sessionKey;
+            if (typeof existing === "string" && existing.trim().length > 0) {
+                return undefined;
+            }
+
+            const runtimeSessionKey = typeof ctx.sessionKey === "string"
+                ? ctx.sessionKey.trim()
+                : "";
+            if (!runtimeSessionKey) {
+                return undefined;
+            }
+
+            return {
+                params: {
+                    ...event.params,
+                    sessionKey: runtimeSessionKey,
+                },
+            };
+        },
+        { priority: 220 }
+    );
 
     api.registerTool({
         name: "berry_check",
