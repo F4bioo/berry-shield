@@ -52,12 +52,11 @@ It enforces a **`YYYY.M.D`** format based on the current date:
 
 ### How to use
 This script is automatically triggered by the release command.
-Release now has mandatory gates both before and after version bump:
+Release has mandatory preflight gates before version bump:
 *   **Preflight**: `build`, `typecheck`, tests, and doc sanity.
-*   **Postflight**: same validations re-run after bump to ensure final artifact integrity.
 
 ```bash
-# Recommended: Full release cycle (Preflight -> Update -> Postflight)
+# Recommended: Full release cycle (Preflight -> Update)
 npm run release
 
 ```
@@ -70,12 +69,14 @@ npm run version:update
 
 ---
 
-## Wiki Automation
+## `doc-sanity.ts`
 
-This directory contains the wiki validation tooling used to maintain technical documentation quality (Diataxis + Zero-Hype constraints).
+This script validates the wiki content contracts used by Berry Shield documentation.
 
-### Tools
-1.  **`doc-sanity.ts`**: Validates wiki integrity (links, structure, metadata, tone constraints).
+### What it does
+1.  **Validates links**: Detects broken internal references.
+2.  **Validates structure**: Enforces required metadata and section contracts.
+3.  **Validates tone**: Applies technical writing constraints (Diataxis + Zero-Hype).
 
 ### How to use
 ```bash
@@ -84,13 +85,26 @@ npm run wiki:claim
 ```
 
 ### Recommended workflow
-- Day-to-day editing:
-  - run `npm run wiki:claim` before commit
-- Pre-PR / CI parity:
-  - run `npm run wiki:claim` and ensure no blocking failures.
+- Day-to-day editing: run `npm run wiki:claim` before commit.
+- Pre-PR / CI parity: run `npm run wiki:claim` and ensure no blocking failures.
 
 > See also:
 > * [Wiki Content Reference](../docs/wiki/README.md)
+
+---
+
+## `version-utils.ts`
+
+This module provides shared version parsing and formatting helpers used by `update-version.ts`.
+
+### What it does
+1.  **Parses versions**: Interprets CalVer strings and optional build suffixes.
+2.  **Formats versions**: Generates normalized version outputs.
+3.  **Supports update logic**: Keeps version calculations deterministic and reusable.
+
+### How to use
+This file is a support module and is not intended to be executed directly.
+It is imported by `scripts/update-version.ts`.
 
 ---
 

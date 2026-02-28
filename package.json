@@ -38,10 +38,9 @@
     "typecheck": "tsc --noEmit",
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --external:openclaw/plugin-sdk --target=node20",
     "build:types": "tsc -p tsconfig.build.json",
-    "//release": "Preflight gates run before bump; postflight re-validates after bump",
+    "//release": "Preflight gates run before version bump",
     "release:preflight": "npm run build && npm run typecheck && npx vitest run __tests__ && npm run wiki:claim",
-    "release:postflight": "npm run build && npm run typecheck && npx vitest run __tests__ && npm run wiki:claim",
-    "release": "npm run release:preflight && npm run version:update && npm run release:postflight",
+    "release": "npm run release:preflight && npm run version:update",
     "version:update": "npx ts-node --esm scripts/update-version.ts",
     "update-patterns": "npx ts-node --esm scripts/update-patterns.ts",
     "wiki:claim": "npx ts-node --esm scripts/doc-sanity.ts"

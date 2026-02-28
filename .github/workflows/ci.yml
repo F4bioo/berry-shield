@@ -1,33 +1,29 @@
 name: CI
 
 on:
-  workflow_run:
-    workflows: ["PR Quality"]
-    types: [completed]
+  pull_request:
+    branches:
+      - develop
+      - master
   push:
     branches:
       - develop
       - master
 
 concurrency:
-  group: ${{ github.event_name == 'workflow_run' && format('ci-{0}-wr-{1}', github.workflow, github.event.workflow_run.id) || format('ci-{0}-{1}', github.workflow, github.ref) }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   check:
     name: check
-    if: |
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success')
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -69,10 +65,19 @@ jobs:
         run: npm run typecheck
 
       - name: Tests
-        run: npx vitest run __tests__
+        run: npm run test
 
       - name: Build
         run: npm run build
+
+      - name: Verify build artifact
+        shell: bash
+        run: |
+          if [ ! -f dist/index.js ]; then
+            echo "dist/index.js not found after build"
+            exit 1
+          fi
+          echo "Build artifact OK: dist/index.js exists"
 
       - name: Package dry-run
         run: npm pack --dry-run

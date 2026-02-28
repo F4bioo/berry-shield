@@ -1,16 +1,16 @@
 ﻿---
-summary: "Build and release pipeline reference aligned to package scripts and quality gates"
+summary: "Local build and validation reference for Berry Shield development workflow"
 read_when:
-  - You are preparing a deployable artifact
-  - You need to run pre-release quality gates
-  - You are validating script-driven release flow
+  - You are preparing a local development artifact
+  - You need to run local quality gates before opening a PR
+  - You are validating package scripts on your workstation
 title: "build"
 ---
 
-# `Build pipeline`
+# `Build (Local Dev)`
 
-Berry build and release flow is script-driven from package.json.
-This page reflects current executable gates exactly as implemented.
+Berry local build flow is script-driven from package.json.
+This page documents workstation commands only (not GitHub release workflows).
 
 ## Core build commands
 
@@ -35,7 +35,7 @@ npm run test
 ```
 Result: Vitest suite executes and reports pass/fail status.
 
-## Release gates
+## Local pre-release gates
 
 ### Preflight gate
 
@@ -44,14 +44,7 @@ npm run release:preflight
 ```
 Result: Runs build, typecheck, `vitest` on `__tests__`, and wiki sanity gate.
 
-### Full release flow
-
-```bash
-npm run release
-```
-Result: Executes preflight, updates version, then runs postflight validation again.
-
-## What release currently validates
+## What local preflight validates
 
 - Build success.
 - Type safety.
@@ -62,7 +55,7 @@ Result: Executes preflight, updates version, then runs postflight validation aga
 
 - For normal development deploy checks, run build + typecheck + test.
 - For release candidate verification, run release:preflight.
-- For full versioned release process, run release.
+- For GitHub release workflows (`prepare-release` / `publish`), see `github-ci-cd.md`.
 
 ## Common failure: compatibility policy test
 
@@ -90,6 +83,7 @@ Expected: dependency graph is refreshed and tests can validate policy contract.
 - [deploy index](README.md)
 - [installation](installation.md)
 - [auditing](auditing.md)
+- [GitHub CI/CD release flow](github-ci-cd.md)
 
 ---
 

@@ -1,16 +1,17 @@
 ﻿---
-summary: "Deployment index for installation tracks, build pipeline, and validation gates"
+summary: "Deployment index for installation tracks, local build flow, and GitHub CI/CD release flow"
 read_when:
   - You need to install Berry Shield in a real environment
   - You need to choose between source-truth and release-truth deployment
   - You need pre-release validation and audit gates
+  - You need the official GitHub release workflow (prepare-release/publish)
 title: "Deploy Reference"
 ---
 
 # `Deploy reference`
 
 This domain explains how to deploy Berry Shield safely and repeatably.
-It covers installation tracks, build/release gates, and validation workflow.
+It covers installation tracks, local build gates, GitHub release workflow, and validation flow.
 
 ## Deployment tracks
 
@@ -24,16 +25,18 @@ Choose source-truth when you need repository-level auditability; choose release-
 ## Pages
 
 - [installation](installation.md): installation paths and post-install verification
-- [build](build.md): build, typecheck, test, and release gates
+- [build](build.md): local development build and preflight gates
+- [github-ci-cd](github-ci-cd.md): official GitHub Actions release workflow (`normal` and `reconcile`)
 - [auditing](auditing.md): wiki sanity and documentation quality gates
 
-## Recommended deployment sequence
+## Recommended sequence (local -> CI/CD)
 
 1. Choose installation track (source-truth or release-truth).
-2. Build and install the plugin artifact.
-3. Restart gateway runtime and initialize plugin config.
-4. Run tests and wiki sanity gates.
-5. Verify runtime mode/status/report.
+2. Validate local quality gates using [build](build.md).
+3. Create release branch and PR via [github-ci-cd](github-ci-cd.md) (`prepare-release`).
+4. Merge release PR into `master`.
+5. Run publish workflow in [github-ci-cd](github-ci-cd.md) (`normal` or `reconcile`).
+6. Verify runtime mode/status/report.
 
 ## Related pages
 - [wiki index](../README.md)
