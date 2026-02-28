@@ -23,70 +23,125 @@ jobs:
             const pr = context.payload.pull_request;
             const title = (pr?.title || "").trim();
             const body = (pr?.body || "").trim();
-
-            const titleRegex = /^(feat|fix|docs|refactor|test|chore|ci|build|perf|revert)(\([a-z0-9._\-\/]+\))?:\s.{10,}$/i;
-            const requiredSections = [
-              "## Problem",
-              "## Scope",
-              "## Validation",
-              "## Risk & Rollback",
-            ];
+            const minBodyChars = 20;
+            const minTitleDescChars = 20;
+            const allowedTypes = ["feat", "fix", "docs", "refactor", "test", "chore", "ci", "build", "perf", "revert"];
 
             const errors = [];
+            let titleInvalid = false;
+            let bodyInvalid = false;
 
-            if (!titleRegex.test(title)) {
-              errors.push("Title must match: `type(scope): description` with at least 10 chars in description.");
-            }
+            if (title.length === 0) {
+              errors.push("Title is empty.");
+              errors.push("Use: `type(scope): description`.");
+              errors.push("Example: `fix(cli): handle missing command argument in help output`.");
+              titleInvalid = true;
+            } else {
+              const colonIndex = title.indexOf(":");
+              if (colonIndex === -1) {
+                errors.push("Title is missing `:` separator.");
+                errors.push("Valid: `docs(cli): clarify init command behavior and expected output`.");
+                errors.push("Invalid: `docs(cli) clarify init command behavior and expected output`.");
+                titleInvalid = true;
+              } else {
+                const header = title.slice(0, colonIndex).trim();
+                const description = title.slice(colonIndex + 1).trim();
+                const headerMatch = header.match(/^([a-z]+)(?:\(([a-z0-9._\-\/]+)\))?$/i);
 
-            for (const section of requiredSections) {
-              if (!body.includes(section)) {
-                errors.push(`Missing section in PR body: \`${section}\``);
+                if (!headerMatch) {
+                  errors.push("Title header must match `type` or `type(scope)` before `:`.");
+                  errors.push("Valid: `refactor(layer): split validation logic into smaller pure functions`.");
+                  errors.push("Invalid: `refactor layer: split validation logic into smaller pure functions`.");
+                  titleInvalid = true;
+                } else {
+                  const type = headerMatch[1].toLowerCase();
+                  if (!allowedTypes.includes(type)) {
+                    errors.push(`Invalid title type: \`${type}\`. Allowed: ${allowedTypes.join(", ")}.`);
+                    titleInvalid = true;
+                  }
+                }
+
+                if (description.length < minTitleDescChars) {
+                  errors.push(`Title description too short: got ${description.length}, expected at least ${minTitleDescChars} characters.`);
+                  errors.push("Too short: `feat(layer): add guard`.");
+                  errors.push("Good: `feat(layer): add deterministic guard for external content transitions`.");
+                  titleInvalid = true;
+                }
               }
             }
 
+            if (body.length < minBodyChars) {
+              errors.push(`PR body must have at least ${minBodyChars} characters.`);
+              errors.push("Tip: include one short summary line and one validation line.");
+              errors.push("Example: `Summary: adjust CI trigger. Validation: edited PR description and confirmed checks reran.`");
+              bodyInvalid = true;
+            }
+
             const marker = "<!-- berry-pr-quality -->";
+            const fixHint = titleInvalid && bodyInvalid
+              ? "Please update PR title and body, then save PR edits (or push new commits)."
+              : titleInvalid
+                ? "Please update PR title, then save PR edits (or push new commits)."
+                : "Please update PR body, then save PR edits (or push new commits).";
+
             const message = `${marker}
             ## PR quality check failed
             ${errors.map((e) => `- ${e}`).join("\n")}
 
-            Please update title/body and push again.`;
+            ${fixHint}`;
 
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: pr.number,
-              per_page: 100,
-            });
-
-            const previous = comments.find(c =>
-              c.user?.type === "Bot" && typeof c.body === "string" && c.body.includes(marker)
-            );
+            let previous = null;
+            try {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                per_page: 100,
+              });
+              previous = comments.find(c =>
+                c.user?.type === "Bot" && typeof c.body === "string" && c.body.includes(marker)
+              ) || null;
+            } catch (err) {
+              core.warning(`Unable to read PR comments: ${err?.message || String(err)}`);
+            }
 
             if (errors.length > 0) {
               if (previous) {
-                await github.rest.issues.updateComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  comment_id: previous.id,
-                  body: message,
-                });
+                try {
+                  await github.rest.issues.updateComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: previous.id,
+                    body: message,
+                  });
+                } catch (err) {
+                  core.warning(`Unable to update PR comment: ${err?.message || String(err)}`);
+                }
               } else {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: pr.number,
-                  body: message,
-                });
+                try {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: pr.number,
+                    body: message,
+                  });
+                } catch (err) {
+                  core.warning(`Unable to create PR comment: ${err?.message || String(err)}`);
+                }
               }
               core.setFailed("PR quality checks failed.");
               return;
             }
 
             if (previous) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: previous.id,
-                body: `${marker}\n✅ PR quality check passed.`,
-              });
+              try {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: previous.id,
+                  body: `${marker}\nPR quality check passed.`,
+                });
+              } catch (err) {
+                core.warning(`Unable to update PR success comment: ${err?.message || String(err)}`);
+              }
             }

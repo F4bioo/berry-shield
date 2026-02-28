@@ -1,28 +1,33 @@
 name: CI
 
 on:
-  pull_request:
-    branches:
-      - develop
-      - master
+  workflow_run:
+    workflows: ["PR Quality"]
+    types: [completed]
   push:
     branches:
       - develop
       - master
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.event_name == 'workflow_run' && format('ci-{0}-wr-{1}', github.workflow, github.event.workflow_run.id) || format('ci-{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: true
 
 jobs:
   check:
     name: check
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -35,7 +40,27 @@ jobs:
 
       - name: Version sync check (constants VERSION == package.json version)
         run: |
-          node -e "const fs=require('fs'); const c=fs.readFileSync('src/constants.ts','utf8'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); const m=c.match(/export const VERSION\\s*=\\s*\"([^\"]+)\"/); if(!m){console.error('VERSION constant not found in src/constants.ts'); process.exit(1);} const cv=m[1]; const pv=p.version; if(cv!==pv){console.error(`Version mismatch: constants=${cv} package.json=${pv}`); process.exit(1);} console.log(`Version sync OK: ${cv}`);"
+          node <<'NODE'
+          const fs = require("fs");
+          const constants = fs.readFileSync("src/constants.ts", "utf8");
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const match = constants.match(/export const VERSION\s*=\s*"([^"]+)"/);
+
+          if (!match) {
+            console.error("VERSION constant not found in src/constants.ts");
+            process.exit(1);
+          }
+
+          const constantsVersion = match[1];
+          const packageVersion = pkg.version;
+
+          if (constantsVersion !== packageVersion) {
+            console.error(`Version mismatch: constants=${constantsVersion} package.json=${packageVersion}`);
+            process.exit(1);
+          }
+
+          console.log(`Version sync OK: ${constantsVersion}`);
+          NODE
 
       - name: Wiki sanity
         run: npm run wiki:claim
@@ -51,4 +76,3 @@ jobs:
 
       - name: Package dry-run
         run: npm pack --dry-run
-
