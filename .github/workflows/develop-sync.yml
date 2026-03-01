@@ -1,0 +1,115 @@
+﻿name: develop-sync
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: sync
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'master' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'release/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Setup Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Compute sync metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_BRANCH="${{ github.event.pull_request.head.ref }}"
+          SOURCE_SHA="${{ github.event.pull_request.merge_commit_sha }}"
+          if [ -z "$SOURCE_SHA" ]; then
+            SOURCE_SHA="${{ github.sha }}"
+          fi
+          VERSION="${SOURCE_BRANCH#release/v}"
+          SYNC_BRANCH="sync/master-to-develop-v${VERSION}"
+          echo "source_branch=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sync_branch=$SYNC_BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Check if sync is needed
+        id: needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin master develop
+          if git merge-base --is-ancestor origin/master origin/develop; then
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Guard duplicate sync PR
+        if: ${{ steps.needed.outputs.needed == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh pr list --base develop --head "${{ steps.meta.outputs.sync_branch }}" --state open --json number --jq length)
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "Sync PR already exists for ${{ steps.meta.outputs.sync_branch }}. Aborting."
+            exit 1
+          fi
+
+      - name: Create sync branch and push
+        if: ${{ steps.needed.outputs.needed == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="${{ steps.meta.outputs.sync_branch }}"
+          git checkout -b "$BRANCH" origin/master
+          git commit --allow-empty -m "chore(sync): align develop after release v${{ steps.meta.outputs.version }}"
+          git push -u origin "$BRANCH"
+
+      - name: Render sync PR body
+        if: ${{ steps.needed.outputs.needed == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SYNC_VERSION="${{ steps.meta.outputs.version }}"
+          export SYNC_SOURCE_BRANCH="${{ steps.meta.outputs.source_branch }}"
+          export SYNC_SOURCE_SHA="${{ steps.meta.outputs.source_sha }}"
+          envsubst < .github/templates/pr-body-sync.md > /tmp/sync-pr-body.md
+
+      - name: Open sync PR
+        if: ${{ steps.needed.outputs.needed == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr create \
+            --base develop \
+            --head "${{ steps.meta.outputs.sync_branch }}" \
+            --title "chore(sync): align develop after release v${{ steps.meta.outputs.version }}" \
+            --body-file /tmp/sync-pr-body.md
+
+      - name: No-op (already synced)
+        if: ${{ steps.needed.outputs.needed != 'true' }}
+        run: |
+          echo "No sync needed: develop already contains master."
+

@@ -1,4 +1,4 @@
----
+﻿---
 summary: "GitHub Actions release workflow reference for prepare-release and publish (normal/reconcile)"
 read_when:
   - You are preparing an official Berry Shield release
@@ -123,6 +123,26 @@ Expected: returns target version if npm was already published.
 - Error: `Invalid state for mode=normal...`
 - Action: rerun with `mode=reconcile`.
 
+## Workflow 3: develop-sync (Automatic, Conditional)
+
+### Trigger
+
+- Runs on `pull_request.closed` when base is `master`.
+- Continues only when:
+  - PR was merged,
+  - head branch matches `release/v...`.
+
+### What it does
+
+1. Detects whether `develop` is already aligned.
+2. If alignment is needed, creates `sync/master-to-develop-v{version}` from `master`.
+3. Opens PR `sync/master-to-develop-v{version} -> develop`.
+4. Uses versioned template body from `.github/templates/pr-body-sync.md` with:
+   - `SYNC_VERSION`
+   - `SYNC_SOURCE_BRANCH`
+   - `SYNC_SOURCE_SHA`
+5. No-op when `develop` already contains `master`.
+
 ## Release Assets Contract
 
 Every successful publish must end with GitHub Release assets:
@@ -137,6 +157,7 @@ This keeps artifact parity between npm and GitHub Release.
 2. Release branch `release/v{version}` exists and PR `release/v{version} -> master` exists.
 3. Release PR checks are green and merged into `master`.
 4. `publish` completed successfully in `normal` or `reconcile` mode.
+5. Sync PR `master -> develop` is auto-created only when branch alignment is required.
 
 ## Related pages
 - [deploy index](README.md)

@@ -112,26 +112,29 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      - name: Commit version bump to develop
+      - name: Create release branch from bumped workspace
         shell: bash
         run: |
           set -euo pipefail
-          git checkout develop
+          BRANCH="release/v${{ steps.version.outputs.version }}"
+          git checkout -b "$BRANCH"
+
+      - name: Commit version bump to release branch
+        shell: bash
+        run: |
+          set -euo pipefail
           git add package.json package-lock.json src/constants.ts openclaw.plugin.json
           if git diff --cached --quiet; then
             echo "No changes after version bump. Aborting."
             exit 1
           fi
           git commit -m "chore(release): bump version to ${{ steps.version.outputs.version }}"
-          git push origin develop
 
-      - name: Create release branch and push
+      - name: Push release branch
         shell: bash
         run: |
           set -euo pipefail
           BRANCH="release/v${{ steps.version.outputs.version }}"
-          git checkout develop
-          git checkout -b "$BRANCH"
           git push -u origin "$BRANCH"
 
       - name: Guard against existing PR
