@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOOKS, REQUIRED_SECURITY_HOOKS, AUDIT_HOOKS, COMPAT_POLICY, AUDIT_DECISIONS, SECURITY_LAYERS } from "../src/constants";
 import { DEFAULT_CONFIG } from "../src/config/defaults";
+import { readFileSync } from "node:fs";
 
 /**
- * Expected version for contract testing.
- * This is updated automatically by scripts/update-version.ts during releases.
+ * The contract version must always match package.json.
  */
-const EXPECTED_VERSION = "2026.2.15";
+const EXPECTED_VERSION = JSON.parse(readFileSync("package.json", "utf8")).version;
 
 /**
  * Contract Test for Constants

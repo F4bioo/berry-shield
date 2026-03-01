@@ -257,22 +257,22 @@ jobs:
             exit 1
           fi
 
-      - name: Validate CI strings source
+      - name: Validate common contract source
         if: ${{ steps.decide.outputs.needs_pack == 'true' || steps.decide.outputs.create_draft == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
-          STRINGS=".github/ci-strings.json"
+          CONTRACT=".github/common-contract.json"
           if ! command -v jq >/dev/null 2>&1; then
             echo "jq not found on runner. Aborting."
             exit 1
           fi
-          if [ ! -f "$STRINGS" ]; then
-            echo "$STRINGS not found. Aborting."
+          if [ ! -f "$CONTRACT" ]; then
+            echo "$CONTRACT not found. Aborting."
             exit 1
           fi
-          if ! jq -e '.first_release_notes and (.first_release_notes | type == "string")' "$STRINGS" >/dev/null; then
-            echo "Invalid or missing first_release_notes in $STRINGS. Aborting."
+          if ! jq -e '.firstReleaseNotes and (.firstReleaseNotes | type == "string")' "$CONTRACT" >/dev/null; then
+            echo "Invalid or missing firstReleaseNotes in $CONTRACT. Aborting."
             exit 1
           fi
 
@@ -308,9 +308,9 @@ jobs:
         run: |
           set -euo pipefail
           TAGS=($(git tag --sort=-version:refname))
-          STRINGS=".github/ci-strings.json"
+          CONTRACT=".github/common-contract.json"
           if [ ${#TAGS[@]} -le 1 ]; then
-            NOTES=$(jq -r '.first_release_notes' "$STRINGS")
+            NOTES=$(jq -r '.firstReleaseNotes' "$CONTRACT")
           else
             PREV_TAG="${TAGS[1]}"
             NOTES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --no-merges | head -50)

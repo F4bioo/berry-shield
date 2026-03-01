@@ -11,7 +11,7 @@ Before submitting a Pull Request, ensure:
 1. **Language:** Code, comments, and documentation must be in **English**.
 2. **Technical Gates:** Your changes must pass all local checks:
    - `npm run typecheck`
-   - `npx vitest run __tests__`
+   - `npm run test`
    - `npm run build`
 3. **Wiki:** If you added or changed features, update the relevant files in `docs/wiki/`.
 

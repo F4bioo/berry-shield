@@ -1,6 +1,6 @@
 {
   "name": "@f4bioo/berry-shield",
-  "version": "2026.2.15",
+  "version": "2026.2.28",
   "description": "OpenClaw plugin for policy checks, command/file blocking, and sensitive-data redaction.",
   "keywords": [
     "openclaw",
@@ -39,7 +39,7 @@
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --external:openclaw/plugin-sdk --target=node20",
     "build:types": "tsc -p tsconfig.build.json",
     "//release": "Preflight gates run before version bump",
-    "release:preflight": "npm run build && npm run typecheck && npx vitest run __tests__ && npm run wiki:claim",
+    "release:preflight": "npm run build && npm run typecheck && npm test && npm run wiki:claim",
     "release": "npm run release:preflight && npm run version:update",
     "version:update": "npx ts-node --esm scripts/update-version.ts",
     "update-patterns": "npx ts-node --esm scripts/update-patterns.ts",

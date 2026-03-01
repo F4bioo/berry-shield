@@ -15,6 +15,9 @@ jobs:
   validate-pr:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Validate PR title and description
         uses: actions/github-script@v7
         with:
@@ -23,49 +26,79 @@ jobs:
             const pr = context.payload.pull_request;
             const title = (pr?.title || "").trim();
             const body = (pr?.body || "").trim();
+            const baseRef = (pr?.base?.ref || "").trim();
+            const headRef = (pr?.head?.ref || "").trim();
             const minBodyChars = 20;
             const minTitleDescChars = 20;
             const allowedTypes = ["feat", "fix", "docs", "refactor", "test", "chore", "ci", "build", "perf", "revert"];
+            const fs = require("node:fs");
+            const contractPath = ".github/common-contract.json";
+            let releaseTitlePattern;
+            let releaseHeadPattern;
+
+            try {
+              const contract = JSON.parse(fs.readFileSync(contractPath, "utf8"));
+              releaseTitlePattern = new RegExp(contract.releaseTitlePattern);
+              releaseHeadPattern = new RegExp(contract.releaseHeadPattern);
+            } catch (err) {
+              core.setFailed(`Unable to load ${contractPath}: ${err?.message || String(err)}`);
+              return;
+            }
 
             const errors = [];
             let titleInvalid = false;
             let bodyInvalid = false;
 
-            if (title.length === 0) {
-              errors.push("Title is empty.");
-              errors.push("Use: `type(scope): description`.");
-              errors.push("Example: `fix(cli): handle missing command argument in help output`.");
-              titleInvalid = true;
+            if (baseRef === "master") {
+              if (!releaseHeadPattern.test(headRef)) {
+                errors.push("PRs targeting `master` must come from a release branch named `release/vYYYY.M.D` (optional `-N`).");
+                errors.push("Example head branch: `release/v2026.2.28`.");
+                titleInvalid = true;
+              }
+
+              if (!releaseTitlePattern.test(title)) {
+                errors.push("PRs targeting `master` must use release title format: `chore(release): vYYYY.M.D` (optional `-N`).");
+                errors.push("Valid: `chore(release): v2026.2.28`.");
+                errors.push("Invalid: `chore(release): publish berry-shield version 2026.2.28`.");
+                titleInvalid = true;
+              }
             } else {
-              const colonIndex = title.indexOf(":");
-              if (colonIndex === -1) {
-                errors.push("Title is missing `:` separator.");
-                errors.push("Valid: `docs(cli): clarify init command behavior and expected output`.");
-                errors.push("Invalid: `docs(cli) clarify init command behavior and expected output`.");
+              if (title.length === 0) {
+                errors.push("Title is empty.");
+                errors.push("Use: `type(scope): description`.");
+                errors.push("Example: `fix(cli): handle missing command argument in help output`.");
                 titleInvalid = true;
               } else {
-                const header = title.slice(0, colonIndex).trim();
-                const description = title.slice(colonIndex + 1).trim();
-                const headerMatch = header.match(/^([a-z]+)(?:\(([a-z0-9._\-\/]+)\))?$/i);
-
-                if (!headerMatch) {
-                  errors.push("Title header must match `type` or `type(scope)` before `:`.");
-                  errors.push("Valid: `refactor(layer): split validation logic into smaller pure functions`.");
-                  errors.push("Invalid: `refactor layer: split validation logic into smaller pure functions`.");
+                const colonIndex = title.indexOf(":");
+                if (colonIndex === -1) {
+                  errors.push("Title is missing `:` separator.");
+                  errors.push("Valid: `docs(cli): clarify init command behavior and expected output`.");
+                  errors.push("Invalid: `docs(cli) clarify init command behavior and expected output`.");
                   titleInvalid = true;
                 } else {
-                  const type = headerMatch[1].toLowerCase();
-                  if (!allowedTypes.includes(type)) {
-                    errors.push(`Invalid title type: \`${type}\`. Allowed: ${allowedTypes.join(", ")}.`);
+                  const header = title.slice(0, colonIndex).trim();
+                  const description = title.slice(colonIndex + 1).trim();
+                  const headerMatch = header.match(/^([a-z]+)(?:\(([a-z0-9._\-\/]+)\))?$/i);
+
+                  if (!headerMatch) {
+                    errors.push("Title header must match `type` or `type(scope)` before `:`.");
+                    errors.push("Valid: `refactor(layer): split validation logic into smaller pure functions`.");
+                    errors.push("Invalid: `refactor layer: split validation logic into smaller pure functions`.");
+                    titleInvalid = true;
+                  } else {
+                    const type = headerMatch[1].toLowerCase();
+                    if (!allowedTypes.includes(type)) {
+                      errors.push(`Invalid title type: \`${type}\`. Allowed: ${allowedTypes.join(", ")}.`);
+                      titleInvalid = true;
+                    }
+                  }
+
+                  if (description.length < minTitleDescChars) {
+                    errors.push(`Title description too short: got ${description.length}, expected at least ${minTitleDescChars} characters.`);
+                    errors.push("Too short: `feat(cli): add logs`.");
+                    errors.push("Good: `feat(cli): add detailed output for release health diagnostics`.");
                     titleInvalid = true;
                   }
-                }
-
-                if (description.length < minTitleDescChars) {
-                  errors.push(`Title description too short: got ${description.length}, expected at least ${minTitleDescChars} characters.`);
-                  errors.push("Too short: `feat(layer): add guard`.");
-                  errors.push("Good: `feat(layer): add deterministic guard for external content transitions`.");
-                  titleInvalid = true;
                 }
               }
             }

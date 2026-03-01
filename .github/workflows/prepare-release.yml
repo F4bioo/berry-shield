@@ -32,27 +32,27 @@ jobs:
       - name: Bump CalVer version
         run: npm run version:update
 
-      - name: Validate CI strings source
+      - name: Validate common contract source
         shell: bash
         run: |
-          STRINGS=".github/ci-strings.json"
+          CONTRACT=".github/common-contract.json"
           if ! command -v jq >/dev/null 2>&1; then
             echo "jq not found on runner. Aborting."
             exit 1
           fi
-          if [ ! -f "$STRINGS" ]; then
-            echo "$STRINGS not found. Aborting."
+          if [ ! -f "$CONTRACT" ]; then
+            echo "$CONTRACT not found. Aborting."
             exit 1
           fi
-          if ! jq -e '.first_release_notes and (.first_release_notes | type == "string")' "$STRINGS" >/dev/null; then
-            echo "Invalid or missing first_release_notes in $STRINGS. Aborting."
+          if ! jq -e '.firstReleaseNotes and (.firstReleaseNotes | type == "string")' "$CONTRACT" >/dev/null; then
+            echo "Invalid or missing firstReleaseNotes in $CONTRACT. Aborting."
             exit 1
           fi
 
       - name: Technical gates before opening release PR
         run: |
           npm run typecheck
-          npx vitest run __tests__
+          npm run test
           npm run build
 
       - name: Read version
@@ -76,9 +76,9 @@ jobs:
         shell: bash
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null) || true
-          STRINGS=".github/ci-strings.json"
+          CONTRACT=".github/common-contract.json"
           if [ -z "$LAST_TAG" ]; then
-            NOTES=$(jq -r '.first_release_notes' "$STRINGS")
+            NOTES=$(jq -r '.firstReleaseNotes' "$CONTRACT")
           else
             NOTES=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s" --no-merges | head -50)
           fi
@@ -107,7 +107,7 @@ jobs:
 
       - name: Guard against existing PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           BRANCH="release/v${{ steps.version.outputs.version }}"
@@ -119,7 +119,7 @@ jobs:
 
       - name: Open PR to master
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           BRANCH="release/v${{ steps.version.outputs.version }}"

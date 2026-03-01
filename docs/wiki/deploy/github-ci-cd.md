@@ -68,7 +68,7 @@ Use when state is clean (`npm=no`, `tag=no`, `release=no`).
 
 Flow:
 1. Build + verify `dist/index.js`.
-2. Validate CI strings source (`.github/ci-strings.json`).
+2. Validate common contract source (`.github/common-contract.json`).
 3. Detect current state.
 4. If npm publish is required, validate `confirm_publish=PUBLISH_NOW`.
 5. Pack artifact (`.tgz`) and generate `SHA256SUMS`.

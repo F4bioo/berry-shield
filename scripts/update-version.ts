@@ -5,7 +5,6 @@ import { calculateNextVersion } from './version-utils.ts';
 
 const PACKAGE_JSON_PATH = path.resolve(process.cwd(), 'package.json');
 const CONSTANTS_PATH = path.resolve(process.cwd(), 'src/constants.ts');
-const CONSTANTS_TEST_PATH = path.resolve(process.cwd(), '__tests__/constants-contract.test.ts');
 
 function main() {
     console.log("🍓 [Berry Shield] CalVer Release Process Initiated");
@@ -68,20 +67,6 @@ function main() {
         }
     } else {
         console.warn("ℹ️  openclaw.plugin.json not found. Skipping.");
-    }
-
-    // 6. Update __tests__/constants-contract.test.ts
-    if (fs.existsSync(CONSTANTS_TEST_PATH)) {
-        let testContent = fs.readFileSync(CONSTANTS_TEST_PATH, 'utf-8');
-        const expectedVersionRegex = /(EXPECTED_VERSION\s*=\s*)(['"])(.*?)\2/;
-
-        if (!expectedVersionRegex.test(testContent)) {
-            console.warn("⚠️  Could not find 'EXPECTED_VERSION' property in constants-contract.test.ts.");
-        } else {
-            testContent = testContent.replace(expectedVersionRegex, `$1$2${nextVersion}$2`);
-            fs.writeFileSync(CONSTANTS_TEST_PATH, testContent, 'utf-8');
-            console.log(`✅ Updated __tests__/constants-contract.test.ts`);
-        }
     }
 
     console.log("✨ Version update complete!");

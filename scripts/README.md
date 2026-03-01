@@ -47,7 +47,7 @@ It enforces a **`YYYY.M.D`** format based on the current date:
 1.  **Calculates**: Determines the next logical version based on the system date and previous version.
 2.  **Synchronizes**: Updates all project manifests atomically:
     *   `package.json` & `package-lock.json` (via `npm version`)
-    *   `src/index.ts` (Source code constant)
+    *   `src/constants.ts` (Source code constant)
     *   `openclaw.plugin.json` (Plugin manifest)
 
 ### How to use
