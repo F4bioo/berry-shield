@@ -153,16 +153,20 @@ jobs:
             PR_NUMBER=$(gh pr list --base master --head "$BRANCH" --state open --json number --jq '.[0].number // ""')
 
             if [ "$BRANCH_EXISTS" = "false" ]; then
-              echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-              echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-              echo "existing_pr=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+              {
+                echo "version=$VERSION"
+                echo "branch=$BRANCH"
+                echo "existing_pr=$PR_NUMBER"
+              } >> "$GITHUB_OUTPUT"
               break
             fi
 
             if [ -n "$PR_NUMBER" ]; then
-              echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-              echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-              echo "existing_pr=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+              {
+                echo "version=$VERSION"
+                echo "branch=$BRANCH"
+                echo "existing_pr=$PR_NUMBER"
+              } >> "$GITHUB_OUTPUT"
               break
             fi
 

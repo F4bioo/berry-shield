@@ -51,7 +51,7 @@ Expected: workflow runs on `master` and does not skip.
 When draft release notes are generated:
 - only PR titles with public types are included (`feat`, `fix`, `perf`, `security`);
 - bot-authored PRs are excluded;
-- first release falls back to `firstReleaseNotes` from `.github/common-contract.json`.
+- first release falls back to `firstReleaseNotes` from `.github/common-contract.json`. <!-- doc-sanity:ignore "firstReleaseNotes" -->
 
 ## Workflow 2: Publish Release (`master`)
 
