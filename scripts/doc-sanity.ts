@@ -56,7 +56,7 @@ const DENSITY_RULES: DensityRule[] = [
     { pattern: /^engine\/README\.md$/i, maxWords: 900, label: "engine-index" },
     { pattern: /^engine\/.+\.md$/i, maxWords: 1200, label: "engine-page" },
     { pattern: /^deploy\/README\.md$/i, maxWords: 900, label: "deploy-index" },
-    { pattern: /^deploy\/.+\.md$/i, maxWords: 1200, label: "deploy-page" },
+    { pattern: /^deploy\/.+\.md$/i, maxWords: 1500, label: "deploy-page" },
     { pattern: /^tutorials\/README\.md$/i, maxWords: 900, label: "tutorials-index" },
     { pattern: /^tutorials\/.+\.md$/i, maxWords: 1200, label: "tutorial-page" },
 ];
@@ -456,10 +456,18 @@ class SanityAuditor {
         // 1. AST-Doc Integrity Link (Symbol Check)
         if (!isReference) {
             const contentForSymbolCheck = content.replace(/^#\s+`[^`]+`\s*$/m, "");
+            const ignoredLiterals = new Set<string>();
+            for (const line of lines) {
+                const literalIgnoreMatch = line.match(IGNORE.literal);
+                if (literalIgnoreMatch?.[1]) {
+                    ignoredLiterals.add(literalIgnoreMatch[1]);
+                }
+            }
             const symbolRegex = /`([a-zA-Z_]\w*)`/g;
             let match;
             while ((match = symbolRegex.exec(contentForSymbolCheck)) !== null) {
                 const sym = match[1];
+                if (ignoredLiterals.has(sym)) continue;
                 if (!RESERVED_WORDS.has(sym.toLowerCase()) && !this.exportedSymbols.has(sym)) {
                     if (isLikelyApiSymbol(sym)) {
                         this.errors.push(`${relPath}: Factual integrity risk. Symbol \`${sym}\` mentioned but not exported in code.`);

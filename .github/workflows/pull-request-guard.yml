@@ -1,10 +1,9 @@
-name: PR Quality
+name: Pull Request Guard
 
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
     branches:
-      - develop
       - master
 
 permissions:
@@ -30,14 +29,22 @@ jobs:
             const headRef = (pr?.head?.ref || "").trim();
             const minBodyChars = 20;
             const minTitleDescChars = 20;
-            const allowedTypes = ["feat", "fix", "docs", "refactor", "test", "chore", "ci", "build", "perf", "revert"];
             const fs = require("node:fs");
             const contractPath = ".github/common-contract.json";
+            const commentTemplatePath = ".github/templates/pr-guard-failure-comment.md";
+            let allowedTypes = [];
             let releaseTitlePattern;
             let releaseHeadPattern;
+            let commentTemplate = "";
 
             try {
               const contract = JSON.parse(fs.readFileSync(contractPath, "utf8"));
+              const publicTypes = Array.isArray(contract?.releaseNotes?.public) ? contract.releaseNotes.public : [];
+              const internalTypes = Array.isArray(contract?.releaseNotes?.internal) ? contract.releaseNotes.internal : [];
+              allowedTypes = [...new Set([...publicTypes, ...internalTypes].map((t) => String(t).trim().toLowerCase()).filter(Boolean))];
+              if (allowedTypes.length === 0) {
+                throw new Error("releaseNotes.public/internal are empty or missing");
+              }
               releaseTitlePattern = new RegExp(contract.releaseTitlePattern);
               releaseHeadPattern = new RegExp(contract.releaseHeadPattern);
             } catch (err) {
@@ -45,23 +52,32 @@ jobs:
               return;
             }
 
+            try {
+              commentTemplate = fs.readFileSync(commentTemplatePath, "utf8");
+            } catch (err) {
+              core.setFailed(`Unable to load ${commentTemplatePath}: ${err?.message || String(err)}`);
+              return;
+            }
+
             const errors = [];
             let titleInvalid = false;
             let bodyInvalid = false;
 
-            if (baseRef === "master") {
-              if (!releaseHeadPattern.test(headRef)) {
-                errors.push("PRs targeting `master` must come from a release branch named `release/vYYYY.M.D` (optional `-N`).");
-                errors.push("Example head branch: `release/v2026.2.28`.");
-                titleInvalid = true;
-              }
-
+            const isReleaseHead = releaseHeadPattern.test(headRef);
+            const looksLikeReleaseHead = /^release([\/\-].*)?$/i.test(headRef);
+            if (baseRef === "master" && isReleaseHead) {
               if (!releaseTitlePattern.test(title)) {
-                errors.push("PRs targeting `master` must use release title format: `chore(release): vYYYY.M.D` (optional `-N`).");
+                errors.push("Release PRs (head `release/v...`) must use title format: `chore(release): vYYYY.M.D` (optional `-N`).");
                 errors.push("Valid: `chore(release): v2026.2.28`.");
                 errors.push("Invalid: `chore(release): publish berry-shield version 2026.2.28`.");
                 titleInvalid = true;
               }
+            } else if (baseRef === "master" && looksLikeReleaseHead && !isReleaseHead) {
+              errors.push("Release branch name is invalid.");
+              errors.push("Use: `release/vYYYY.M.D` (optional `-N`).");
+              errors.push("Valid: `release/v2026.2.28`, `release/v2026.2.28-1`.");
+              errors.push("Invalid: `release/2026.2.28`, `release-v2026.2.28`.");
+              titleInvalid = true;
             } else {
               if (title.length === 0) {
                 errors.push("Title is empty.");
@@ -117,11 +133,9 @@ jobs:
                 ? "Please update PR title, then save PR edits (or push new commits)."
                 : "Please update PR body, then save PR edits (or push new commits).";
 
-            const message = `${marker}
-            ## PR quality check failed
-            ${errors.map((e) => `- ${e}`).join("\n")}
-
-            ${fixHint}`;
+            const message = commentTemplate
+              .replace("__ERRORS__", errors.map((e) => `- ${e}`).join("\n"))
+              .replace("__FIX_HINT__", fixHint);
 
             let previous = null;
             try {

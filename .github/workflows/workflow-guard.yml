@@ -1,0 +1,71 @@
+name: Workflow Guard
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/*.yml"
+      - ".github/workflows/*.yaml"
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/*.yml"
+      - ".github/workflows/*.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workflow-guard-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  no-tabs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fail on tabs in workflow files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import sys
+
+          root = Path(".github/workflows")
+          bad = []
+          for pattern in ("*.yml", "*.yaml"):
+              for p in root.rglob(pattern):
+                  if b"\t" in p.read_bytes():
+                      bad.append(str(p))
+          if bad:
+              print("Tabs found in workflow files:")
+              for item in bad:
+                  print(f"- {item}")
+              sys.exit(1)
+          PY
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="1.7.11"
+          ARCHIVE="actionlint_${VERSION}_linux_amd64.tar.gz"
+          BASE_URL="https://github.com/rhysd/actionlint/releases/download/v${VERSION}"
+          curl -sSfL -o "${ARCHIVE}" "${BASE_URL}/${ARCHIVE}"
+          curl -sSfL -o checksums.txt "${BASE_URL}/actionlint_${VERSION}_checksums.txt"
+          grep " ${ARCHIVE}$" checksums.txt | sha256sum -c -
+          tar -xzf "${ARCHIVE}" actionlint
+          sudo install -m 0755 actionlint /usr/local/bin/actionlint
+
+      - name: Lint workflows
+        shell: bash
+        run: actionlint

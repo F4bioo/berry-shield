@@ -1,0 +1,159 @@
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: "Target release version/tag (example: v2026.3.1 or 2026.3.1)"
+        required: true
+        type: string
+      confirm_publish:
+        description: "Type PUBLISH_NOW to allow npm publish"
+        required: true
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-release-${{ github.workflow }}-${{ github.event.inputs.target_version }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Validate secrets and inputs
+        id: input
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "NPM_TOKEN secret is not configured. Aborting."
+            exit 1
+          fi
+          if [ "${{ github.event.inputs.confirm_publish }}" != "PUBLISH_NOW" ]; then
+            echo "Publish confirmation missing or invalid."
+            echo "Set confirm_publish to: PUBLISH_NOW"
+            exit 1
+          fi
+          RAW="${{ github.event.inputs.target_version }}"
+          if [ -z "$RAW" ]; then
+            echo "target_version is required."
+            exit 1
+          fi
+          if [[ "$RAW" =~ ^v[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9]+)?$ ]]; then
+            TAG="$RAW"
+          elif [[ "$RAW" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}(-[0-9]+)?$ ]]; then
+            TAG="v$RAW"
+          else
+            echo "Invalid target_version format: $RAW"
+            echo "Expected: vYYYY.M.D(-N) or YYYY.M.D(-N)"
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          echo "target_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "target_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve target draft release
+        id: draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.input.outputs.target_tag }}"
+          gh release list --limit 200 --json databaseId,tagName,isDraft,name > /tmp/releases.json
+          MATCH_COUNT=$(jq --arg TAG "$TAG" '[.[] | select(.tagName == $TAG and .isDraft == true)] | length' /tmp/releases.json)
+          if [ "$MATCH_COUNT" -eq 0 ]; then
+            echo "No draft release found for target $TAG. Aborting (fail-closed)."
+            exit 1
+          fi
+          if [ "$MATCH_COUNT" -gt 1 ]; then
+            echo "Multiple draft releases found for target $TAG. Aborting (fail-closed)."
+            jq --arg TAG "$TAG" '.[] | select(.tagName == $TAG and .isDraft == true) | {id:.databaseId, tag:.tagName, name:.name}' /tmp/releases.json
+            exit 1
+          fi
+          RELEASE_ID=$(jq --arg TAG "$TAG" -r '.[] | select(.tagName == $TAG and .isDraft == true) | .databaseId' /tmp/releases.json)
+          echo "target_release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download target draft assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.input.outputs.target_tag }}"
+          mkdir -p .release-assets
+          gh release download "$TAG" --dir .release-assets --clobber
+          ls -la .release-assets
+
+      - name: Validate target assets
+        id: assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .release-assets
+          mapfile -t TGZ_FILES < <(find . -maxdepth 1 -type f -name '*.tgz' -printf '%f\n' | sort)
+          TGZ_COUNT="${#TGZ_FILES[@]}"
+          if [ "$TGZ_COUNT" -ne 1 ]; then
+            echo "Expected exactly 1 .tgz asset, found $TGZ_COUNT. Aborting."
+            exit 1
+          fi
+          if [ ! -f SHA256SUMS ]; then
+            echo "SHA256SUMS asset not found. Aborting."
+            exit 1
+          fi
+          sha256sum -c SHA256SUMS
+          TGZ_FILE="${TGZ_FILES[0]}"
+          echo "tgz=.release-assets/$TGZ_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Fail if version already exists on npm
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG=$(node -p "require('./package.json').name")
+          VERSION="${{ steps.input.outputs.target_version }}"
+          if npm view "${PKG}@${VERSION}" version >/tmp/npm-view.out 2>/tmp/npm-view.err; then
+            echo "Version ${PKG}@${VERSION} already exists on npm. Aborting."
+            exit 1
+          fi
+          if ! grep -Eiq 'E404|404|not found' /tmp/npm-view.err; then
+            echo "Unable to verify npm version state with confidence. Aborting (fail-closed)."
+            cat /tmp/npm-view.err || true
+            exit 1
+          fi
+
+      - name: Publish package to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm publish "${{ steps.assets.outputs.tgz }}" --access public
+
+      - name: Promote draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "${{ steps.input.outputs.target_tag }}" --draft=false
+          echo "Published and promoted: ${{ steps.input.outputs.target_tag }}"

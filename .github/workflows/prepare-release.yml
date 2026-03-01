@@ -2,30 +2,73 @@ name: Prepare Release
 
 on:
   workflow_dispatch:
+    inputs:
+      create_release_after_merge:
+        description: "Create draft release after merge (true/false)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      allow_incremental_on_collision:
+        description: "Allow incremental bump on same-day collision (true/false)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+  pull_request:
+    types: [closed]
+    branches:
+      - master
 
 permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: prepare-release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   prepare:
     name: prepare
-    if: github.ref == 'refs/heads/develop'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout develop
+      - name: Checkout master
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: master
           fetch-depth: 0
 
-      - name: Sync develop before bump
+      - name: Validate contract + token access
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          git checkout develop
-          git pull --rebase origin develop
+          CONTRACT=".github/common-contract.json"
+          if [ ! -f "$CONTRACT" ]; then
+            echo "$CONTRACT not found. Aborting."
+            exit 1
+          fi
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq not found on runner. Aborting."
+            exit 1
+          fi
+          if ! jq -e '.firstReleaseNotes and (.firstReleaseNotes | type == "string")' "$CONTRACT" >/dev/null; then
+            echo "Invalid or missing firstReleaseNotes in $CONTRACT. Aborting."
+            exit 1
+          fi
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "RELEASE_PR_TOKEN secret is required for release PR creation/edit."
+            exit 1
+          fi
+          gh repo view "${{ github.repository }}" >/dev/null
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -33,130 +76,406 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Bump CalVer version
-        run: npm run version:update
-
-      - name: Validate common contract source
-        shell: bash
-        run: |
-          CONTRACT=".github/common-contract.json"
-          if ! command -v jq >/dev/null 2>&1; then
-            echo "jq not found on runner. Aborting."
-            exit 1
-          fi
-          if [ ! -f "$CONTRACT" ]; then
-            echo "$CONTRACT not found. Aborting."
-            exit 1
-          fi
-          if ! jq -e '.firstReleaseNotes and (.firstReleaseNotes | type == "string")' "$CONTRACT" >/dev/null; then
-            echo "Invalid or missing firstReleaseNotes in $CONTRACT. Aborting."
-            exit 1
-          fi
-
-      - name: Technical gates before opening release PR
+      - name: Decide bump path
+        id: decide
         shell: bash
         run: |
           set -euo pipefail
-          npm run typecheck
-          if ! npm run test; then
-            echo "Test run failed once; retrying a second and final time."
-            npm run test
-          fi
-          npm run build
+          node <<'NODE' > /tmp/decision.env
+          const pkg = require("./package.json");
+          const version = String(pkg.version || "");
+          const m = version.match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})(?:-\d+)?$/);
+          if (!m) {
+            console.error(`Unsupported version format: ${version}`);
+            process.exit(1);
+          }
+          const y = Number(m[1]);
+          const mo = Number(m[2]);
+          const d = Number(m[3]);
+          const versionDate = Date.UTC(y, mo - 1, d);
+          const now = new Date();
+          const todayDate = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+          if (versionDate > todayDate) {
+            console.error(`Version date is in the future: ${version}`);
+            process.exit(1);
+          }
+          const stale = versionDate < todayDate;
+          const sameDay = versionDate === todayDate;
+          const allowIncremental = "${{ github.event.inputs.allow_incremental_on_collision }}" === "true";
+          const createRelease = "${{ github.event.inputs.create_release_after_merge }}" === "true";
+          let needBump = false;
+          let reason = "NO_OP";
+          if (stale) {
+            needBump = true;
+            reason = "STALE_DATE_BUMP";
+          } else if (sameDay && allowIncremental) {
+            needBump = true;
+            reason = "SAME_DAY_INCREMENTAL";
+          } else if (sameDay && !allowIncremental && createRelease) {
+            needBump = false;
+            reason = "SAME_DAY_REUSE_FOR_RELEASE";
+          } else {
+            needBump = false;
+            reason = "NO_OP";
+          }
+          console.log(`need_bump=${needBump ? "true" : "false"}`);
+          console.log(`reason=${reason}`);
+          console.log(`current_version=${version}`);
+          NODE
+          cat /tmp/decision.env >> "$GITHUB_OUTPUT"
 
-      - name: Read version
-        id: version
+      - name: Bump version when required
+        if: steps.decide.outputs.need_bump == 'true'
         shell: bash
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          npm ci
+          npm run version:update
 
-      - name: Validate GitHub token access
+      - name: Resolve target version and unique branch
+        id: target
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          gh repo view "${{ github.repository }}" >/dev/null
+          ALLOW_INCREMENTAL="${{ github.event.inputs.allow_incremental_on_collision }}"
+          ATTEMPT=0
+          MAX_ATTEMPTS=8
 
-      - name: Guard against existing release branch
+          while true; do
+            VERSION=$(node -p "require('./package.json').version")
+            BRANCH="release/v${VERSION}"
+            BRANCH_EXISTS="false"
+            if git ls-remote --heads origin "$BRANCH" | grep -q .; then
+              BRANCH_EXISTS="true"
+            fi
+            PR_NUMBER=$(gh pr list --base master --head "$BRANCH" --state open --json number --jq '.[0].number // ""')
+
+            if [ "$BRANCH_EXISTS" = "false" ]; then
+              {
+                echo "version=$VERSION"
+                echo "branch=$BRANCH"
+                echo "existing_pr=$PR_NUMBER"
+              } >> "$GITHUB_OUTPUT"
+              break
+            fi
+
+            if [ -n "$PR_NUMBER" ]; then
+              {
+                echo "version=$VERSION"
+                echo "branch=$BRANCH"
+                echo "existing_pr=$PR_NUMBER"
+              } >> "$GITHUB_OUTPUT"
+              break
+            fi
+
+            if [ "$ALLOW_INCREMENTAL" != "true" ]; then
+              echo "Branch $BRANCH exists and incremental collision is disabled. Aborting."
+              exit 1
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+            if [ "$ATTEMPT" -gt "$MAX_ATTEMPTS" ]; then
+              echo "Unable to resolve unique release version after $MAX_ATTEMPTS attempts."
+              exit 1
+            fi
+            npm run version:update
+          done
+
+      - name: Decide action (create/update/noop)
+        id: action
         shell: bash
         run: |
-          BRANCH="release/v${{ steps.version.outputs.version }}"
-          if git ls-remote --heads origin "$BRANCH" | grep -q .; then
-            echo "Branch $BRANCH already exists on remote. Aborting."
-            exit 1
-          fi
+          set -euo pipefail
+          NEED_BUMP="${{ steps.decide.outputs.need_bump }}"
+          CREATE_RELEASE="${{ github.event.inputs.create_release_after_merge }}"
+          EXISTING_PR="${{ steps.target.outputs.existing_pr }}"
 
-      - name: Generate changelog
-        id: changelog
-        shell: bash
-        run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null) || true
-          CONTRACT=".github/common-contract.json"
-          if [ -z "$LAST_TAG" ]; then
-            NOTES=$(jq -r '.firstReleaseNotes' "$CONTRACT")
+          ACTION="noop"
+          EMPTY_COMMIT="false"
+          if [ -n "$EXISTING_PR" ]; then
+            ACTION="update_pr"
+          elif [ "$NEED_BUMP" = "true" ]; then
+            ACTION="create_pr"
+          elif [ "$CREATE_RELEASE" = "true" ]; then
+            ACTION="create_pr"
+            EMPTY_COMMIT="true"
           else
-            NOTES=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s" --no-merges | head -50)
+            ACTION="noop"
           fi
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "notes<<$EOF" >> "$GITHUB_OUTPUT"
-          echo "$NOTES" >> "$GITHUB_OUTPUT"
-          echo "$EOF" >> "$GITHUB_OUTPUT"
+
+          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
+          echo "empty_commit=$EMPTY_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: NO_OP summary
+        if: steps.action.outputs.action == 'noop'
+        shell: bash
+        run: |
+          echo "NO_OP/IDLE"
+          echo "reason=${{ steps.decide.outputs.reason }}"
+          echo "current_version=${{ steps.decide.outputs.current_version }}"
 
       - name: Setup Git
+        if: steps.action.outputs.action == 'create_pr'
+        shell: bash
         run: |
+          set -euo pipefail
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      - name: Create release branch from bumped workspace
+      - name: Create release branch
+        if: steps.action.outputs.action == 'create_pr'
         shell: bash
         run: |
           set -euo pipefail
-          BRANCH="release/v${{ steps.version.outputs.version }}"
+          BRANCH="${{ steps.target.outputs.branch }}"
+          if git ls-remote --heads origin "$BRANCH" | grep -q .; then
+            echo "Release branch already exists on remote: $BRANCH"
+            exit 1
+          fi
           git checkout -b "$BRANCH"
 
-      - name: Commit version bump to release branch
+      - name: Commit release changes
+        if: steps.action.outputs.action == 'create_pr'
         shell: bash
         run: |
           set -euo pipefail
-          git add package.json package-lock.json src/constants.ts openclaw.plugin.json
-          if git diff --cached --quiet; then
-            echo "No changes after version bump. Aborting."
-            exit 1
+          if [ "${{ steps.action.outputs.empty_commit }}" = "true" ]; then
+            git commit --allow-empty -m "chore(release): prepare v${{ steps.target.outputs.version }}"
+          else
+            git add package.json package-lock.json src/constants.ts openclaw.plugin.json
+            if git diff --cached --quiet; then
+              echo "No release changes detected to commit. Aborting."
+              exit 1
+            fi
+            git commit -m "chore(release): bump version to ${{ steps.target.outputs.version }}"
           fi
-          git commit -m "chore(release): bump version to ${{ steps.version.outputs.version }}"
 
       - name: Push release branch
+        if: steps.action.outputs.action == 'create_pr'
         shell: bash
         run: |
           set -euo pipefail
-          BRANCH="release/v${{ steps.version.outputs.version }}"
-          git push -u origin "$BRANCH"
+          git push -u origin "${{ steps.target.outputs.branch }}"
 
-      - name: Guard against existing PR
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Render PR body
+        if: steps.action.outputs.action == 'create_pr' || steps.action.outputs.action == 'update_pr'
+        id: body
         shell: bash
         run: |
-          BRANCH="release/v${{ steps.version.outputs.version }}"
-          EXISTING=$(gh pr list --head "$BRANCH" --state open --json number --jq length)
-          if [ "$EXISTING" -gt 0 ]; then
-            echo "PR from $BRANCH already exists. Aborting."
+          set -euo pipefail
+          MODE="bump_only"
+          if [ "${{ github.event.inputs.create_release_after_merge }}" = "true" ]; then
+            MODE="release_now"
+          fi
+          TEMPLATE=".github/templates/pr-body-release.md"
+          if [ ! -f "$TEMPLATE" ]; then
+            echo "Template not found: $TEMPLATE"
+            exit 1
+          fi
+          sed \
+            -e "s|__MODE__|$MODE|g" \
+            -e "s|__VERSION__|${{ steps.target.outputs.version }}|g" \
+            -e "s|__BRANCH__|${{ steps.target.outputs.branch }}|g" \
+            "$TEMPLATE" > /tmp/release-pr-body.md
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+
+      - name: Open PR to master
+        if: steps.action.outputs.action == 'create_pr'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr create \
+            --base master \
+            --head "${{ steps.target.outputs.branch }}" \
+            --title "chore(release): v${{ steps.target.outputs.version }}" \
+            --body-file /tmp/release-pr-body.md
+
+      - name: Update existing PR mode
+        if: steps.action.outputs.action == 'update_pr'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PR_NUMBER="${{ steps.target.outputs.existing_pr }}"
+          gh pr edit "$PR_NUMBER" \
+            --title "chore(release): v${{ steps.target.outputs.version }}" \
+            --body-file /tmp/release-pr-body.md
+
+  create-release-draft:
+    name: create-release-draft
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'master' && startsWith(github.event.pull_request.head.ref, 'release/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Guard release mode
+        id: guard
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if printf '%s' "${PR_BODY:-}" | grep -Eiq 'Release-Mode:[[:space:]]*release_now'; then
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "Merged release PR is bump_only. Skipping draft creation."
+          fi
+
+      - name: Setup Node
+        if: steps.guard.outputs.should_release == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.guard.outputs.should_release == 'true'
+        run: npm ci
+
+      - name: Read target version
+        if: steps.guard.outputs.should_release == 'true'
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if release already exists
+        if: steps.guard.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "Release v${{ steps.version.outputs.version }} already exists. Aborting."
             exit 1
           fi
 
-      - name: Open PR to master
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Create tag when missing
+        if: steps.guard.outputs.should_release == 'true'
         shell: bash
         run: |
-          BRANCH="release/v${{ steps.version.outputs.version }}"
-          gh pr create \
-            --base master \
-            --head "$BRANCH" \
-            --title "chore(release): v${{ steps.version.outputs.version }}" \
-            --body "${{ steps.changelog.outputs.notes }}"
+          set -euo pipefail
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          if git rev-parse "refs/tags/v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "Tag already exists locally."
+          else
+            git tag -a "v${{ steps.version.outputs.version }}" -m "v${{ steps.version.outputs.version }}"
+          fi
+          if git ls-remote --tags origin "refs/tags/v${{ steps.version.outputs.version }}" | grep -q .; then
+            echo "Tag already exists on remote."
+          else
+            git push origin "v${{ steps.version.outputs.version }}"
+          fi
+
+      - name: Pack release assets
+        if: steps.guard.outputs.should_release == 'true'
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          TGZ=$(npm pack --json | node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(0,'utf8'));process.stdout.write(d[0].filename)")
+          if [ -z "$TGZ" ] || [ ! -f "$TGZ" ]; then
+            echo "Failed to generate npm pack artifact."
+            exit 1
+          fi
+          sha256sum "$TGZ" > SHA256SUMS
+          echo "tgz=$TGZ" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        if: steps.guard.outputs.should_release == 'true'
+        id: notes
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require("node:fs");
+            const { execSync } = require("node:child_process");
+
+            const contract = JSON.parse(fs.readFileSync(".github/common-contract.json", "utf8"));
+            const first = String(contract.firstReleaseNotes || "").trim();
+            const publicTypes = Array.isArray(contract?.releaseNotes?.public)
+              ? contract.releaseNotes.public.map((x) => String(x).trim().toLowerCase()).filter(Boolean)
+              : [];
+
+            const tags = execSync("git tag --sort=version:refname", { encoding: "utf8" })
+              .trim()
+              .split("\n")
+              .filter(Boolean);
+            const currentTag = `v${process.env.VERSION}`;
+            const previousTag = tags.filter((t) => t !== currentTag).slice(-1)[0] || null;
+
+            if (!previousTag) {
+              core.setOutput("notes", first);
+              core.info("First release detected. Using firstReleaseNotes.");
+              return;
+            }
+
+            const prevTagDate = execSync(`git log -1 --format=%cI ${previousTag}`, { encoding: "utf8" }).trim();
+            const since = new Date(prevTagDate).getTime();
+
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "closed",
+              base: "master",
+              per_page: 100,
+            });
+
+            const merged = pulls
+              .filter((pr) => !!pr.merged_at)
+              .filter((pr) => new Date(pr.merged_at).getTime() > since);
+
+            const nonBot = merged.filter((pr) => {
+              const login = String(pr.user?.login || "").toLowerCase();
+              return !login.endsWith("[bot]");
+            });
+
+            const selected = nonBot.filter((pr) => {
+              const m = String(pr.title || "").match(/^([a-z]+)(?:\([^)]*\))?:/i);
+              if (!m) return false;
+              return publicTypes.includes(m[1].toLowerCase());
+            });
+
+            const lines = selected.map((pr) => `- ${pr.title} (#${pr.number}) thanks @${pr.user?.login}.`);
+            core.info(`Merged PRs after ${previousTag}: ${merged.length}`);
+            core.info(`Filtered bot PRs: ${merged.length - nonBot.length}`);
+            core.info(`Selected public PRs: ${selected.length}`);
+
+            if (lines.length === 0) {
+              core.setOutput("notes", first);
+              core.info("No public PR entries found. Falling back to firstReleaseNotes.");
+              return;
+            }
+
+            core.setOutput("notes", lines.join("\n"));
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Create draft release
+        if: steps.guard.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "v${{ steps.version.outputs.version }}" \
+            "${{ steps.pack.outputs.tgz }}" \
+            "SHA256SUMS" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --notes "${{ steps.notes.outputs.notes }}" \
+            --draft
