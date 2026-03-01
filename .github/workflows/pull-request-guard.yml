@@ -1,10 +1,9 @@
-name: PR Quality
+name: Pull Request Guard
 
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
     branches:
-      - develop
       - master
 
 permissions:
@@ -30,18 +29,33 @@ jobs:
             const headRef = (pr?.head?.ref || "").trim();
             const minBodyChars = 20;
             const minTitleDescChars = 20;
-            const allowedTypes = ["feat", "fix", "docs", "refactor", "test", "chore", "ci", "build", "perf", "revert"];
             const fs = require("node:fs");
             const contractPath = ".github/common-contract.json";
+            const commentTemplatePath = ".github/templates/pr-guard-failure-comment.md";
+            let allowedTypes = [];
             let releaseTitlePattern;
             let releaseHeadPattern;
+            let commentTemplate = "";
 
             try {
               const contract = JSON.parse(fs.readFileSync(contractPath, "utf8"));
+              const publicTypes = Array.isArray(contract?.releaseNotes?.public) ? contract.releaseNotes.public : [];
+              const internalTypes = Array.isArray(contract?.releaseNotes?.internal) ? contract.releaseNotes.internal : [];
+              allowedTypes = [...new Set([...publicTypes, ...internalTypes].map((t) => String(t).trim().toLowerCase()).filter(Boolean))];
+              if (allowedTypes.length === 0) {
+                throw new Error("releaseNotes.public/internal are empty or missing");
+              }
               releaseTitlePattern = new RegExp(contract.releaseTitlePattern);
               releaseHeadPattern = new RegExp(contract.releaseHeadPattern);
             } catch (err) {
               core.setFailed(`Unable to load ${contractPath}: ${err?.message || String(err)}`);
+              return;
+            }
+
+            try {
+              commentTemplate = fs.readFileSync(commentTemplatePath, "utf8");
+            } catch (err) {
+              core.setFailed(`Unable to load ${commentTemplatePath}: ${err?.message || String(err)}`);
               return;
             }
 
@@ -117,11 +131,9 @@ jobs:
                 ? "Please update PR title, then save PR edits (or push new commits)."
                 : "Please update PR body, then save PR edits (or push new commits).";
 
-            const message = `${marker}
-            ## PR quality check failed
-            ${errors.map((e) => `- ${e}`).join("\n")}
-
-            ${fixHint}`;
+            const message = commentTemplate
+              .replace("__ERRORS__", errors.map((e) => `- ${e}`).join("\n"))
+              .replace("__FIX_HINT__", fixHint);
 
             let previous = null;
             try {
