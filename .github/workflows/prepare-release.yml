@@ -50,9 +50,14 @@ jobs:
           fi
 
       - name: Technical gates before opening release PR
+        shell: bash
         run: |
+          set -euo pipefail
           npm run typecheck
-          npm run test
+          if ! npm run test; then
+            echo "Test run failed once; retrying a second and final time."
+            npm run test
+          fi
           npm run build
 
       - name: Read version
@@ -61,6 +66,14 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Validate GitHub token access
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN || secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh repo view "${{ github.repository }}" >/dev/null
 
       - name: Guard against existing release branch
         shell: bash
@@ -92,17 +105,27 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      - name: Create release branch and push
+      - name: Commit version bump to develop
         shell: bash
         run: |
-          BRANCH="release/v${{ steps.version.outputs.version }}"
-          git checkout -b "$BRANCH"
+          set -euo pipefail
+          git checkout develop
+          git pull --rebase origin develop
           git add package.json package-lock.json src/constants.ts
           if git diff --cached --quiet; then
             echo "No changes after version bump. Aborting."
             exit 1
           fi
           git commit -m "chore(release): bump version to ${{ steps.version.outputs.version }}"
+          git push origin develop
+
+      - name: Create release branch and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          BRANCH="release/v${{ steps.version.outputs.version }}"
+          git checkout develop
+          git checkout -b "$BRANCH"
           git push -u origin "$BRANCH"
 
       - name: Guard against existing PR

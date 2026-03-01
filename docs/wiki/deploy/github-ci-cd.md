@@ -18,6 +18,7 @@ It is self-contained and intended for operators with no prior project context.
   - `develop` for `prepare-release`
   - `master` for `publish`
 - `NPM_TOKEN` is configured in repository secrets.
+- `RELEASE_PR_TOKEN` is configured in repository secrets.
 - Repository permissions allow workflow-created branches, tags, PRs, and releases.
 
 ## Workflow 1: Prepare Release (`develop`)
@@ -129,6 +130,13 @@ Every successful publish must end with GitHub Release assets:
 - `SHA256SUMS` (hash file for the same `.tgz`)
 
 This keeps artifact parity between npm and GitHub Release.
+
+## Operational DoD (Required Evidence per release cycle)
+
+1. `prepare-release` completed successfully.
+2. Release branch `release/v{version}` exists and PR `release/v{version} -> master` exists.
+3. Release PR checks are green and merged into `master`.
+4. `publish` completed successfully in `normal` or `reconcile` mode.
 
 ## Related pages
 - [deploy index](README.md)
