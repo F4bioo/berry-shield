@@ -47,7 +47,7 @@ jobs:
 
       - name: Validate contract + token access
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -65,7 +65,7 @@ jobs:
             exit 1
           fi
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "RELEASE_PR_TOKEN secret is required for release PR creation/edit."
+            echo "BERRY_SHIELD_CI_TOKEN secret is required for release PR creation/edit."
             exit 1
           fi
           gh repo view "${{ github.repository }}" >/dev/null
@@ -135,7 +135,7 @@ jobs:
       - name: Resolve target version and unique branch
         id: target
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -284,7 +284,7 @@ jobs:
       - name: Open PR to master
         if: steps.action.outputs.action == 'create_pr'
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -297,7 +297,7 @@ jobs:
       - name: Update existing PR mode
         if: steps.action.outputs.action == 'update_pr'
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail

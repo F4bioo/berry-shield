@@ -16,7 +16,7 @@ It is self-contained and intended for operators with no prior project context.
 
 - Repository flow is trunk-based (`master` only).
 - `NPM_TOKEN` is configured in repository secrets.
-- `RELEASE_PR_TOKEN` is configured in repository secrets.
+- `BERRY_SHIELD_CI_TOKEN` is configured in repository secrets.
 - Repository permissions allow workflow-created branches, tags, PRs, and releases.
 
 ## Workflow 1: Prepare Release (`master`)
