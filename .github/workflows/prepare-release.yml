@@ -91,8 +91,13 @@ jobs:
         run: |
           set -euo pipefail
           node <<'NODE' > /tmp/decision.env
-          const pkg = require("./package.json");
+          const fs = require("node:fs");
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
           const version = String(pkg.version || "");
+          if (!version) {
+            console.error("Unable to read version from package.json");
+            process.exit(1);
+          }
           const m = version.match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})(?:-\d+)?$/);
           if (!m) {
             console.error(`Unsupported version format: ${version}`);
@@ -149,23 +154,64 @@ jobs:
         run: |
           set -euo pipefail
           ALLOW_INCREMENTAL="${{ github.event.inputs.allow_incremental_on_collision }}"
+          CREATE_RELEASE="${{ github.event.inputs.create_release_after_merge }}"
           ATTEMPT=0
           MAX_ATTEMPTS=8
 
           while true; do
             VERSION=$(node -p "require('./package.json').version")
             BRANCH="release/v${VERSION}"
+            TAG="v${VERSION}"
             BRANCH_EXISTS="false"
+            RELEASE_STATE="none"
+
+            if [ "$CREATE_RELEASE" = "true" ]; then
+              if gh release view "$TAG" --json isDraft >/tmp/release-state.json 2>/dev/null; then
+                if jq -e '.isDraft == true' /tmp/release-state.json >/dev/null; then
+                  RELEASE_STATE="draft"
+                else
+                  RELEASE_STATE="published"
+                fi
+              fi
+            fi
+
+            if [ "$CREATE_RELEASE" = "true" ] && [ "$RELEASE_STATE" = "published" ]; then
+              if [ "$ALLOW_INCREMENTAL" != "true" ]; then
+                echo "RELEASE_ALREADY_PUBLISHED_FOR_VERSION"
+                echo "Rerun with allow_incremental_on_collision=true to create a new incremental release version."
+                exit 1
+              fi
+              echo "Release already published for $TAG. Incremental collision is enabled; calculating next version."
+              ATTEMPT=$((ATTEMPT + 1))
+              if [ "$ATTEMPT" -gt "$MAX_ATTEMPTS" ]; then
+                echo "Unable to resolve unique release version after $MAX_ATTEMPTS attempts."
+                exit 1
+              fi
+              npm run version:update
+              continue
+            fi
+
             if git ls-remote --heads origin "$BRANCH" | grep -q .; then
               BRANCH_EXISTS="true"
             fi
             PR_NUMBER=$(gh pr list --base master --head "$BRANCH" --state open --json number --jq '.[0].number // ""')
+
+            if [ "$CREATE_RELEASE" = "true" ] && [ "$RELEASE_STATE" = "draft" ]; then
+              {
+                echo "version=$VERSION"
+                echo "branch=$BRANCH"
+                echo "existing_pr=$PR_NUMBER"
+                echo "release_state=$RELEASE_STATE"
+              } >> "$GITHUB_OUTPUT"
+              break
+            fi
 
             if [ "$BRANCH_EXISTS" = "false" ]; then
               {
                 echo "version=$VERSION"
                 echo "branch=$BRANCH"
                 echo "existing_pr=$PR_NUMBER"
+                echo "release_state=$RELEASE_STATE"
               } >> "$GITHUB_OUTPUT"
               break
             fi
@@ -175,6 +221,7 @@ jobs:
                 echo "version=$VERSION"
                 echo "branch=$BRANCH"
                 echo "existing_pr=$PR_NUMBER"
+                echo "release_state=$RELEASE_STATE"
               } >> "$GITHUB_OUTPUT"
               break
             fi
@@ -192,6 +239,39 @@ jobs:
             npm run version:update
           done
 
+      - name: Evaluate empty-PR skip gate (release_now)
+        id: skipgate
+        shell: bash
+        run: |
+          set -euo pipefail
+          CREATE_RELEASE="${{ github.event.inputs.create_release_after_merge }}"
+          ALLOW_INCREMENTAL="${{ github.event.inputs.allow_incremental_on_collision }}"
+          NEED_BUMP="${{ steps.decide.outputs.need_bump }}"
+          EXISTING_PR="${{ steps.target.outputs.existing_pr }}"
+          RELEASE_STATE="${{ steps.target.outputs.release_state }}"
+          VERSION="${{ steps.target.outputs.version }}"
+
+          SKIP_EMPTY_PR="false"
+          MARKER_HASH=""
+          MARKER_COUNT="0"
+
+          if [ "$CREATE_RELEASE" = "true" ] && [ "$ALLOW_INCREMENTAL" = "false" ] && [ "$NEED_BUMP" = "false" ] && [ -z "$EXISTING_PR" ] && [ "$RELEASE_STATE" = "none" ]; then
+            CURRENT_VERSION=$(node -p "require('./package.json').version")
+            if [ "$CURRENT_VERSION" = "$VERSION" ]; then
+              MARKER_COUNT=$(git log master --grep "^chore(version): v${VERSION}$" --format=%H | wc -l | tr -d ' ')
+              MARKER_HASH=$(git log master --grep "^chore(version): v${VERSION}$" --format=%H -n 1 || true)
+              if [ -n "$MARKER_HASH" ]; then
+                SKIP_EMPTY_PR="true"
+              fi
+            fi
+          fi
+
+          {
+            echo "skip_empty_pr=$SKIP_EMPTY_PR"
+            echo "marker_hash=$MARKER_HASH"
+            echo "marker_count=$MARKER_COUNT"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Decide action (create/update/noop)
         id: action
         shell: bash
@@ -200,13 +280,22 @@ jobs:
           NEED_BUMP="${{ steps.decide.outputs.need_bump }}"
           CREATE_RELEASE="${{ github.event.inputs.create_release_after_merge }}"
           EXISTING_PR="${{ steps.target.outputs.existing_pr }}"
+          RELEASE_STATE="${{ steps.target.outputs.release_state }}"
+          SKIP_EMPTY_PR="${{ steps.skipgate.outputs.skip_empty_pr }}"
 
           ACTION="noop"
           EMPTY_COMMIT="false"
+          NOOP_REASON="${{ steps.decide.outputs.reason }}"
           if [ -n "$EXISTING_PR" ]; then
             ACTION="update_pr"
+          elif [ "$CREATE_RELEASE" = "true" ] && [ "$RELEASE_STATE" = "draft" ]; then
+            ACTION="noop"
+            NOOP_REASON="DRAFT_ALREADY_EXISTS_FOR_VERSION"
           elif [ "$NEED_BUMP" = "true" ]; then
             ACTION="create_pr"
+          elif [ "$CREATE_RELEASE" = "true" ] && [ "$SKIP_EMPTY_PR" = "true" ]; then
+            ACTION="noop"
+            NOOP_REASON="SKIP_EMPTY_PR_FORMAL_MARKER_FOUND"
           elif [ "$CREATE_RELEASE" = "true" ]; then
             ACTION="create_pr"
             EMPTY_COMMIT="true"
@@ -214,16 +303,26 @@ jobs:
             ACTION="noop"
           fi
 
-          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
-          echo "empty_commit=$EMPTY_COMMIT" >> "$GITHUB_OUTPUT"
+          {
+            echo "action=$ACTION"
+            echo "empty_commit=$EMPTY_COMMIT"
+            echo "noop_reason=$NOOP_REASON"
+          } >> "$GITHUB_OUTPUT"
 
       - name: NO_OP summary
         if: steps.action.outputs.action == 'noop'
         shell: bash
         run: |
           echo "NO_OP/IDLE"
-          echo "reason=${{ steps.decide.outputs.reason }}"
+          echo "reason=${{ steps.action.outputs.noop_reason }}"
           echo "current_version=${{ steps.decide.outputs.current_version }}"
+          if [ "${{ steps.action.outputs.noop_reason }}" = "SKIP_EMPTY_PR_FORMAL_MARKER_FOUND" ]; then
+            echo "marker_hash=${{ steps.skipgate.outputs.marker_hash }}"
+            echo "marker_count=${{ steps.skipgate.outputs.marker_count }}"
+            if [ "${{ steps.skipgate.outputs.marker_count }}" != "1" ]; then
+              echo "Multiple formal markers detected; using the most recent reachable marker on master."
+            fi
+          fi
 
       - name: Setup Git
         if: steps.action.outputs.action == 'create_pr'
@@ -320,10 +419,13 @@ jobs:
             echo "No open PR found for reviewer assignment. Skipping."
             exit 0
           fi
-          REVIEWER="${{ github.repository_owner }}"
-          if ! gh pr edit "$PR_NUMBER" --add-reviewer "$REVIEWER" >/dev/null 2>&1; then
-            echo "Could not add reviewer @$REVIEWER automatically. Skipping without failing workflow."
-          fi
+          REPO_OWNER="${{ github.repository_owner }}"
+          for REVIEWER in "f4bioo" "$REPO_OWNER"; do
+            [ -z "$REVIEWER" ] && continue
+            if ! gh pr edit "$PR_NUMBER" --add-reviewer "$REVIEWER" >/dev/null 2>&1; then
+              echo "Could not add reviewer @$REVIEWER automatically. Skipping without failing workflow."
+            fi
+          done
 
       - name: Update existing PR mode
         if: steps.action.outputs.action == 'update_pr'
@@ -345,10 +447,13 @@ jobs:
         run: |
           set -euo pipefail
           PR_NUMBER="${{ steps.target.outputs.existing_pr }}"
-          REVIEWER="${{ github.repository_owner }}"
-          if ! gh pr edit "$PR_NUMBER" --add-reviewer "$REVIEWER" >/dev/null 2>&1; then
-            echo "Could not add reviewer @$REVIEWER automatically. Skipping without failing workflow."
-          fi
+          REPO_OWNER="${{ github.repository_owner }}"
+          for REVIEWER in "f4bioo" "$REPO_OWNER"; do
+            [ -z "$REVIEWER" ] && continue
+            if ! gh pr edit "$PR_NUMBER" --add-reviewer "$REVIEWER" >/dev/null 2>&1; then
+              echo "Could not add reviewer @$REVIEWER automatically. Skipping without failing workflow."
+            fi
+          done
 
   create-release-draft:
     name: create-release-draft

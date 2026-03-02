@@ -4,9 +4,13 @@ import { DEFAULT_CONFIG } from "../src/config/defaults";
 import { readFileSync } from "node:fs";
 
 /**
- * The contract version must always match package.json.
+ * Version contract:
+ * - src/constants.ts (VERSION)
+ * - package.json
+ * - openclaw.plugin.json
  */
-const EXPECTED_VERSION = JSON.parse(readFileSync("package.json", "utf8")).version;
+const PACKAGE_VERSION = JSON.parse(readFileSync("package.json", "utf8")).version;
+const PLUGIN_MANIFEST_VERSION = JSON.parse(readFileSync("openclaw.plugin.json", "utf8")).version;
 
 /**
  * Contract Test for Constants
@@ -26,7 +30,9 @@ describe("Constants Contract", () => {
     });
 
     it("should have the correct version (CalVer)", () => {
-        expect(VERSION).toBe(EXPECTED_VERSION);
+        expect(VERSION).toBe(PACKAGE_VERSION);
+        expect(VERSION).toBe(PLUGIN_MANIFEST_VERSION);
+        expect(PACKAGE_VERSION).toBe(PLUGIN_MANIFEST_VERSION);
     });
 
     it("should have the correct Environment Variable names", () => {
