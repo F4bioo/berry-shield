@@ -250,6 +250,8 @@ jobs:
 
       - name: Evaluate empty-PR skip gate (release_now)
         id: skipgate
+        env:
+          RELEASE_MARKER_SCAN_LIMIT: ${{ vars.RELEASE_MARKER_SCAN_LIMIT }}
         shell: bash
         run: |
           set -euo pipefail
@@ -263,12 +265,14 @@ jobs:
           SKIP_EMPTY_PR="false"
           MARKER_HASH=""
           MARKER_COUNT="0"
+          SCAN_LIMIT="${RELEASE_MARKER_SCAN_LIMIT:-1000}"
 
           if [ "$CREATE_RELEASE" = "true" ] && [ "$ALLOW_INCREMENTAL" = "false" ] && [ "$NEED_BUMP" = "false" ] && [ -z "$EXISTING_PR" ] && [ "$RELEASE_STATE" = "none" ]; then
             CURRENT_VERSION=$(node -p "require('./package.json').version")
             if [ "$CURRENT_VERSION" = "$VERSION" ]; then
-              MARKER_COUNT=$(git log master --grep "^chore(release): v${VERSION}$" --format=%H | wc -l | tr -d ' ')
-              MARKER_HASH=$(git log master --grep "^chore(release): v${VERSION}$" --format=%H -n 1 || true)
+              node scripts/release-finder.mjs "$VERSION" "$SCAN_LIMIT" > /tmp/release-marker.env
+              MARKER_COUNT=$(grep '^marker_count=' /tmp/release-marker.env | cut -d= -f2-)
+              MARKER_HASH=$(grep '^marker_hash=' /tmp/release-marker.env | cut -d= -f2-)
               if [ -n "$MARKER_HASH" ]; then
                 SKIP_EMPTY_PR="true"
               fi
