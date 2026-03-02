@@ -267,8 +267,8 @@ jobs:
           if [ "$CREATE_RELEASE" = "true" ] && [ "$ALLOW_INCREMENTAL" = "false" ] && [ "$NEED_BUMP" = "false" ] && [ -z "$EXISTING_PR" ] && [ "$RELEASE_STATE" = "none" ]; then
             CURRENT_VERSION=$(node -p "require('./package.json').version")
             if [ "$CURRENT_VERSION" = "$VERSION" ]; then
-              MARKER_COUNT=$(git log master --grep "^chore(version): v${VERSION}$" --format=%H | wc -l | tr -d ' ')
-              MARKER_HASH=$(git log master --grep "^chore(version): v${VERSION}$" --format=%H -n 1 || true)
+              MARKER_COUNT=$(git log master --grep "^chore(release): v${VERSION}$" --format=%H | wc -l | tr -d ' ')
+              MARKER_HASH=$(git log master --grep "^chore(release): v${VERSION}$" --format=%H -n 1 || true)
               if [ -n "$MARKER_HASH" ]; then
                 SKIP_EMPTY_PR="true"
               fi
