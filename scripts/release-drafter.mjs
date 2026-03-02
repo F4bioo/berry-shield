@@ -82,6 +82,7 @@ run(`sha256sum "${tgz}" > SHA256SUMS`);
 
 const contract = JSON.parse(readFileSync(".github/common-contract.json", "utf8"));
 const firstReleaseNotes = String(contract.firstReleaseNotes || "").trim();
+const internalReleaseNotes = String(contract.internalReleaseNotes || "").trim();
 const publicTypes = Array.isArray(contract?.releaseNotes?.public)
   ? contract.releaseNotes.public.map((x) => String(x).trim().toLowerCase()).filter(Boolean)
   : [];
@@ -90,7 +91,7 @@ const tags = runAllowFail("git tag --sort=version:refname");
 const tagList = tags.ok ? tags.out.split("\n").map((t) => t.trim()).filter(Boolean) : [];
 const previousTag = tagList.filter((t) => t !== tag).slice(-1)[0] || null;
 
-let notes = firstReleaseNotes;
+let notes = previousTag ? internalReleaseNotes : firstReleaseNotes;
 if (previousTag) {
   const prevTagDate = run(`git log -1 --format=%cI ${previousTag}`);
   const since = new Date(prevTagDate).getTime();
@@ -130,9 +131,7 @@ if (previousTag) {
     });
 
     const lines = selected.map((pr) => `- ${pr.title} (#${pr.number}) thanks @${pr?.user?.login}.`);
-    if (lines.length > 0) {
-      notes = lines.join("\n");
-    }
+    if (lines.length > 0) notes = lines.join("\n");
   }
 }
 

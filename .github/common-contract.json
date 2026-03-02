@@ -1,5 +1,6 @@
 {
   "firstReleaseNotes": "🍓 Initial Release: We're Live! 🎈",
+  "internalReleaseNotes": "Maintenance and internal quality improvements.",
   "releaseTitlePattern": "^chore\\(release\\): v\\d{4}\\.\\d{1,2}\\.\\d{1,2}(?:-\\d+)?$",
   "releaseHeadPattern": "^release\\/v\\d{4}\\.\\d{1,2}\\.\\d{1,2}(?:-\\d+)?$",
   "releaseNotes": {
