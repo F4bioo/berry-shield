@@ -39,7 +39,8 @@ Expected: workflow runs on `master` and does not skip.
    - creates tag `v{version}`
    - creates draft release
    - attaches `.tgz` and `SHA256SUMS`.
-6. If there is no required bump and `create_release_after_merge=false`, workflow ends as `NO_OP/IDLE` (no branch, no PR, no release).
+6. If there is no required bump and `create_release_after_merge=true`, workflow can create draft release directly from `prepare` when skip conditions are met (no empty PR).
+7. If there is no required bump and `create_release_after_merge=false`, workflow ends as `NO_OP/IDLE` (no branch, no PR, no release).
 
 ### Expected output
 

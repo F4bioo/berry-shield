@@ -38,7 +38,21 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      version: ${{ steps.target.outputs.version }}
+      action: ${{ steps.action.outputs.action }}
+      noop_reason: ${{ steps.action.outputs.noop_reason }}
+      skip_empty_pr: ${{ steps.skipgate.outputs.skip_empty_pr }}
+      release_state: ${{ steps.target.outputs.release_state }}
+      create_release_after_merge: ${{ steps.inputs.outputs.create_release_after_merge }}
+      should_create_draft: ${{ steps.directdraft.outputs.should_create_draft }}
     steps:
+      - name: Capture dispatch inputs
+        id: inputs
+        shell: bash
+        run: |
+          echo "create_release_after_merge=${{ github.event.inputs.create_release_after_merge }}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout master
         uses: actions/checkout@v4
         with:
@@ -52,7 +66,7 @@ jobs:
           app-id: ${{ secrets.BERRY_SHIELD_APP_ID }}
           private-key: ${{ secrets.BERRY_SHIELD_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: berry-shield
+          repositories: ${{ github.event.repository.name }}
 
       - name: Validate contract + token access
         env:
@@ -337,6 +351,21 @@ jobs:
             fi
           fi
 
+      - name: Compute direct draft trigger
+        id: directdraft
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHOULD="false"
+          if [ "${{ github.event.inputs.create_release_after_merge }}" = "true" ] \
+            && [ "${{ steps.action.outputs.action }}" = "noop" ] \
+            && [ "${{ steps.action.outputs.noop_reason }}" = "SKIP_EMPTY_PR_FORMAL_MARKER_FOUND" ] \
+            && [ "${{ steps.skipgate.outputs.skip_empty_pr }}" = "true" ] \
+            && [ "${{ steps.target.outputs.release_state }}" = "none" ]; then
+            SHOULD="true"
+          fi
+          echo "should_create_draft=$SHOULD" >> "$GITHUB_OUTPUT"
+
       - name: Setup Git
         if: steps.action.outputs.action == 'create_pr'
         shell: bash
@@ -427,8 +456,47 @@ jobs:
             --title "chore(release): v${{ steps.target.outputs.version }}" \
             --body-file /tmp/release-pr-body.md
 
-  create-release-draft:
-    name: create-release-draft
+  create-release-draft-direct:
+    name: create-release-draft-direct
+    needs: prepare
+    if: github.event_name == 'workflow_dispatch' && needs.prepare.outputs.create_release_after_merge == 'true' && needs.prepare.outputs.should_create_draft == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Create GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BERRY_SHIELD_APP_ID }}
+          private-key: ${{ secrets.BERRY_SHIELD_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create draft release from prepare path
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/release-drafter.mjs "${{ needs.prepare.outputs.version }}"
+
+  create-release-draft-from-pr:
+    name: create-release-draft-from-pr
     if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'master' && startsWith(github.event.pull_request.head.ref, 'release/v')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -473,130 +541,11 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Fail if release already exists
+      - name: Create draft release from merged PR path
         if: steps.guard.outputs.should_release == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          if gh release view "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "Release v${{ steps.version.outputs.version }} already exists. Aborting."
-            exit 1
-          fi
-
-      - name: Create tag when missing
-        if: steps.guard.outputs.should_release == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          if git rev-parse "refs/tags/v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "Tag already exists locally."
-          else
-            git tag -a "v${{ steps.version.outputs.version }}" -m "v${{ steps.version.outputs.version }}"
-          fi
-          if git ls-remote --tags origin "refs/tags/v${{ steps.version.outputs.version }}" | grep -q .; then
-            echo "Tag already exists on remote."
-          else
-            git push origin "v${{ steps.version.outputs.version }}"
-          fi
-
-      - name: Pack release assets
-        if: steps.guard.outputs.should_release == 'true'
-        id: pack
-        shell: bash
-        run: |
-          set -euo pipefail
-          TGZ=$(npm pack --json | node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(0,'utf8'));process.stdout.write(d[0].filename)")
-          if [ -z "$TGZ" ] || [ ! -f "$TGZ" ]; then
-            echo "Failed to generate npm pack artifact."
-            exit 1
-          fi
-          sha256sum "$TGZ" > SHA256SUMS
-          echo "tgz=$TGZ" >> "$GITHUB_OUTPUT"
-
-      - name: Generate release notes
-        if: steps.guard.outputs.should_release == 'true'
-        id: notes
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require("node:fs");
-            const { execSync } = require("node:child_process");
-
-            const contract = JSON.parse(fs.readFileSync(".github/common-contract.json", "utf8"));
-            const first = String(contract.firstReleaseNotes || "").trim();
-            const publicTypes = Array.isArray(contract?.releaseNotes?.public)
-              ? contract.releaseNotes.public.map((x) => String(x).trim().toLowerCase()).filter(Boolean)
-              : [];
-
-            const tags = execSync("git tag --sort=version:refname", { encoding: "utf8" })
-              .trim()
-              .split("\n")
-              .filter(Boolean);
-            const currentTag = `v${process.env.VERSION}`;
-            const previousTag = tags.filter((t) => t !== currentTag).slice(-1)[0] || null;
-
-            if (!previousTag) {
-              core.setOutput("notes", first);
-              core.info("First release detected. Using firstReleaseNotes.");
-              return;
-            }
-
-            const prevTagDate = execSync(`git log -1 --format=%cI ${previousTag}`, { encoding: "utf8" }).trim();
-            const since = new Date(prevTagDate).getTime();
-
-            const pulls = await github.paginate(github.rest.pulls.list, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: "closed",
-              base: "master",
-              per_page: 100,
-            });
-
-            const merged = pulls
-              .filter((pr) => !!pr.merged_at)
-              .filter((pr) => new Date(pr.merged_at).getTime() > since);
-
-            const nonBot = merged.filter((pr) => {
-              const login = String(pr.user?.login || "").toLowerCase();
-              return !login.endsWith("[bot]");
-            });
-
-            const selected = nonBot.filter((pr) => {
-              const m = String(pr.title || "").match(/^([a-z]+)(?:\([^)]*\))?:/i);
-              if (!m) return false;
-              return publicTypes.includes(m[1].toLowerCase());
-            });
-
-            const lines = selected.map((pr) => `- ${pr.title} (#${pr.number}) thanks @${pr.user?.login}.`);
-            core.info(`Merged PRs after ${previousTag}: ${merged.length}`);
-            core.info(`Filtered bot PRs: ${merged.length - nonBot.length}`);
-            core.info(`Selected public PRs: ${selected.length}`);
-
-            if (lines.length === 0) {
-              core.setOutput("notes", first);
-              core.info("No public PR entries found. Falling back to firstReleaseNotes.");
-              return;
-            }
-
-            core.setOutput("notes", lines.join("\n"));
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-
-      - name: Create draft release
-        if: steps.guard.outputs.should_release == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh release create "v${{ steps.version.outputs.version }}" \
-            "${{ steps.pack.outputs.tgz }}" \
-            "SHA256SUMS" \
-            --title "v${{ steps.version.outputs.version }}" \
-            --notes "${{ steps.notes.outputs.notes }}" \
-            --draft
+          node scripts/release-drafter.mjs "${{ steps.version.outputs.version }}"
