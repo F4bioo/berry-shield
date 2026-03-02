@@ -45,9 +45,18 @@ jobs:
           ref: master
           fetch-depth: 0
 
+      - name: Create GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BERRY_SHIELD_APP_ID }}
+          private-key: ${{ secrets.BERRY_SHIELD_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: berry-shield
+
       - name: Validate contract + token access
         env:
-          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -65,7 +74,7 @@ jobs:
             exit 1
           fi
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "BERRY_SHIELD_CI_TOKEN secret is required for release PR creation/edit."
+            echo "GitHub App token could not be generated. Aborting."
             exit 1
           fi
           REPO="${{ github.repository }}"
@@ -74,7 +83,7 @@ jobs:
             if [ -f "$TEMPLATE" ]; then
               sed -e "s|__REPO__|$REPO|g" "$TEMPLATE"
             else
-              echo "BERRY_SHIELD_CI_TOKEN cannot access repository: $REPO"
+              echo "GitHub App token cannot access repository: $REPO"
             fi
             exit 1
           fi
@@ -149,7 +158,7 @@ jobs:
       - name: Resolve target version and unique branch
         id: target
         env:
-          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -392,7 +401,7 @@ jobs:
       - name: Open PR to master
         if: steps.action.outputs.action == 'create_pr'
         env:
-          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -402,35 +411,10 @@ jobs:
             --title "chore(release): v${{ steps.target.outputs.version }}" \
             --body-file /tmp/release-pr-body.md
 
-      - name: Add repository owner as reviewer
-        if: steps.action.outputs.action == 'create_pr'
-        env:
-          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          PR_NUMBER=$(gh pr list \
-            --base master \
-            --head "${{ steps.target.outputs.branch }}" \
-            --state open \
-            --json number \
-            --jq '.[0].number // ""')
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No open PR found for reviewer assignment. Skipping."
-            exit 0
-          fi
-          REPO_OWNER="${{ github.repository_owner }}"
-          for REVIEWER in "f4bioo" "$REPO_OWNER"; do
-            [ -z "$REVIEWER" ] && continue
-            if ! gh pr edit "$PR_NUMBER" --add-reviewer "$REVIEWER" >/dev/null 2>&1; then
-              echo "Could not add reviewer @$REVIEWER automatically. Skipping without failing workflow."
-            fi
-          done
-
       - name: Update existing PR mode
         if: steps.action.outputs.action == 'update_pr'
         env:
-          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -438,22 +422,6 @@ jobs:
           gh pr edit "$PR_NUMBER" \
             --title "chore(release): v${{ steps.target.outputs.version }}" \
             --body-file /tmp/release-pr-body.md
-
-      - name: Ensure repository owner is reviewer on updated PR
-        if: steps.action.outputs.action == 'update_pr'
-        env:
-          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          PR_NUMBER="${{ steps.target.outputs.existing_pr }}"
-          REPO_OWNER="${{ github.repository_owner }}"
-          for REVIEWER in "f4bioo" "$REPO_OWNER"; do
-            [ -z "$REVIEWER" ] && continue
-            if ! gh pr edit "$PR_NUMBER" --add-reviewer "$REVIEWER" >/dev/null 2>&1; then
-              echo "Could not add reviewer @$REVIEWER automatically. Skipping without failing workflow."
-            fi
-          done
 
   create-release-draft:
     name: create-release-draft
