@@ -15,7 +15,7 @@ Before submitting a Pull Request, ensure:
    - `npm run build`
 3. **Wiki:** If you added or changed features, update the relevant files in `docs/wiki/`.
 
-## 🌿 Branching Model
+## 🧬 Branching Model
 Berry Shield uses a **trunk-based** flow:
 1. Create a short-lived branch from `master`.
 2. Open a Pull Request targeting `master`.

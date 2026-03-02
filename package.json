@@ -17,7 +17,14 @@
   "author": "F4bioo",
   "repository": {
     "type": "git",
-    "url": "https://github.com/F4bioo/berry-shield"
+    "url": "git+https://github.com/F4bioo/berry-shield.git"
+  },
+  "bugs": {
+    "url": "https://github.com/F4bioo/berry-shield/issues"
+  },
+  "homepage": "https://github.com/F4bioo/berry-shield#readme",
+  "engines": {
+    "node": ">=20.0.0"
   },
   "type": "module",
   "files": [
@@ -25,7 +32,9 @@
     "docs/wiki/",
     "openclaw.plugin.json",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "SECURITY_AUDIT.md",
+    "CONTRIBUTING.md"
   ],
   "openclaw": {
     "extensions": [
