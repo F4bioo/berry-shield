@@ -14,6 +14,6 @@
 - [ ] *If not applicable, explain why (for example: `Validation: not needed`).*
 
 ## Checklist
-- [ ] My code follows the project's [CONTRIBUTING.md](CONTRIBUTING.md) rules.
+- [ ] My code follows the project's [CONTRIBUTING.md](https://github.com/F4bioo/berry-shield/blob/master/CONTRIBUTING.md) rules.
 - [ ] All technical gates (Typecheck -> Test -> Build) passed locally.
 - [ ] I have updated the documentation/wiki (if applicable).
