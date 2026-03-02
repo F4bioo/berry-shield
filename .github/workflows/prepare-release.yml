@@ -270,36 +270,7 @@ jobs:
           if [ "$CREATE_RELEASE" = "true" ] && [ "$ALLOW_INCREMENTAL" = "false" ] && [ "$NEED_BUMP" = "false" ] && [ -z "$EXISTING_PR" ] && [ "$RELEASE_STATE" = "none" ]; then
             CURRENT_VERSION=$(node -p "require('./package.json').version")
             if [ "$CURRENT_VERSION" = "$VERSION" ]; then
-              VERSION="$VERSION" SCAN_LIMIT="$SCAN_LIMIT" node <<'NODE' > /tmp/release-marker.env
-              const fs = require("node:fs");
-              const { execSync } = require("node:child_process");
-
-              const version = String(process.env.VERSION || "").trim();
-              const scanLimit = Number.parseInt(String(process.env.SCAN_LIMIT || "1000"), 10);
-              const boundedLimit = Number.isFinite(scanLimit) && scanLimit > 0 ? scanLimit : 1000;
-              const contract = JSON.parse(fs.readFileSync(".github/common-contract.json", "utf8"));
-              const titlePatternRaw = String(contract.releaseTitlePattern || "").trim();
-              const titlePattern = new RegExp(titlePatternRaw);
-              const expectedTitle = `chore(release): v${version}`;
-
-              const rows = execSync(`git log master -n ${boundedLimit} --format=%H%x09%s`, { encoding: "utf8" })
-                .split("\n")
-                .map((line) => line.trim())
-                .filter(Boolean);
-
-              const matches = [];
-              for (const row of rows) {
-                const [hash, ...rest] = row.split("\t");
-                const rawSubject = rest.join("\t");
-                const normalizedSubject = rawSubject.replace(/\s+\(#\d+\)\s*$/, "").trim();
-                if (normalizedSubject === expectedTitle && titlePattern.test(normalizedSubject)) {
-                  matches.push({ hash });
-                }
-              }
-
-              console.log(`marker_count=${matches.length}`);
-              console.log(`marker_hash=${matches[0]?.hash || ""}`);
-              NODE
+              node scripts/release-finder.mjs "$VERSION" "$SCAN_LIMIT" > /tmp/release-marker.env
               MARKER_COUNT=$(grep '^marker_count=' /tmp/release-marker.env | cut -d= -f2-)
               MARKER_HASH=$(grep '^marker_hash=' /tmp/release-marker.env | cut -d= -f2-)
               if [ -n "$MARKER_HASH" ]; then
