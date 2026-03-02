@@ -266,9 +266,11 @@ jobs:
             fi
           fi
 
-          echo "skip_empty_pr=$SKIP_EMPTY_PR" >> "$GITHUB_OUTPUT"
-          echo "marker_hash=$MARKER_HASH" >> "$GITHUB_OUTPUT"
-          echo "marker_count=$MARKER_COUNT" >> "$GITHUB_OUTPUT"
+          {
+            echo "skip_empty_pr=$SKIP_EMPTY_PR"
+            echo "marker_hash=$MARKER_HASH"
+            echo "marker_count=$MARKER_COUNT"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Decide action (create/update/noop)
         id: action
@@ -301,9 +303,11 @@ jobs:
             ACTION="noop"
           fi
 
-          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
-          echo "empty_commit=$EMPTY_COMMIT" >> "$GITHUB_OUTPUT"
-          echo "noop_reason=$NOOP_REASON" >> "$GITHUB_OUTPUT"
+          {
+            echo "action=$ACTION"
+            echo "empty_commit=$EMPTY_COMMIT"
+            echo "noop_reason=$NOOP_REASON"
+          } >> "$GITHUB_OUTPUT"
 
       - name: NO_OP summary
         if: steps.action.outputs.action == 'noop'
