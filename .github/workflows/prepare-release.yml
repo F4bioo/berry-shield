@@ -68,7 +68,16 @@ jobs:
             echo "BERRY_SHIELD_CI_TOKEN secret is required for release PR creation/edit."
             exit 1
           fi
-          gh repo view "${{ github.repository }}" >/dev/null
+          REPO="${{ github.repository }}"
+          if ! gh repo view "$REPO" >/dev/null 2>&1; then
+            TEMPLATE=".github/templates/prepare-release-token-access-error.md"
+            if [ -f "$TEMPLATE" ]; then
+              sed -e "s|__REPO__|$REPO|g" "$TEMPLATE"
+            else
+              echo "BERRY_SHIELD_CI_TOKEN cannot access repository: $REPO"
+            fi
+            exit 1
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -294,6 +303,28 @@ jobs:
             --title "chore(release): v${{ steps.target.outputs.version }}" \
             --body-file /tmp/release-pr-body.md
 
+      - name: Add repository owner as reviewer
+        if: steps.action.outputs.action == 'create_pr'
+        env:
+          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(gh pr list \
+            --base master \
+            --head "${{ steps.target.outputs.branch }}" \
+            --state open \
+            --json number \
+            --jq '.[0].number // ""')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open PR found for reviewer assignment. Skipping."
+            exit 0
+          fi
+          REVIEWER="${{ github.repository_owner }}"
+          if ! gh pr edit "$PR_NUMBER" --add-reviewer "$REVIEWER" >/dev/null 2>&1; then
+            echo "Could not add reviewer @$REVIEWER automatically. Skipping without failing workflow."
+          fi
+
       - name: Update existing PR mode
         if: steps.action.outputs.action == 'update_pr'
         env:
@@ -305,6 +336,19 @@ jobs:
           gh pr edit "$PR_NUMBER" \
             --title "chore(release): v${{ steps.target.outputs.version }}" \
             --body-file /tmp/release-pr-body.md
+
+      - name: Ensure repository owner is reviewer on updated PR
+        if: steps.action.outputs.action == 'update_pr'
+        env:
+          GH_TOKEN: ${{ secrets.BERRY_SHIELD_CI_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PR_NUMBER="${{ steps.target.outputs.existing_pr }}"
+          REVIEWER="${{ github.repository_owner }}"
+          if ! gh pr edit "$PR_NUMBER" --add-reviewer "$REVIEWER" >/dev/null 2>&1; then
+            echo "Could not add reviewer @$REVIEWER automatically. Skipping without failing workflow."
+          fi
 
   create-release-draft:
     name: create-release-draft
