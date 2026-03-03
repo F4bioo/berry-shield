@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: publish-release-${{ github.workflow }}-${{ github.event.inputs.target_version }}
+  group: publish-release-${{ github.workflow }}-${{ startsWith(github.event.inputs.target_version, 'v') && github.event.inputs.target_version || format('v{0}', github.event.inputs.target_version) }}
   cancel-in-progress: false
 
 jobs:
@@ -25,7 +25,7 @@ jobs:
     name: publish
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout master
         uses: actions/checkout@v4
@@ -66,26 +66,29 @@ jobs:
           echo "target_version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Resolve target draft release
-        id: draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           TAG="${{ steps.input.outputs.target_tag }}"
-          gh release list --limit 200 --json databaseId,tagName,isDraft,name > /tmp/releases.json
-          MATCH_COUNT=$(jq --arg TAG "$TAG" '[.[] | select(.tagName == $TAG and .isDraft == true)] | length' /tmp/releases.json)
-          if [ "$MATCH_COUNT" -eq 0 ]; then
-            echo "No draft release found for target $TAG. Aborting (fail-closed)."
+          if ! gh release view "$TAG" --json tagName,isDraft,name > /tmp/release.json 2>/tmp/release-view.err; then
+            if grep -Eiq "not found|404" /tmp/release-view.err; then
+              echo "No release found for target $TAG. Aborting (fail-closed)."
+            elif grep -Eiq "forbidden|403|rate limit|429|timed out|timeout|couldn.t connect|connection|network" /tmp/release-view.err; then
+              echo "Unable to read release state for $TAG due to auth/rate-limit/network error. Aborting (fail-closed)."
+            else
+              echo "Unable to read release state for $TAG. Aborting (fail-closed)."
+            fi
+            cat /tmp/release-view.err || true
             exit 1
           fi
-          if [ "$MATCH_COUNT" -gt 1 ]; then
-            echo "Multiple draft releases found for target $TAG. Aborting (fail-closed)."
-            jq --arg TAG "$TAG" '.[] | select(.tagName == $TAG and .isDraft == true) | {id:.databaseId, tag:.tagName, name:.name}' /tmp/releases.json
+          IS_DRAFT=$(jq -r '.isDraft' /tmp/release.json)
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Target release $TAG exists but is not draft. Aborting (fail-closed)."
+            jq '{tag:.tagName, name:.name, isDraft:.isDraft}' /tmp/release.json
             exit 1
           fi
-          RELEASE_ID=$(jq --arg TAG "$TAG" -r '.[] | select(.tagName == $TAG and .isDraft == true) | .databaseId' /tmp/releases.json)
-          echo "target_release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
 
       - name: Download target draft assets
         env:
@@ -103,6 +106,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          VERSION="${{ steps.input.outputs.target_version }}"
           cd .release-assets
           mapfile -t TGZ_FILES < <(find . -maxdepth 1 -type f -name '*.tgz' -printf '%f\n' | sort)
           TGZ_COUNT="${#TGZ_FILES[@]}"
@@ -114,8 +118,26 @@ jobs:
             echo "SHA256SUMS asset not found. Aborting."
             exit 1
           fi
-          sha256sum -c SHA256SUMS
           TGZ_FILE="${TGZ_FILES[0]}"
+          if ! grep -Fq "  $TGZ_FILE" SHA256SUMS; then
+            echo "SHA256SUMS does not contain an entry for $TGZ_FILE. Aborting (fail-closed)."
+            cat SHA256SUMS || true
+            exit 1
+          fi
+          sha256sum -c SHA256SUMS
+          if ! PKG_VERSION=$(tar -xOf "$TGZ_FILE" package/package.json | jq -r '.version'); then
+            echo "Unable to read package version from $TGZ_FILE. Aborting (fail-closed)."
+            tar -tf "$TGZ_FILE" | head -n 20 || true
+            exit 1
+          fi
+          if [ -z "$PKG_VERSION" ] || [ "$PKG_VERSION" = "null" ]; then
+            echo "Package version in $TGZ_FILE is empty/null. Aborting (fail-closed)."
+            exit 1
+          fi
+          if [ "$PKG_VERSION" != "$VERSION" ]; then
+            echo "Asset version mismatch: found $PKG_VERSION, expected $VERSION. Aborting (fail-closed)."
+            exit 1
+          fi
           echo "tgz=.release-assets/$TGZ_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
@@ -133,6 +155,11 @@ jobs:
           VERSION="${{ steps.input.outputs.target_version }}"
           if npm view "${PKG}@${VERSION}" version >/tmp/npm-view.out 2>/tmp/npm-view.err; then
             echo "Version ${PKG}@${VERSION} already exists on npm. Aborting."
+            exit 1
+          fi
+          if grep -Eiq 'E401|401|E403|403|E5[0-9]{2}|5[0-9]{2}|timed out|timeout|ENOTFOUND|ECONN|network' /tmp/npm-view.err; then
+            echo "Unable to verify npm version state due to auth/network/server error. Aborting (fail-closed)."
+            cat /tmp/npm-view.err || true
             exit 1
           fi
           if ! grep -Eiq 'E404|404|not found' /tmp/npm-view.err; then
