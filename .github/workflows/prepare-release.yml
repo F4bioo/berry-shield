@@ -487,6 +487,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build package artifacts
+        run: npm run build
+
       - name: Create draft release from prepare path
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -531,6 +534,10 @@ jobs:
       - name: Install dependencies
         if: steps.guard.outputs.should_release == 'true'
         run: npm ci
+
+      - name: Build package artifacts
+        if: steps.guard.outputs.should_release == 'true'
+        run: npm run build
 
       - name: Read target version
         if: steps.guard.outputs.should_release == 'true'
