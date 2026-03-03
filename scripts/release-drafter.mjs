@@ -78,6 +78,19 @@ if (!tgz || !existsSync(tgz)) {
   console.error("release-drafter: failed to generate npm pack artifact");
   process.exit(1);
 }
+
+const tarList = runAllowFail(`tar -tzf "${tgz}"`);
+if (!tarList.ok) {
+  console.error("release-drafter: unable to inspect npm pack artifact contents");
+  console.error(tarList.err || tarList.out || "unknown tar error");
+  process.exit(1);
+}
+const tarEntries = tarList.out.split("\n").map((x) => x.trim()).filter(Boolean);
+if (!tarEntries.includes("package/dist/index.js")) {
+  console.error("release-drafter: npm pack artifact is missing package/dist/index.js");
+  process.exit(1);
+}
+
 run(`sha256sum "${tgz}" > SHA256SUMS`);
 
 const contract = JSON.parse(readFileSync(".github/common-contract.json", "utf8"));
