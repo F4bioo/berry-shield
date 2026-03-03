@@ -59,7 +59,7 @@ The goal of `Berry Shield` is to reduce that risk in day-to-day usage by adding 
 
 Baseline runtime state before the demo (plugin enabled, `enforce` mode, all core layers active):
 
-<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/berry-shield-status.jpeg" alt="Berry Shield Status" width="720" />
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/berry-shield-status.jpeg" alt="Berry Shield Status" width="720" />
 
 ---
 
@@ -72,7 +72,7 @@ bash -lc 'printf DEMO_VINE > /tmp/demo-vine-proof.txt'
 
 Expected: denied in `enforce` after external untrusted ingestion.
 
-<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/Berry.Vine-ENFORCE.gif" alt="Berry.Vine Enforce" />
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/Berry.Vine-ENFORCE.gif" alt="Berry.Vine Enforce" />
 
 ---
 
@@ -85,7 +85,7 @@ bash -lc 'printf VINE_AUDIT > /tmp/vine-audit-proof.txt'
 
 Expected: allowed execution plus `would_block` evidence in report/audit logs.
 
-<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/Berry.Vine-AUDIT.gif" alt="Berry.Vine Audit" />
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/Berry.Vine-AUDIT.gif" alt="Berry.Vine Audit" />
 
 ---
 
@@ -93,7 +93,7 @@ Expected: allowed execution plus `would_block` evidence in report/audit logs.
 
 Expected: denied read when attempting to access protected files.
 
-<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/berry-shield-Berry.Stem-layer.jpeg" alt="Berry.Stem Block" width="520" />
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/berry-shield-Berry.Stem-layer.jpeg" alt="Berry.Stem Block" width="520" />
 
 Runtime evidence:
 
@@ -131,7 +131,7 @@ Evidence (real redacted output):
 }
 ```
 
-<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/berry-shield-Berry.Pulp-layer.jpeg" alt="Berry.Pulp Redaction" width="520" />
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/berry-shield-Berry.Pulp-layer.jpeg" alt="Berry.Pulp Redaction" width="520" />
 
 ---
 
@@ -177,7 +177,7 @@ See more:
 
 Berry Shield is designed with multiple layers. The idea is that if an interaction isn't caught by one layer, it might be caught by another.
 
-<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/main/docs/assets/demo/mental-model-single-flow.jpeg" alt="Mental Model Single Flow" />
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/mental-model-single-flow.jpeg" alt="Mental Model Single Flow" />
 
 ## 🧬 Layers in plain language
 
