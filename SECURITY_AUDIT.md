@@ -10,6 +10,23 @@ title: "Security Audit"
 
 This project is open source and community-auditable by design.
 
+## 2026-03-02: SDK Security Hardening & Vulnerability Remediation
+
+- **Target**: OpenClaw SDK Upgrade to v2026.2.23
+- **Objective**: Mitigate critical "GNU long-option abbreviations" validation bypass (CVE-2026-28363).
+- **Actions**:
+    - **SDK floor**: Elevated `peerDependencies.openclaw` and `MIN_OPENCLAW_VERSION` from `2026.2.3-1` to `2026.2.23`.
+    - **Vulnerability Patch**: Updated `package-lock.json` to resolve SDK bypass.
+    - **DevDeps Audit**: Ran `npm audit fix` for development dependencies, reducing high-risk vulnerabilities by 22% (9 down to 7).
+    - **Impact Assessment**: Performed professional impact assessment using `openclaw-release` skill.
+- **Verification**:
+    - 451 automated tests passed (Vitest).
+    - Production build validated.
+    - Typecheck (TSC) validated.
+- **Status**: ✅ COMPLIANT (SDK Security baseline established at 2026.2.23).
+
+## Current Status: AUDITED
+*Last Audit: 2026-03-02*
 During `openclaw plugins install`, OpenClaw may show heuristic warnings such as:
 ```text
 WARNING: Plugin "berry-shield" contains dangerous code patterns: Shell command execution detected (child_process) (.../berry-shield/dist/index.js:xxxx); Environment variable access combined with network send — possible credential harvesting (.../berry-shield/dist/index.js:xxxx)
