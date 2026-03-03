@@ -55,7 +55,7 @@
     "wiki:claim": "npx ts-node --esm scripts/doc-sanity.ts"
   },
   "peerDependencies": {
-    "openclaw": "^2026.2.3-1"
+    "openclaw": "^2026.2.23"
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0"
