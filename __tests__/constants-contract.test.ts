@@ -76,8 +76,8 @@ describe("Constants Contract", () => {
     });
 
     it("should keep compatibility policy constants stable", () => {
-        expect(COMPAT_POLICY.MIN_OPENCLAW_VERSION).toBe("2026.2.3-1");
-        expect(COMPAT_POLICY.PEER_RANGE).toBe("^2026.2.3-1");
+        expect(COMPAT_POLICY.MIN_OPENCLAW_VERSION).toBe("2026.2.23");
+        expect(COMPAT_POLICY.PEER_RANGE).toBe("^2026.2.23");
     });
 
     describe("Security Standards (Safe-by-Default)", () => {
