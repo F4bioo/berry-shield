@@ -33,7 +33,8 @@ function isPolicyPath(value: string | undefined): value is PolicyPath {
     return typeof value === "string" && (VALID_POLICY_PATHS as readonly string[]).includes(value);
 }
 
-function parseInteger(value: string, fieldLabel: string, min: number): { ok: true; value: number } | { ok: false; error: string } {
+function parseInteger(value: string | undefined, fieldLabel: string, min: number): { ok: true; value: number } | { ok: false; error: string } {
+    if (value === undefined) return { ok: false, error: `${fieldLabel} is required.` };
     const parsed = Number(value);
     if (!Number.isInteger(parsed)) {
         return { ok: false, error: `${fieldLabel} must be an integer.` };
