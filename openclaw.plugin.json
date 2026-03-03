@@ -2,7 +2,7 @@
     "id": "berry-shield",
     "name": "Berry Shield",
     "description": "Security plugin that helps to block destructive commands, redact secrets and PII",
-    "version": "2026.3.3",
+    "version": "2026.3.3-1",
     "configSchema": {
         "type": "object",
         "additionalProperties": false,
