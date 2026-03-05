@@ -49,13 +49,20 @@ interface SessionResolutionInput {
 }
 
 function stripWrappingQuotes(value: string): string {
-    const trimmed = value.trim();
+    let trimmed = value.trim();
     if (
         (trimmed.startsWith("'") && trimmed.endsWith("'"))
         || (trimmed.startsWith("\"") && trimmed.endsWith("\""))
     ) {
-        return trimmed.slice(1, -1);
+        trimmed = trimmed.slice(1, -1);
     }
+
+    // Normalize unmatched trailing/leading quote artifacts produced by nested shell quoting
+    // (e.g. /tmp/file.txt\"), keeping target evidence stable in audit logs.
+    trimmed = trimmed
+        .replace(/^\\?['"]+/, "")
+        .replace(/\\?['"]+$/, "");
+
     return trimmed;
 }
 

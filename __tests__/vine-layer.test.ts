@@ -137,6 +137,30 @@ describe("Berry.Vine", () => {
         expect(lastEvent?.decision).toBe("would_block");
     });
 
+    it("normalizes write-like target without trailing escaped quote artifacts", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            mode: "enforce",
+            vine: { mode: "strict" },
+        }));
+
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
+            toolName: "web_search",
+            toolCallId: "tc-target-normalize",
+            message: [{ type: "text", text: "external" }],
+        }, { toolName: "web_search", sessionKey: "s1" });
+
+        handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: "bash -lc \"printf VINE_PROOF > /tmp/strawberry-journal-proof.txt\\\"\"" },
+        }, { sessionKey: "s1" });
+
+        const lastEvent = appendAuditEventMock.mock.calls.at(-1)?.[0];
+        expect(lastEvent?.layer).toBe("vine");
+        expect(lastEvent?.decision).toBe("blocked");
+        expect(lastEvent?.target).toBe("/tmp/strawberry-journal-proof.txt");
+    });
+
     it("strict blocks unknown-origin sensitive action", () => {
         const { api, handlers } = createApi();
         registerBerryVine(api as any, createConfig({
