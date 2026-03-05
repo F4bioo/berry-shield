@@ -5,9 +5,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/F4bioo/berry-shield/actions/workflows/ci.yml?branch=master"><img src="https://img.shields.io/github/actions/workflow/status/F4bioo/berry-shield/ci.yml?branch=master&style=for-the-badge" alt="CI status"></a>
-  <a href="https://github.com/F4bioo/berry-shield/releases"><img src="https://img.shields.io/github/v/tag/F4bioo/berry-shield?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge" alt="Apache 2.0 License"></a>
+  <a href="https://github.com/F4bioo/berry-shield/actions/workflows/ci.yml?branch=master"><img src="https://img.shields.io/github/actions/workflow/status/F4bioo/berry-shield/ci.yml?branch=master&style=flat-square&logo=githubactions&logoColor=white&labelColor=18181A&color=2FBF71" alt="CI status"></a>
+  <a href="https://github.com/F4bioo/berry-shield/releases"><img src="https://img.shields.io/github/v/release/F4bioo/berry-shield?include_prereleases&style=flat-square&logo=github&logoColor=white&labelColor=18181A&color=FF5A2D&v=1" alt="GitHub release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square&logo=apache&logoColor=white&labelColor=18181A&color=2980b9" alt="Apache 2.0 License"></a>
 </p>
 
 ## 🧐 Why this exists
