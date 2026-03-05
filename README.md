@@ -5,9 +5,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/F4bioo/berry-shield/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/F4bioo/berry-shield/ci.yml?branch=master&label=build" alt="Build status"></a>
-  <a href="https://github.com/F4bioo/berry-shield/releases/latest"><img src="https://img.shields.io/github/v/release/F4bioo/berry-shield?label=release" alt="GitHub release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/F4bioo/berry-shield?label=license" alt="Apache-2.0 license"></a>
+  <a href="https://github.com/F4bioo/berry-shield/actions/workflows/ci.yml?branch=master"><img src="https://img.shields.io/github/actions/workflow/status/F4bioo/berry-shield/ci.yml?branch=master&style=for-the-badge" alt="CI status"></a>
+  <a href="https://github.com/F4bioo/berry-shield/releases"><img src="https://img.shields.io/github/v/tag/F4bioo/berry-shield?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge" alt="Apache 2.0 License"></a>
 </p>
 
 ## 🧐 Why this exists
@@ -73,7 +73,7 @@ Baseline runtime state before the demo (plugin enabled, `enforce` mode, all core
 
 ### 1) Enforce: external-risk action is blocked (Vine Layer)
 
-<video src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/Berry.Vine-ENFORCE.mp4" controls autoplay muted loop preload="metadata" alt="Berry.Vine Enforce" controls width="720"></video>
+<video src='https://github.com/user-attachments/assets/024aca2b-21d1-4d1b-b6f4-aad8a3bd54fb' alt="Berry.Vine Enforce" controls width="720"></video>
 
 > In chat/runtime: ingest external content with web_fetch, then preflight an exec write
 
@@ -85,7 +85,7 @@ Expected: denied in `enforce` after external untrusted ingestion.
 
 ### 2) Audit: same flow is allowed but logged as would_block (Vine Layer)
 
-<video src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/Berry.Vine-AUDIT.mp4" controls autoplay muted loop preload="metadata" alt="Berry.Vine Audit" controls width="720"></video>
+<video src='https://github.com/user-attachments/assets/8fbff8e0-003c-4463-a6ae-319c3d909599' alt="Berry.Vine Audit" controls width="720"></video>
 
 > Same write-like operation under audit mode
 
