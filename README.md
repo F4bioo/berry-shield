@@ -1,6 +1,14 @@
-# 🍓 Berry Shield
+# 🍓 Berry Shield - Security plugin for OpenClaw
 
-Security plugin for OpenClaw that reduces data leakage risk and blocks unsafe operations in agent workflows.
+<p align="center">
+    <img src="docs/assets/demo/berry-shield-baner.png" alt="Berry Shield" width="720">
+</p>
+
+<p align="center">
+  <a href="https://github.com/F4bioo/berry-shield/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/F4bioo/berry-shield/ci.yml?branch=master&label=build" alt="Build status"></a>
+  <a href="https://github.com/F4bioo/berry-shield/releases/latest"><img src="https://img.shields.io/github/v/release/F4bioo/berry-shield?label=release" alt="GitHub release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/F4bioo/berry-shield?label=license" alt="Apache-2.0 license"></a>
+</p>
 
 ## 🧐 Why this exists
 
@@ -21,7 +29,7 @@ The goal of `Berry Shield` is to reduce that risk in day-to-day usage by adding 
 
 ---
 
-## ✓ What it is / ✗ What it is not
+## What it is / What it is not
 
 ### ✓ What it is
 
@@ -63,29 +71,27 @@ Baseline runtime state before the demo (plugin enabled, `enforce` mode, all core
 
 ---
 
-### 1) Enforce: external-risk action is blocked (Vine)
+### 1) Enforce: external-risk action is blocked (Vine Layer)
 
-```bash
-# in chat/runtime: ingest external content with web_fetch, then preflight an exec write
-bash -lc 'printf DEMO_VINE > /tmp/demo-vine-proof.txt'
-```
+<video src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/Berry.Vine-ENFORCE.mp4" controls autoplay muted loop preload="metadata" alt="Berry.Vine Enforce" controls width="720"></video>
+
+> In chat/runtime: ingest external content with web_fetch, then preflight an exec write
+
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/Berry.Vine-ENFORCE.png" alt="Berry.Vine Enforce" width="720"/>
 
 Expected: denied in `enforce` after external untrusted ingestion.
 
-<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/Berry.Vine-ENFORCE.gif" alt="Berry.Vine Enforce" />
-
 ---
 
-### 2) Audit: same flow is allowed but logged as would_block
+### 2) Audit: same flow is allowed but logged as would_block (Vine Layer)
 
-```bash
-# same write-like operation under audit mode
-bash -lc 'printf VINE_AUDIT > /tmp/vine-audit-proof.txt'
-```
+<video src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/Berry.Vine-AUDIT.mp4" controls autoplay muted loop preload="metadata" alt="Berry.Vine Audit" controls width="720"></video>
+
+> Same write-like operation under audit mode
+
+<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/Berry.Vine-AUDIT.png" alt="Berry.Vine Audit" width="720"/>
 
 Expected: allowed execution plus `would_block` evidence in report/audit logs.
-
-<img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/Berry.Vine-AUDIT.gif" alt="Berry.Vine Audit" />
 
 ---
 
@@ -135,6 +141,16 @@ Evidence (real redacted output):
 
 ---
 
+# ⚡ Quickstart
+
+Install from npm package:
+
+```bash
+openclaw plugins install @f4bioo/berry-shield
+```
+
+---
+
 ## 🛡️ Security Audit & Installation Notice
 
 > [!WARNING]
@@ -145,17 +161,9 @@ Evidence (real redacted output):
 > This is a heuristic warning, not a malware verdict.
 > For a code-level mapping of each warning, see [Security Audit](SECURITY_AUDIT.md).
 
----
-
-## ⚡ Quickstart
-
-Install from npm package:
-
-```bash
-openclaw plugins install @f4bioo/berry-shield
-```
-
 **Note:** Berry Shield is plug-and-play after install. No extra setup is required for baseline protection.
+
+---
 
 See more:
 - [Berry Shield Installation guide](docs/wiki/deploy/installation.md)
@@ -222,8 +230,8 @@ See more:
 
 Berry Shield's effectiveness is tied to the underlying OpenClaw SDK capabilities. We maintain a detailed diary that tracks known bugs and blind spots across OpenClaw versions.
 
-### Key Points for v2026.2.26:
-*   **Hook Reliability**: In our v2026.2.26 checkpoint, `before_tool_call` and `message_sending` were observed as functional, but hook behavior remains runtime/version-dependent.
+### Key Points for v2026.3.2:
+*   **Hook Reliability**: In our v2026.3.2 checkpoint, `before_tool_call` and `message_sending` were observed as functional, but hook behavior remains runtime/version-dependent.
 *   **Soft Guardrails**: Prompt-based defenses (`Berry.Root`) are advisory and can be bypassed by clever user instructions.
 *   **Timing Gaps**: Redaction happens during persistence, which might create a transient data exposure.
 
