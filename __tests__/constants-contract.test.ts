@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOOKS, REQUIRED_SECURITY_HOOKS, AUDIT_HOOKS, COMPAT_POLICY, AUDIT_DECISIONS, SECURITY_LAYERS } from "../src/constants";
+import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOOKS, REQUIRED_SECURITY_HOOKS, AUDIT_HOOKS, COMPAT_POLICY, AUDIT_DECISIONS, SECURITY_LAYERS, VINE_CONFIRMATION_STRATEGY } from "../src/constants";
 import { DEFAULT_CONFIG } from "../src/config/defaults";
 import { readFileSync } from "node:fs";
 
@@ -110,5 +110,10 @@ describe("Constants Contract", () => {
         expect(SECURITY_LAYERS.PULP).toBe("pulp");
         expect(SECURITY_LAYERS.THORN).toBe("thorn");
         expect(SECURITY_LAYERS.VINE).toBe("vine");
+    });
+
+    it("should have stable vine confirmation strategy labels", () => {
+        expect(VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE).toBe("one_to_one");
+        expect(VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY).toBe("one_to_many");
     });
 });

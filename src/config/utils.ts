@@ -3,8 +3,10 @@ import {
     BerryShieldPolicyProfile,
     BerryShieldCustomRulesConfig,
     BerryShieldVineMode,
+    BerryShieldVineConfirmationStrategy,
 } from "../types/config.js";
 import { DEFAULT_CONFIG } from "./defaults.js";
+import { VINE_CONFIRMATION_STRATEGY } from "../constants.js";
 
 /**
  * Merges user config with defaults.
@@ -187,6 +189,49 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
         ? rawVine.toolAllowlist.filter((name): name is string => typeof name === "string")
         : DEFAULT_CONFIG.vine.toolAllowlist;
 
+    const rawVineConfirmation = (rawVine.confirmation && typeof rawVine.confirmation === "object")
+        ? (rawVine.confirmation as Record<string, unknown>)
+        : {};
+
+    const confirmationStrategy = (
+        rawVineConfirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE
+        || rawVineConfirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+    )
+        ? rawVineConfirmation.strategy as BerryShieldVineConfirmationStrategy
+        : DEFAULT_CONFIG.vine.confirmation.strategy;
+
+    const confirmationCodeTtlSeconds = (
+        typeof rawVineConfirmation.codeTtlSeconds === "number"
+        && Number.isFinite(rawVineConfirmation.codeTtlSeconds)
+        && rawVineConfirmation.codeTtlSeconds > 0
+    )
+        ? Math.floor(rawVineConfirmation.codeTtlSeconds)
+        : DEFAULT_CONFIG.vine.confirmation.codeTtlSeconds;
+
+    const confirmationMaxAttempts = (
+        typeof rawVineConfirmation.maxAttempts === "number"
+        && Number.isFinite(rawVineConfirmation.maxAttempts)
+        && rawVineConfirmation.maxAttempts > 0
+    )
+        ? Math.floor(rawVineConfirmation.maxAttempts)
+        : DEFAULT_CONFIG.vine.confirmation.maxAttempts;
+
+    const confirmationWindowSeconds = (
+        typeof rawVineConfirmation.windowSeconds === "number"
+        && Number.isFinite(rawVineConfirmation.windowSeconds)
+        && rawVineConfirmation.windowSeconds > 0
+    )
+        ? Math.floor(rawVineConfirmation.windowSeconds)
+        : DEFAULT_CONFIG.vine.confirmation.windowSeconds;
+
+    const confirmationMaxActionsPerWindow = (
+        typeof rawVineConfirmation.maxActionsPerWindow === "number"
+        && Number.isFinite(rawVineConfirmation.maxActionsPerWindow)
+        && rawVineConfirmation.maxActionsPerWindow > 0
+    )
+        ? Math.floor(rawVineConfirmation.maxActionsPerWindow)
+        : DEFAULT_CONFIG.vine.confirmation.maxActionsPerWindow;
+
     return {
         mode,
         layers: {
@@ -221,6 +266,13 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
                 forcedGuardTurns,
             },
             toolAllowlist,
+            confirmation: {
+                strategy: confirmationStrategy,
+                codeTtlSeconds: confirmationCodeTtlSeconds,
+                maxAttempts: confirmationMaxAttempts,
+                windowSeconds: confirmationWindowSeconds,
+                maxActionsPerWindow: confirmationMaxActionsPerWindow,
+            },
         },
         customRules,
         sensitiveFilePaths: fallbackSensitiveFiles,

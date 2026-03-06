@@ -1,4 +1,5 @@
 import { BerryShieldPluginConfig } from "../types/config.js";
+import { VINE_CONFIRMATION_STRATEGY } from "../constants.js";
 
 /**
  * Security defaults: Safe-by-default philosophy.
@@ -38,6 +39,13 @@ export const DEFAULT_CONFIG: BerryShieldPluginConfig = {
             forcedGuardTurns: 3,
         },
         toolAllowlist: [],
+        confirmation: {
+            strategy: VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY,
+            codeTtlSeconds: 90,
+            maxAttempts: 3,
+            windowSeconds: 120,
+            maxActionsPerWindow: 3,
+        },
     },
     customRules: {
         secrets: [],

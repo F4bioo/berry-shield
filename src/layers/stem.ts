@@ -24,7 +24,7 @@ import { getSharedVineConfirmStateManager } from "../vine/confirm-state.js";
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
-import { BRAND_SYMBOL, VINE_CONFIRMATION } from "../constants.js";
+import { BRAND_SYMBOL, VINE_CONFIRMATION_STRATEGY } from "../constants.js";
 import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
@@ -245,7 +245,8 @@ STATUS: DENIED
 REASON: ${reason}
 
 The confirmation challenge is no longer valid.
-Start a new confirmation flow by calling berry_check again.`;
+Start a new confirmation flow by calling berry_check again.
+Note: Berry Shield uses layered controls. A gate result and runtime hook decision may differ by context.`;
 }
 
 function emitVineConfirmEvent(
@@ -286,6 +287,7 @@ function maybeApplyVineConfirmRequired(
     invalidCode?: boolean;
     deniedReason?: string;
     confirmationAccepted?: boolean;
+    allowedByWindow?: boolean;
 } {
     if (!config.layers.vine || !sessionKey || (operation !== "exec" && operation !== "write")) {
         return { requiresConfirmation: false };
@@ -315,7 +317,16 @@ function maybeApplyVineConfirmRequired(
         return { requiresConfirmation: false };
     }
 
-    const confirmState = getSharedVineConfirmStateManager(config.vine.retention);
+    const confirmState = getSharedVineConfirmStateManager(config.vine.retention, config.vine.confirmation);
+    const riskWindowId = vineState.getRiskWindowId(sessionKey) ?? "risk-window-default";
+
+    if (config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY) {
+        const consumedWindow = confirmState.consumeActiveWindowSlot({ sessionKey, riskWindowId });
+        if (consumedWindow) {
+            return { requiresConfirmation: false, confirmationAccepted: true, allowedByWindow: true };
+        }
+    }
+
     if (confirmation?.confirmCode !== undefined) {
         if (!confirmation.humanTrusted) {
             return {
@@ -343,6 +354,14 @@ function maybeApplyVineConfirmRequired(
             confirmCode: confirmation.confirmCode,
         });
         if (verification.kind === "allowed") {
+            if (config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY) {
+                confirmState.openWindowAfterConfirmation({
+                    sessionKey,
+                    riskWindowId,
+                    windowSeconds: config.vine.confirmation.windowSeconds,
+                    maxActionsPerWindow: config.vine.confirmation.maxActionsPerWindow,
+                });
+            }
             return { requiresConfirmation: false, confirmationAccepted: true };
         }
         if (verification.kind === "invalid_code") {
@@ -351,8 +370,8 @@ function maybeApplyVineConfirmRequired(
                 challenge: {
                     confirmId: resolvedChallengeId,
                     confirmCode: "",
-                    ttlSeconds: VINE_CONFIRMATION.TTL_SECONDS,
-                    maxAttempts: VINE_CONFIRMATION.MAX_ATTEMPTS,
+                    ttlSeconds: config.vine.confirmation.codeTtlSeconds,
+                    maxAttempts: config.vine.confirmation.maxAttempts,
                 },
                 attemptsRemaining: verification.attemptsRemaining,
                 invalidCode: true,
@@ -597,7 +616,9 @@ export function registerBerryStem(
                         config,
                         AUDIT_DECISIONS.ALLOWED_BY_CONFIRM,
                         target,
-                        "allowed after explicit confirmation"
+                        vineConfirm.allowedByWindow
+                            ? "allowed by active confirmation window"
+                            : "allowed after explicit confirmation"
                     );
                 }
                 if (vineConfirm.requiresConfirmation && vineConfirm.challenge) {
@@ -609,8 +630,8 @@ export function registerBerryStem(
                                     operation,
                                     target,
                                     confirmCode: vineConfirm.challenge.confirmCode || "****",
-                                    ttlSeconds: vineConfirm.challenge.ttlSeconds || 90,
-                                    maxAttempts: vineConfirm.challenge.maxAttempts || 3,
+                                    ttlSeconds: vineConfirm.challenge.ttlSeconds,
+                                    maxAttempts: vineConfirm.challenge.maxAttempts,
                                     attemptsRemaining: vineConfirm.attemptsRemaining,
                                     invalidCode: vineConfirm.invalidCode,
                                 }),
@@ -620,8 +641,8 @@ export function registerBerryStem(
                             status: "confirm_required",
                             reason: "external untrusted content risk (vine)",
                             confirmCode: vineConfirm.challenge.confirmCode,
-                            ttlSeconds: vineConfirm.challenge.ttlSeconds || 90,
-                            maxAttempts: vineConfirm.challenge.maxAttempts || 3,
+                            ttlSeconds: vineConfirm.challenge.ttlSeconds,
+                            maxAttempts: vineConfirm.challenge.maxAttempts,
                             attemptsRemaining: vineConfirm.attemptsRemaining,
                             invalidCode: vineConfirm.invalidCode,
                         },
@@ -685,7 +706,9 @@ export function registerBerryStem(
                             config,
                             AUDIT_DECISIONS.ALLOWED_BY_CONFIRM,
                             target,
-                            "allowed after explicit confirmation"
+                            vineConfirm.allowedByWindow
+                                ? "allowed by active confirmation window"
+                                : "allowed after explicit confirmation"
                         );
                     }
                     if (vineConfirm.requiresConfirmation && vineConfirm.challenge) {
@@ -697,8 +720,8 @@ export function registerBerryStem(
                                         operation,
                                         target,
                                         confirmCode: vineConfirm.challenge.confirmCode || "****",
-                                        ttlSeconds: vineConfirm.challenge.ttlSeconds || 90,
-                                        maxAttempts: vineConfirm.challenge.maxAttempts || 3,
+                                        ttlSeconds: vineConfirm.challenge.ttlSeconds,
+                                        maxAttempts: vineConfirm.challenge.maxAttempts,
                                         attemptsRemaining: vineConfirm.attemptsRemaining,
                                         invalidCode: vineConfirm.invalidCode,
                                     }),
@@ -708,8 +731,8 @@ export function registerBerryStem(
                                 status: "confirm_required",
                                 reason: "external untrusted content risk (vine)",
                                 confirmCode: vineConfirm.challenge.confirmCode,
-                                ttlSeconds: vineConfirm.challenge.ttlSeconds || 90,
-                                maxAttempts: vineConfirm.challenge.maxAttempts || 3,
+                                ttlSeconds: vineConfirm.challenge.ttlSeconds,
+                                maxAttempts: vineConfirm.challenge.maxAttempts,
                                 attemptsRemaining: vineConfirm.attemptsRemaining,
                                 invalidCode: vineConfirm.invalidCode,
                             },

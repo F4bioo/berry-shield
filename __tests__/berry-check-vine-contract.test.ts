@@ -276,4 +276,100 @@ describe("berry_check + Vine contract", () => {
 
         expect(second.details.status).toBe("allowed");
     });
+
+    it("uses configured confirmation TTL in confirm_required output/details", async () => {
+        const config = createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "strict",
+                confirmation: {
+                    strategy: "one_to_one",
+                    codeTtlSeconds: 33,
+                    maxAttempts: 5,
+                    windowSeconds: 120,
+                    maxActionsPerWindow: 3,
+                },
+            },
+        });
+        const vineState = getSharedVineStateManager(config.vine.retention);
+        vineState.markExternalSignal({
+            sessionKey: "s1",
+            escalationThreshold: config.vine.thresholds.externalSignalsToEscalate,
+            forcedGuardTurns: config.vine.thresholds.forcedGuardTurns,
+            sourceToolCallId: "tc1",
+        });
+
+        const { api, getTool } = createApi();
+        registerBerryStem(api as any, config);
+        const result = await getTool().execute("id", {
+            operation: "exec",
+            target: "bash -lc 'printf test > /tmp/ttl-check.txt'",
+            sessionKey: "s1",
+        });
+
+        expect(result.details.status).toBe("confirm_required");
+        expect(result.details.ttlSeconds).toBe(33);
+        expect(result.details.maxAttempts).toBe(5);
+        expect(result.content[0].text).toContain("TTL_SECONDS: 33");
+        expect(result.content[0].text).toContain("MAX_ATTEMPTS: 5");
+    });
+
+    it("one_to_many allows follow-up sensitive actions without re-prompt until window is exhausted", async () => {
+        const config = createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "strict",
+                confirmation: {
+                    strategy: "one_to_many",
+                    codeTtlSeconds: 90,
+                    maxAttempts: 3,
+                    windowSeconds: 120,
+                    maxActionsPerWindow: 2,
+                },
+            },
+        });
+        const vineState = getSharedVineStateManager(config.vine.retention);
+        vineState.markExternalSignal({
+            sessionKey: "s1",
+            escalationThreshold: config.vine.thresholds.externalSignalsToEscalate,
+            forcedGuardTurns: config.vine.thresholds.forcedGuardTurns,
+            sourceToolCallId: "tc1",
+        });
+
+        const { api, getTool, getHandler } = createApi();
+        registerBerryStem(api as any, config);
+        const beforeAgentStart = getHandler("before_agent_start");
+        beforeAgentStart?.({}, { sessionKey: "s1", trigger: "user" });
+
+        const targetA = "bash -lc 'printf A > /tmp/one-to-many-a.txt'";
+        const targetB = "bash -lc 'printf B > /tmp/one-to-many-b.txt'";
+        const targetC = "bash -lc 'printf C > /tmp/one-to-many-c.txt'";
+
+        const first = await getTool().execute("id", {
+            operation: "exec",
+            target: targetA,
+            sessionKey: "s1",
+        });
+        const second = await getTool().execute("id", {
+            operation: "exec",
+            target: targetA,
+            sessionKey: "s1",
+            confirmCode: first.details.confirmCode,
+        });
+        const third = await getTool().execute("id", {
+            operation: "exec",
+            target: targetB,
+            sessionKey: "s1",
+        });
+        const fourth = await getTool().execute("id", {
+            operation: "exec",
+            target: targetC,
+            sessionKey: "s1",
+        });
+
+        expect(first.details.status).toBe("confirm_required");
+        expect(second.details.status).toBe("allowed");
+        expect(third.details.status).toBe("allowed");
+        expect(fourth.details.status).toBe("confirm_required");
+    });
 });

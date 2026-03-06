@@ -165,6 +165,12 @@ export class VineStateManager {
         return entry.unknownSignalsCount > 0;
     }
 
+    public getRiskWindowId(sessionKey: string): string | undefined {
+        const entry = this.state.get(sessionKey);
+        if (!entry) return undefined;
+        return entry.riskWindowId || undefined;
+    }
+
     public clearRisk(sessionKey: string): void {
         const entry = this.state.get(sessionKey);
         if (!entry) return;

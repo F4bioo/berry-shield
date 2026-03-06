@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { HOOKS } from "../src/constants";
+import { HOOKS, VINE_CONFIRMATION_STRATEGY } from "../src/constants";
 
 const { appendAuditEventMock } = vi.hoisted(() => ({
     appendAuditEventMock: vi.fn(),
@@ -47,6 +47,13 @@ function createConfig() {
                 forcedGuardTurns: 3,
             },
             toolAllowlist: [],
+            confirmation: {
+                strategy: VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY,
+                codeTtlSeconds: 90,
+                maxAttempts: 3,
+                windowSeconds: 120,
+                maxActionsPerWindow: 3,
+            },
         },
         customRules: {
             secrets: [],

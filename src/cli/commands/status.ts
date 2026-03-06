@@ -6,7 +6,7 @@ import {
     SENSITIVE_FILE_PATTERNS,
     DESTRUCTIVE_COMMAND_PATTERNS,
 } from "../../patterns/index.js";
-import { CONFIG_PATHS } from "../../constants.js";
+import { CONFIG_PATHS, VINE_CONFIRMATION_STRATEGY } from "../../constants.js";
 import { type ConfigWrapper } from "../../config/wrapper.js";
 import { ui } from "../ui/tui.js";
 import { theme } from "../ui/theme.js";
@@ -75,6 +75,18 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
                     { label: "Retention (entries)", value: String(shieldConfig.vine.retention.maxEntries) },
                     { label: "Retention (ttl sec)", value: String(shieldConfig.vine.retention.ttlSeconds) },
                     { label: "Allowlist", value: `${shieldConfig.vine.toolAllowlist.length} tool(s)` },
+                ]);
+
+                s.spacer();
+                s.section("Vine Confirmation");
+                s.table([
+                    { label: "Confirmation Strategy", value: shieldConfig.vine.confirmation.strategy.toUpperCase() },
+                    { label: "ONE_TO_ONE", value: shieldConfig.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE ? theme.success("ACTIVE") : theme.muted("OFF") },
+                    { label: "ONE_TO_MANY", value: shieldConfig.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY ? theme.success("ACTIVE") : theme.muted("OFF") },
+                    { label: "Code TTL (sec)", value: String(shieldConfig.vine.confirmation.codeTtlSeconds) },
+                    { label: "Max Attempts", value: String(shieldConfig.vine.confirmation.maxAttempts) },
+                    { label: "Window (sec)", value: String(shieldConfig.vine.confirmation.windowSeconds) },
+                    { label: "Max Actions/Window", value: String(shieldConfig.vine.confirmation.maxActionsPerWindow) },
                 ]);
 
                 s.spacer();

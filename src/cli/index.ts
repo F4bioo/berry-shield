@@ -27,6 +27,7 @@ import {
 import { resetCommand } from "./commands/reset.js";
 import { ui } from "./ui/tui.js";
 import { theme } from "./ui/theme.js";
+import { VINE_CONFIRMATION_STRATEGY } from "../constants.js";
 
 /**
  * Register the Berry Shield CLI commands with OpenClaw.
@@ -181,6 +182,10 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
                 bshield
                 .command("vine [action] [pathOrTool] [value]")
                 .description("Manage Berry.Vine settings and tool allowlist")
+                .addHelpText(
+                    "after",
+                    `\nExamples:\n  openclaw bshield vine confirmation\n  openclaw bshield vine set confirmation.strategy ${VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY}\n  openclaw bshield vine set confirmation.strategy ${VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE}`
+                )
                 .action(async (action: string | undefined, pathOrTool: string | undefined, value: string | undefined) => {
                     await vineCommand(action, pathOrTool, value, context, wrapper);
                 }),

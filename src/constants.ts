@@ -129,3 +129,9 @@ export const VINE_CONFIRMATION = {
     MAX_ATTEMPTS: 3,
     CLEANUP_INTERVAL_MS: 30_000,
 } as const;
+
+/** Vine confirmation strategy labels */
+export const VINE_CONFIRMATION_STRATEGY = {
+    ONE_TO_ONE: "one_to_one",
+    ONE_TO_MANY: "one_to_many",
+} as const;

@@ -428,7 +428,7 @@ export function registerBerryVine(
                 vineState.consumeForcedGuardTurn(sessionKey);
                 return {
                     block: true,
-                    blockReason: `${BRAND_SYMBOL} Berry Shield: blocked by Berry.Vine (external content risk).`,
+                    blockReason: `${BRAND_SYMBOL} Berry Shield: blocked by Berry.Vine (external content risk). Layered guardrails active: prior gate checks do not bypass runtime hook policy.`,
                 };
             }
 
@@ -440,7 +440,7 @@ export function registerBerryVine(
                 vineState.consumeForcedGuardTurn(sessionKey);
                 return {
                     block: true,
-                    blockReason: `${BRAND_SYMBOL} Berry Shield: blocked by Berry.Vine (external content risk).`,
+                    blockReason: `${BRAND_SYMBOL} Berry Shield: blocked by Berry.Vine (external content risk). Layered guardrails active: prior gate checks do not bypass runtime hook policy.`,
                 };
             }
 

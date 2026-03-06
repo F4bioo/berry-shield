@@ -1,24 +1,36 @@
 import type { OpenClawPluginCliContext } from "../../types/openclaw-local.js";
 import type { ConfigWrapper } from "../../config/wrapper.js";
-import { CONFIG_PATHS } from "../../constants.js";
+import { CONFIG_PATHS, VINE_CONFIRMATION_STRATEGY } from "../../constants.js";
 import { mergeConfig } from "../../config/utils.js";
 import { ui } from "../ui/tui.js";
+import { cancel, isCancel, select } from "@clack/prompts";
+import { isatty } from "node:tty";
 
-type VineAction = "status" | "get" | "set" | "allow" | "deny";
+type VineAction = "status" | "get" | "set" | "allow" | "deny" | "confirmation";
 type VinePath =
     | "mode"
     | "thresholds.externalSignalsToEscalate"
     | "thresholds.forcedGuardTurns"
     | "retention.maxEntries"
-    | "retention.ttlSeconds";
+    | "retention.ttlSeconds"
+    | "confirmation.strategy"
+    | "confirmation.codeTtlSeconds"
+    | "confirmation.maxAttempts"
+    | "confirmation.windowSeconds"
+    | "confirmation.maxActionsPerWindow";
 
-const VALID_ACTIONS: readonly VineAction[] = ["status", "get", "set", "allow", "deny"];
+const VALID_ACTIONS: readonly VineAction[] = ["status", "get", "set", "allow", "deny", "confirmation"];
 const VALID_VINE_PATHS: readonly VinePath[] = [
     "mode",
     "thresholds.externalSignalsToEscalate",
     "thresholds.forcedGuardTurns",
     "retention.maxEntries",
     "retention.ttlSeconds",
+    "confirmation.strategy",
+    "confirmation.codeTtlSeconds",
+    "confirmation.maxAttempts",
+    "confirmation.windowSeconds",
+    "confirmation.maxActionsPerWindow",
 ];
 
 function isVineAction(value: string | undefined): value is VineAction {
@@ -46,6 +58,15 @@ function parsePathValue(path: VinePath, rawValue: string): { ok: true; value: st
             return { ok: true, value: rawValue };
         }
         return { ok: false, error: "mode must be one of: balanced, strict." };
+    }
+    if (path === "confirmation.strategy") {
+        if (rawValue === VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE || rawValue === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY) {
+            return { ok: true, value: rawValue };
+        }
+        return {
+            ok: false,
+            error: `confirmation.strategy must be one of: ${VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE}, ${VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY}.`,
+        };
     }
     return parseInteger(rawValue, path, 1);
 }
@@ -90,6 +111,11 @@ async function handleStatus(wrapper: ConfigWrapper): Promise<void> {
             s.row("retention.maxEntries", String(vine.retention.maxEntries));
             s.row("retention.ttlSeconds", String(vine.retention.ttlSeconds));
             s.row("toolAllowlist.count", String(vine.toolAllowlist.length));
+            s.row("confirmation.strategy", vine.confirmation.strategy);
+            s.row("confirmation.codeTtlSeconds", String(vine.confirmation.codeTtlSeconds));
+            s.row("confirmation.maxAttempts", String(vine.confirmation.maxAttempts));
+            s.row("confirmation.windowSeconds", String(vine.confirmation.windowSeconds));
+            s.row("confirmation.maxActionsPerWindow", String(vine.confirmation.maxActionsPerWindow));
         },
     });
 }
@@ -113,6 +139,11 @@ async function handleGet(path: string | undefined, wrapper: ConfigWrapper): Prom
             s.row("retention.maxEntries", String(vine.retention.maxEntries));
             s.row("retention.ttlSeconds", String(vine.retention.ttlSeconds));
             s.row("toolAllowlist", JSON.stringify(vine.toolAllowlist));
+            s.row("confirmation.strategy", vine.confirmation.strategy);
+            s.row("confirmation.codeTtlSeconds", String(vine.confirmation.codeTtlSeconds));
+            s.row("confirmation.maxAttempts", String(vine.confirmation.maxAttempts));
+            s.row("confirmation.windowSeconds", String(vine.confirmation.windowSeconds));
+            s.row("confirmation.maxActionsPerWindow", String(vine.confirmation.maxActionsPerWindow));
         },
     });
 }
@@ -183,6 +214,52 @@ async function handleDeny(toolName: string | undefined, wrapper: ConfigWrapper):
     });
 }
 
+async function handleConfirmation(wrapper: ConfigWrapper): Promise<void> {
+    if (!isatty(0) || !isatty(1)) {
+        printUsageError(
+            `Interactive confirmation selector requires a TTY. Use: openclaw bshield vine set confirmation.strategy <${VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE}|${VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY}>`
+        );
+    }
+
+    const selected = await select({
+        message: "Confirmation Strategy",
+        options: [
+            {
+                value: VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE,
+                label: "1:1 - One code per sensitive action",
+                hint: "Highest security, more prompts.",
+            },
+            {
+                value: VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY,
+                label: "1:N - One code for multiple sensitive actions (time-limited)",
+                hint: "Better UX, limited by time and action cap.",
+            },
+            {
+                value: "cancel",
+                label: "Cancel",
+                hint: "Exit without changes",
+            },
+        ],
+    });
+
+    if (isCancel(selected) || selected === "cancel") {
+        cancel("Operation cancelled.");
+        return;
+    }
+    if (selected !== VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE && selected !== VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY) {
+        printUsageError("Invalid selection for confirmation strategy.");
+    }
+
+    await wrapper.set(`${CONFIG_PATHS.PLUGIN_CONFIG}.vine.confirmation.strategy`, selected);
+    ui.scaffold({
+        header: (s) => s.header("Vine Confirmation"),
+        content: (s) => {
+            s.successMsg("Confirmation strategy updated.");
+            s.row("confirmation.strategy", selected);
+        },
+    });
+}
+
 export async function vineCommand(
     action: string | undefined,
     pathOrTool: string | undefined,
@@ -210,6 +287,10 @@ export async function vineCommand(
         }
         if (selectedAction === "allow") {
             await handleAllow(pathOrTool, wrapper);
+            return;
+        }
+        if (selectedAction === "confirmation") {
+            await handleConfirmation(wrapper);
             return;
         }
         await handleDeny(pathOrTool, wrapper);

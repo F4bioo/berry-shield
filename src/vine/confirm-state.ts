@@ -1,6 +1,6 @@
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { VINE_CONFIRMATION } from "../constants.js";
-import type { BerryShieldVineRetentionConfig } from "../types/config.js";
+import type { BerryShieldVineConfirmationConfig, BerryShieldVineRetentionConfig } from "../types/config.js";
 
 export type VineConfirmOperation = "exec" | "write";
 
@@ -30,6 +30,16 @@ type VineChallengeState = {
     maxAttempts: number;
 };
 
+type VineWindowState = {
+    windowKey: string;
+    sessionKey: string;
+    riskWindowId: string;
+    openedAt: number;
+    expiresAt: number;
+    lastSeenAt: number;
+    remainingActions: number;
+};
+
 type VerifyResultKind =
     | "allowed"
     | "invalid_code"
@@ -54,6 +64,15 @@ interface VineConfirmManagerOptions {
     ttlSeconds?: number;
     maxAttempts?: number;
     cleanupIntervalMs?: number;
+    defaultWindowSeconds?: number;
+    defaultMaxActionsPerWindow?: number;
+}
+
+type ConfirmationOrOptions = BerryShieldVineConfirmationConfig | VineConfirmManagerOptions;
+
+function isVineConfirmationConfig(value: ConfirmationOrOptions | undefined): value is BerryShieldVineConfirmationConfig {
+    if (!value || typeof value !== "object") return false;
+    return "strategy" in value;
 }
 
 function normalizeTarget(target: string): string {
@@ -90,6 +109,7 @@ function normalizeConfirmCodeInput(
 
 export class VineConfirmStateManager {
     private readonly state = new Map<string, VineChallengeState>();
+    private readonly windows = new Map<string, VineWindowState>();
     private readonly now: () => number;
     private readonly randomIntFn: (maxExclusive: number) => number;
     private readonly codeLength: number;
@@ -98,17 +118,37 @@ export class VineConfirmStateManager {
     private readonly maxEntries: number;
     private readonly codePattern: RegExp;
     private readonly cleanupTimer?: NodeJS.Timeout;
+    private readonly defaultWindowSeconds: number;
+    private readonly defaultMaxActionsPerWindow: number;
 
-    constructor(retention: BerryShieldVineRetentionConfig, options: VineConfirmManagerOptions = {}) {
+    constructor(
+        retention: BerryShieldVineRetentionConfig,
+        confirmationOrOptions?: ConfirmationOrOptions,
+        maybeOptions: VineConfirmManagerOptions = {}
+    ) {
+        const confirmation = isVineConfirmationConfig(confirmationOrOptions)
+            ? confirmationOrOptions
+            : undefined;
+        const options = isVineConfirmationConfig(confirmationOrOptions)
+            ? maybeOptions
+            : (confirmationOrOptions ?? {});
         this.now = options.now ?? Date.now;
         this.randomIntFn = options.randomIntFn ?? randomInt;
         this.codeLength = Math.max(1, Math.floor(options.codeLength ?? VINE_CONFIRMATION.CODE_LENGTH));
         this.ttlMs = Math.max(
             1,
-            Math.floor((options.ttlSeconds ?? retention.ttlSeconds ?? VINE_CONFIRMATION.TTL_SECONDS) * 1000)
+            Math.floor((options.ttlSeconds ?? confirmation?.codeTtlSeconds ?? VINE_CONFIRMATION.TTL_SECONDS) * 1000)
         );
-        this.maxAttempts = Math.max(1, Math.floor(options.maxAttempts ?? VINE_CONFIRMATION.MAX_ATTEMPTS));
+        this.maxAttempts = Math.max(1, Math.floor(options.maxAttempts ?? confirmation?.maxAttempts ?? VINE_CONFIRMATION.MAX_ATTEMPTS));
         this.maxEntries = Math.max(1, Math.floor(retention.maxEntries));
+        this.defaultWindowSeconds = Math.max(
+            1,
+            Math.floor(options.defaultWindowSeconds ?? confirmation?.windowSeconds ?? 120)
+        );
+        this.defaultMaxActionsPerWindow = Math.max(
+            1,
+            Math.floor(options.defaultMaxActionsPerWindow ?? confirmation?.maxActionsPerWindow ?? 3)
+        );
         this.codePattern = new RegExp(`^\\d{${this.codeLength}}$`);
         const cleanupIntervalMs = Math.max(
             1,
@@ -129,8 +169,11 @@ export class VineConfirmStateManager {
         this.prune();
         const nowTs = this.now();
         const confirmId = `cfrm_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
-        const max = 10 ** this.codeLength;
-        const code = this.randomIntFn(max).toString().padStart(this.codeLength, "0");
+        const firstDigit = (Math.abs(this.randomIntFn(9)) % 9) + 1;
+        let code = String(firstDigit);
+        for (let i = 1; i < this.codeLength; i += 1) {
+            code += String(Math.abs(this.randomIntFn(10)) % 10);
+        }
         const challenge: VineChallengeState = {
             confirmId,
             confirmCode: code,
@@ -193,6 +236,50 @@ export class VineConfirmStateManager {
         return { kind: "allowed" };
     }
 
+    public openWindowAfterConfirmation(input: {
+        sessionKey: string;
+        riskWindowId: string;
+        windowSeconds?: number;
+        maxActionsPerWindow?: number;
+    }): void {
+        this.prune();
+        const nowTs = this.now();
+        const windowSeconds = Math.max(1, Math.floor(input.windowSeconds ?? this.defaultWindowSeconds));
+        const maxActionsPerWindow = Math.max(1, Math.floor(input.maxActionsPerWindow ?? this.defaultMaxActionsPerWindow));
+        const windowKey = `${input.sessionKey}::${input.riskWindowId}`;
+        this.windows.set(windowKey, {
+            windowKey,
+            sessionKey: input.sessionKey,
+            riskWindowId: input.riskWindowId,
+            openedAt: nowTs,
+            expiresAt: nowTs + (windowSeconds * 1000),
+            lastSeenAt: nowTs,
+            remainingActions: Math.max(0, maxActionsPerWindow - 1),
+        });
+        this.prune();
+    }
+
+    public consumeActiveWindowSlot(input: { sessionKey: string; riskWindowId: string }): boolean {
+        this.prune();
+        const windowKey = `${input.sessionKey}::${input.riskWindowId}`;
+        const window = this.windows.get(windowKey);
+        if (!window) {
+            return false;
+        }
+        const nowTs = this.now();
+        if (window.expiresAt < nowTs || window.remainingActions <= 0) {
+            this.windows.delete(windowKey);
+            return false;
+        }
+
+        window.remainingActions -= 1;
+        window.lastSeenAt = nowTs;
+        if (window.remainingActions <= 0) {
+            this.windows.delete(windowKey);
+        }
+        return true;
+    }
+
     public resolveLatestChallengeForBinding(
         binding: VineConfirmBinding
     ): VineResolvedChallenge | null {
@@ -224,6 +311,11 @@ export class VineConfirmStateManager {
                 this.state.delete(key);
             }
         }
+        for (const [key, value] of this.windows.entries()) {
+            if (value.expiresAt < nowTs || value.remainingActions <= 0) {
+                this.windows.delete(key);
+            }
+        }
         if (this.state.size <= this.maxEntries) return;
         const overflow = this.state.size - this.maxEntries;
         const oldest = [...this.state.entries()]
@@ -231,6 +323,14 @@ export class VineConfirmStateManager {
             .slice(0, overflow);
         for (const [key] of oldest) {
             this.state.delete(key);
+        }
+        if (this.windows.size <= this.maxEntries) return;
+        const windowOverflow = this.windows.size - this.maxEntries;
+        const oldestWindows = [...this.windows.entries()]
+            .sort((a, b) => a[1].lastSeenAt - b[1].lastSeenAt)
+            .slice(0, windowOverflow);
+        for (const [key] of oldestWindows) {
+            this.windows.delete(key);
         }
     }
 
@@ -243,12 +343,13 @@ let sharedConfirmManager: VineConfirmStateManager | null = null;
 let sharedConfirmSignature = "";
 
 export function getSharedVineConfirmStateManager(
-    retention: BerryShieldVineRetentionConfig
+    retention: BerryShieldVineRetentionConfig,
+    confirmation: BerryShieldVineConfirmationConfig
 ): VineConfirmStateManager {
-    const signature = `${retention.maxEntries}:${retention.ttlSeconds}`;
+    const signature = `${retention.maxEntries}:${retention.ttlSeconds}:${confirmation.strategy}:${confirmation.codeTtlSeconds}:${confirmation.maxAttempts}:${confirmation.windowSeconds}:${confirmation.maxActionsPerWindow}`;
     if (!sharedConfirmManager || sharedConfirmSignature !== signature) {
         sharedConfirmManager?.dispose();
-        sharedConfirmManager = new VineConfirmStateManager(retention);
+        sharedConfirmManager = new VineConfirmStateManager(retention, confirmation);
         sharedConfirmSignature = signature;
     }
     return sharedConfirmManager;

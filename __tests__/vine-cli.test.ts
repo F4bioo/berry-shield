@@ -7,6 +7,9 @@ const {
     failureMsgMock,
     warningMsgMock,
     footerMock,
+    cancelMock,
+    selectMock,
+    isattyMock,
 } = vi.hoisted(() => ({
     headerMock: vi.fn(),
     rowMock: vi.fn(),
@@ -14,6 +17,9 @@ const {
     failureMsgMock: vi.fn(),
     warningMsgMock: vi.fn(),
     footerMock: vi.fn(),
+    cancelMock: vi.fn(),
+    selectMock: vi.fn(),
+    isattyMock: vi.fn(),
 }));
 
 vi.mock("../src/cli/ui/tui.js", () => ({
@@ -39,6 +45,16 @@ vi.mock("../src/cli/ui/tui.js", () => ({
     },
 }));
 
+vi.mock("@clack/prompts", () => ({
+    select: selectMock,
+    isCancel: (value: unknown) => value === "__cancel__",
+    cancel: cancelMock,
+}));
+
+vi.mock("node:tty", () => ({
+    isatty: isattyMock,
+}));
+
 import { vineCommand } from "../src/cli/commands/vine";
 
 describe("Vine CLI command", () => {
@@ -53,6 +69,7 @@ describe("Vine CLI command", () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        isattyMock.mockReturnValue(true);
         wrapper.get.mockResolvedValue({});
         wrapper.set.mockResolvedValue(undefined);
     });
@@ -70,6 +87,14 @@ describe("Vine CLI command", () => {
             "strict"
         );
         expect(successMsgMock).toHaveBeenCalled();
+    });
+
+    it("sets confirmation strategy via deterministic set path", async () => {
+        await vineCommand("set", "confirmation.strategy", "one_to_one", context, wrapper as any);
+        expect(wrapper.set).toHaveBeenCalledWith(
+            "plugins.entries.berry-shield.config.vine.confirmation.strategy",
+            "one_to_one"
+        );
     });
 
     it("allow adds tool once", async () => {
@@ -103,6 +128,29 @@ describe("Vine CLI command", () => {
         }) as never);
         await expect(vineCommand("set", "unknown.path", "1", context, wrapper as any)).rejects.toThrow("EXIT_1");
         expect(failureMsgMock).toHaveBeenCalled();
+        exitSpy.mockRestore();
+    });
+
+    it("confirmation action writes selected strategy in interactive mode", async () => {
+        selectMock.mockResolvedValue("one_to_many");
+
+        await vineCommand("confirmation", undefined, undefined, context, wrapper as any);
+
+        expect(wrapper.set).toHaveBeenCalledWith(
+            "plugins.entries.berry-shield.config.vine.confirmation.strategy",
+            "one_to_many"
+        );
+    });
+
+    it("confirmation action fails in non-interactive mode with guidance", async () => {
+        isattyMock.mockReturnValue(false);
+        const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: number) => {
+            throw new Error(`EXIT_${code}`);
+        }) as never);
+
+        await expect(vineCommand("confirmation", undefined, undefined, context, wrapper as any)).rejects.toThrow("EXIT_1");
+        expect(failureMsgMock).toHaveBeenCalled();
+
         exitSpy.mockRestore();
     });
 });
