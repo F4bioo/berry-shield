@@ -20,10 +20,11 @@ import { AUDIT_DECISIONS, HOOKS, SECURITY_LAYERS } from "../constants.js";
 import { appendAuditEvent } from "../audit/writer.js";
 import { notifyPolicyDenied } from "../policy/runtime-state.js";
 import { getSharedVineStateManager } from "../vine/runtime-state.js";
+import { getSharedVineConfirmStateManager } from "../vine/confirm-state.js";
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
-import { BRAND_SYMBOL } from "../constants.js";
+import { BRAND_SYMBOL, VINE_CONFIRMATION } from "../constants.js";
 import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
@@ -44,6 +45,10 @@ interface BerryCheckParams {
     target: string;
     /** Optional session key for adaptive escalation binding */
     sessionKey?: string;
+    /** Optional challenge id for confirm-required flows (internal/advanced use). */
+    confirmId?: string;
+    /** Optional challenge code for confirm-required flows */
+    confirmCode?: string | number;
 }
 
 /**
@@ -58,7 +63,12 @@ function isBerryCheckParams(params: unknown): params is BerryCheckParams {
         (maybe.operation === "exec" || maybe.operation === "read" || maybe.operation === "write") &&
         typeof maybe.target === "string" &&
         (typeof (params as { sessionKey?: unknown }).sessionKey === "string"
-            || (params as { sessionKey?: unknown }).sessionKey === undefined)
+            || (params as { sessionKey?: unknown }).sessionKey === undefined) &&
+        (typeof (params as { confirmId?: unknown }).confirmId === "string"
+            || (params as { confirmId?: unknown }).confirmId === undefined) &&
+        ((typeof (params as { confirmCode?: unknown }).confirmCode === "string"
+            || typeof (params as { confirmCode?: unknown }).confirmCode === "number")
+            || (params as { confirmCode?: unknown }).confirmCode === undefined)
     );
 }
 
@@ -201,99 +211,179 @@ This command could cause irreversible damage.
 ACTION: Do NOT execute this command. Suggest a safer alternative to the user.`;
 }
 
-function formatDeniedVine(target: string): string {
+function formatConfirmRequiredVine(input: {
+    operation: OperationType;
+    target: string;
+    confirmCode: string;
+    ttlSeconds: number;
+    maxAttempts: number;
+    attemptsRemaining?: number;
+    invalidCode?: boolean;
+}): string {
+    const retryHint = input.invalidCode
+        ? `\nLast code was invalid.${typeof input.attemptsRemaining === "number" ? ` Attempts remaining: ${input.attemptsRemaining}.` : ""}`
+        : "";
+    return `${BRAND_SYMBOL} Berry Shield
+
+STATUS: CONFIRM_REQUIRED
+OPERATION: ${input.operation}
+TARGET: ${input.target}
+REASON: External untrusted content risk (Vine)
+CONFIRM_CODE: ${input.confirmCode}
+TTL_SECONDS: ${input.ttlSeconds}
+MAX_ATTEMPTS: ${input.maxAttempts}
+${typeof input.attemptsRemaining === "number" ? `ATTEMPTS_REMAINING: ${input.attemptsRemaining}` : ""}
+
+Your session is marked as external-untrusted.
+Provide confirmCode in berry_check to proceed once.${retryHint}`;
+}
+
+function formatDeniedConfirmation(reason: string): string {
     return `${BRAND_SYMBOL} Berry Shield
 
 STATUS: DENIED
-REASON: External untrusted content risk (Vine)
-TARGET: ${target}
+REASON: ${reason}
 
-This action is blocked because external-content risk is active in this session.
-ACTION: Ask for explicit user confirmation or continue with non-sensitive steps only.`;
+The confirmation challenge is no longer valid.
+Start a new confirmation flow by calling berry_check again.`;
 }
 
-function stripWrappingQuotes(value: string): string {
-    const trimmed = value.trim();
-    if (
-        (trimmed.startsWith("'") && trimmed.endsWith("'"))
-        || (trimmed.startsWith("\"") && trimmed.endsWith("\""))
-    ) {
-        return trimmed.slice(1, -1);
-    }
-    return trimmed;
-}
-
-function extractWriteLikeTarget(command: string): string | undefined {
-    const redirectMatch = command.match(/(?:^|[^\w])>>?\s*([^\s|;&]+)/);
-    if (redirectMatch?.[1]) {
-        return stripWrappingQuotes(redirectMatch[1]);
-    }
-
-    const teeMatch = command.match(/\btee\b(?:\s+-a)?\s+([^\s|;&]+)/);
-    if (teeMatch?.[1]) {
-        return stripWrappingQuotes(teeMatch[1]);
-    }
-
-    const catRedirectMatch = command.match(/\bcat\b[\s\S]*?>>?\s*([^\s|;&]+)/);
-    if (catRedirectMatch?.[1]) {
-        return stripWrappingQuotes(catRedirectMatch[1]);
-    }
-
-    return undefined;
-}
-
-function maybeApplyVineGuard(
-    api: OpenClawPluginApi,
+function emitVineConfirmEvent(
     config: BerryShieldPluginConfig,
-    operation: OperationType,
+    decision: typeof AUDIT_DECISIONS.CONFIRM_REQUIRED
+        | typeof AUDIT_DECISIONS.WOULD_CONFIRM_REQUIRED
+        | typeof AUDIT_DECISIONS.ALLOWED_BY_CONFIRM,
     target: string,
-    sessionKey?: string
-): {
-    blocked: boolean;
-    writeLikeTarget?: string;
-} {
-    if (!config.layers.vine || !sessionKey) {
-        return { blocked: false };
-    }
-
-    const writeLikeTarget = operation === "exec"
-        ? extractWriteLikeTarget(target)
-        : (operation === "write" ? target : undefined);
-
-    if (!writeLikeTarget) {
-        return { blocked: false };
-    }
-
-    const vineState = getSharedVineStateManager(config.vine.retention);
-    const hasGuardRisk = vineState.shouldGuardSensitiveAction(sessionKey);
-    const hasUnknownSignal = vineState.hasUnknownSignal(sessionKey);
-    const shouldBlock = config.vine.mode === "strict"
-        ? (hasGuardRisk || hasUnknownSignal)
-        : hasGuardRisk;
-
-    if (!shouldBlock) {
-        return { blocked: false, writeLikeTarget };
-    }
-
-    const decision = config.mode === "audit" ? AUDIT_DECISIONS.WOULD_BLOCK : AUDIT_DECISIONS.BLOCKED;
+    reason: string
+): void {
     const event: AuditBlockEvent = {
         mode: config.mode,
         decision,
         layer: SECURITY_LAYERS.VINE,
-        reason: "external-untrusted instruction risk",
-        target: writeLikeTarget.slice(0, 120),
+        reason,
+        target: target.slice(0, 120),
         ts: new Date().toISOString(),
     };
-    if (config.mode === "audit") {
-        api.logger.warn(`[berry-shield] Berry.Vine: ${formatAuditEvent(event)}`);
-        appendAuditEvent(event);
-        return { blocked: false, writeLikeTarget };
+    appendAuditEvent(event);
+}
+
+function maybeApplyVineConfirmRequired(
+    api: OpenClawPluginApi,
+    config: BerryShieldPluginConfig,
+    operation: OperationType,
+    target: string,
+    sessionKey?: string,
+    confirmation?: { confirmId?: string; confirmCode?: string | number; humanTrusted?: boolean }
+): {
+    requiresConfirmation: boolean;
+    challenge?: {
+        confirmId: string;
+        confirmCode: string;
+        ttlSeconds: number;
+        maxAttempts: number;
+    };
+    attemptsRemaining?: number;
+    invalidCode?: boolean;
+    deniedReason?: string;
+    confirmationAccepted?: boolean;
+} {
+    if (!config.layers.vine || !sessionKey || (operation !== "exec" && operation !== "write")) {
+        return { requiresConfirmation: false };
+    }
+    const vineState = getSharedVineStateManager(config.vine.retention);
+    const hasGuardRisk = vineState.shouldGuardSensitiveAction(sessionKey);
+    const hasUnknownSignal = vineState.hasUnknownSignal(sessionKey);
+    const requiresConfirmation = config.vine.mode === "strict"
+        ? (hasGuardRisk || hasUnknownSignal)
+        : hasGuardRisk;
+
+    if (!requiresConfirmation) {
+        return { requiresConfirmation: false };
     }
 
-    appendAuditEvent(event);
-    vineState.markSensitiveAttemptBlocked(sessionKey);
-    vineState.consumeForcedGuardTurn(sessionKey);
-    return { blocked: true, writeLikeTarget };
+    if (config.mode === "audit") {
+        const event: AuditBlockEvent = {
+            mode: "audit",
+            decision: AUDIT_DECISIONS.WOULD_CONFIRM_REQUIRED,
+            layer: SECURITY_LAYERS.VINE,
+            reason: "external-untrusted instruction risk (confirm required)",
+            target: target.slice(0, 120),
+            ts: new Date().toISOString(),
+        };
+        api.logger.warn(`[berry-shield] Berry.Vine: ${formatAuditEvent(event)}`);
+        appendAuditEvent(event);
+        return { requiresConfirmation: false };
+    }
+
+    const confirmState = getSharedVineConfirmStateManager(config.vine.retention);
+    if (confirmation?.confirmCode !== undefined) {
+        if (!confirmation.humanTrusted) {
+            return {
+                requiresConfirmation: false,
+                deniedReason: "Confirmation requires a trusted user turn in this session",
+            };
+        }
+        const resolvedChallengeId = confirmation.confirmId
+            ?? confirmState.resolveLatestChallengeForBinding({
+                sessionKey,
+                operation: operation === "write" ? "write" : "exec",
+                target,
+            })?.confirmId;
+        if (!resolvedChallengeId) {
+            return {
+                requiresConfirmation: false,
+                deniedReason: "No active confirmation challenge for this operation",
+            };
+        }
+        const verification = confirmState.verifyAndConsume({
+            sessionKey,
+            operation: operation === "write" ? "write" : "exec",
+            target,
+            confirmId: resolvedChallengeId,
+            confirmCode: confirmation.confirmCode,
+        });
+        if (verification.kind === "allowed") {
+            return { requiresConfirmation: false, confirmationAccepted: true };
+        }
+        if (verification.kind === "invalid_code") {
+            return {
+                requiresConfirmation: true,
+                challenge: {
+                    confirmId: resolvedChallengeId,
+                    confirmCode: "",
+                    ttlSeconds: VINE_CONFIRMATION.TTL_SECONDS,
+                    maxAttempts: VINE_CONFIRMATION.MAX_ATTEMPTS,
+                },
+                attemptsRemaining: verification.attemptsRemaining,
+                invalidCode: true,
+            };
+        }
+        if (verification.kind === "max_attempts_exceeded") {
+            return {
+                requiresConfirmation: false,
+                deniedReason: "Max confirmation attempts exceeded",
+            };
+        }
+        if (verification.kind === "mismatch") {
+            return {
+                requiresConfirmation: false,
+                deniedReason: "Confirmation challenge does not match this operation",
+            };
+        }
+    }
+
+    const challenge = confirmState.issueChallenge({
+        sessionKey,
+        operation: operation === "write" ? "write" : "exec",
+        target,
+    });
+    emitVineConfirmEvent(
+        config,
+        AUDIT_DECISIONS.CONFIRM_REQUIRED,
+        target,
+        "external-untrusted instruction risk"
+    );
+    return { requiresConfirmation: true, challenge };
 }
 
 /**
@@ -311,6 +401,41 @@ export function registerBerryStem(
         api.logger.debug?.("[berry-shield] Berry.Stem layer disabled");
         return;
     }
+
+    const trustedUserConfirmUntil = new Map<string, number>();
+    const trustedConfirmWindowMs = 120_000;
+
+    function hasTrustedHumanTurn(sessionKey: string | undefined): boolean {
+        if (!sessionKey) return false;
+        const expiresAt = trustedUserConfirmUntil.get(sessionKey);
+        if (!expiresAt) return false;
+        if (expiresAt < Date.now()) {
+            trustedUserConfirmUntil.delete(sessionKey);
+            return false;
+        }
+        return true;
+    }
+
+    api.on(
+        HOOKS.BEFORE_AGENT_START,
+        (_event, ctx) => {
+            if (!ctx.sessionKey) return;
+            if (ctx.trigger === "user") {
+                trustedUserConfirmUntil.set(ctx.sessionKey, Date.now() + trustedConfirmWindowMs);
+            }
+        },
+        { priority: 210 }
+    );
+
+    api.on(
+        HOOKS.SESSION_END,
+        (event) => {
+            if (event.sessionKey) {
+                trustedUserConfirmUntil.delete(event.sessionKey);
+            }
+        },
+        { priority: 210 }
+    );
 
     api.on(
         HOOKS.BEFORE_TOOL_CALL,
@@ -362,6 +487,14 @@ export function registerBerryStem(
                     type: "string",
                     description: "Optional session key used for adaptive policy escalation binding",
                 },
+                confirmId: {
+                    type: "string",
+                    description: "Optional one-shot confirmation challenge id for Vine-sensitive operations",
+                },
+                confirmCode: {
+                    anyOf: [{ type: "string" }, { type: "number" }],
+                    description: "Optional numeric confirmation code for Vine-sensitive operations (accepts string or number)",
+                },
             },
             required: ["operation", "target"],
         },
@@ -373,7 +506,7 @@ export function registerBerryStem(
             if (!isBerryCheckParams(rawParams)) {
                 throw new Error("Invalid parameters for berry_check");
             }
-            const { operation, target, sessionKey } = rawParams;
+            const { operation, target, sessionKey, confirmId, confirmCode } = rawParams;
 
             // Check for destructive commands on exec operations
             if (operation === "exec") {
@@ -443,13 +576,55 @@ export function registerBerryStem(
                     }
                 }
 
-                const vineGuard = maybeApplyVineGuard(api, config, operation, target, sessionKey);
-                if (vineGuard.blocked) {
+                const humanTrusted = hasTrustedHumanTurn(sessionKey);
+                const vineConfirm = maybeApplyVineConfirmRequired(
+                    api,
+                    config,
+                    operation,
+                    target,
+                    sessionKey,
+                    { confirmId, confirmCode, humanTrusted }
+                );
+                if (vineConfirm.deniedReason) {
+                    return {
+                        content: [{ type: "text", text: formatDeniedConfirmation(vineConfirm.deniedReason) }],
+                        details: { status: "denied", reason: vineConfirm.deniedReason },
+                    };
+                }
+                if (vineConfirm.confirmationAccepted) {
+                    trustedUserConfirmUntil.delete(sessionKey ?? "");
+                    emitVineConfirmEvent(
+                        config,
+                        AUDIT_DECISIONS.ALLOWED_BY_CONFIRM,
+                        target,
+                        "allowed after explicit confirmation"
+                    );
+                }
+                if (vineConfirm.requiresConfirmation && vineConfirm.challenge) {
                     return {
                         content: [
-                            { type: "text", text: formatDeniedVine(vineGuard.writeLikeTarget ?? target) },
+                            {
+                                type: "text",
+                                text: formatConfirmRequiredVine({
+                                    operation,
+                                    target,
+                                    confirmCode: vineConfirm.challenge.confirmCode || "****",
+                                    ttlSeconds: vineConfirm.challenge.ttlSeconds || 90,
+                                    maxAttempts: vineConfirm.challenge.maxAttempts || 3,
+                                    attemptsRemaining: vineConfirm.attemptsRemaining,
+                                    invalidCode: vineConfirm.invalidCode,
+                                }),
+                            },
                         ],
-                        details: { status: "denied", reason: "external untrusted content risk (vine)" },
+                        details: {
+                            status: "confirm_required",
+                            reason: "external untrusted content risk (vine)",
+                            confirmCode: vineConfirm.challenge.confirmCode,
+                            ttlSeconds: vineConfirm.challenge.ttlSeconds || 90,
+                            maxAttempts: vineConfirm.challenge.maxAttempts || 3,
+                            attemptsRemaining: vineConfirm.attemptsRemaining,
+                            invalidCode: vineConfirm.invalidCode,
+                        },
                     };
                 }
             }
@@ -489,13 +664,55 @@ export function registerBerryStem(
                 }
 
                 if (operation === "write") {
-                    const vineGuard = maybeApplyVineGuard(api, config, operation, target, sessionKey);
-                    if (vineGuard.blocked) {
+                    const humanTrusted = hasTrustedHumanTurn(sessionKey);
+                    const vineConfirm = maybeApplyVineConfirmRequired(
+                        api,
+                        config,
+                        operation,
+                        target,
+                        sessionKey,
+                        { confirmId, confirmCode, humanTrusted }
+                    );
+                    if (vineConfirm.deniedReason) {
+                        return {
+                            content: [{ type: "text", text: formatDeniedConfirmation(vineConfirm.deniedReason) }],
+                            details: { status: "denied", reason: vineConfirm.deniedReason },
+                        };
+                    }
+                    if (vineConfirm.confirmationAccepted) {
+                        trustedUserConfirmUntil.delete(sessionKey ?? "");
+                        emitVineConfirmEvent(
+                            config,
+                            AUDIT_DECISIONS.ALLOWED_BY_CONFIRM,
+                            target,
+                            "allowed after explicit confirmation"
+                        );
+                    }
+                    if (vineConfirm.requiresConfirmation && vineConfirm.challenge) {
                         return {
                             content: [
-                                { type: "text", text: formatDeniedVine(vineGuard.writeLikeTarget ?? target) },
+                                {
+                                    type: "text",
+                                    text: formatConfirmRequiredVine({
+                                        operation,
+                                        target,
+                                        confirmCode: vineConfirm.challenge.confirmCode || "****",
+                                        ttlSeconds: vineConfirm.challenge.ttlSeconds || 90,
+                                        maxAttempts: vineConfirm.challenge.maxAttempts || 3,
+                                        attemptsRemaining: vineConfirm.attemptsRemaining,
+                                        invalidCode: vineConfirm.invalidCode,
+                                    }),
+                                },
                             ],
-                            details: { status: "denied", reason: "external untrusted content risk (vine)" },
+                            details: {
+                                status: "confirm_required",
+                                reason: "external untrusted content risk (vine)",
+                                confirmCode: vineConfirm.challenge.confirmCode,
+                                ttlSeconds: vineConfirm.challenge.ttlSeconds || 90,
+                                maxAttempts: vineConfirm.challenge.maxAttempts || 3,
+                                attemptsRemaining: vineConfirm.attemptsRemaining,
+                                invalidCode: vineConfirm.invalidCode,
+                            },
                         };
                     }
                 }

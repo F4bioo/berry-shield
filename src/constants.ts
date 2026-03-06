@@ -99,6 +99,9 @@ export const AUDIT_DECISIONS = {
     WOULD_REDACT: "would_redact",
     BLOCKED: "blocked",
     REDACTED: "redacted",
+    CONFIRM_REQUIRED: "confirm_required",
+    WOULD_CONFIRM_REQUIRED: "would_confirm_required",
+    ALLOWED_BY_CONFIRM: "allowed_by_confirm",
 } as const;
 
 /** Security layer identifiers used in audit events */
@@ -117,4 +120,12 @@ export const AUDIT_LOG = {
     FLUSH_BATCH_SIZE: 20,
     MAX_BUFFER_SIZE: 200,
     MAX_FILE_SIZE: 5 * 1024 * 1024,
+} as const;
+
+/** Vine confirmation defaults (confirm-required flow). */
+export const VINE_CONFIRMATION = {
+    CODE_LENGTH: 4,
+    TTL_SECONDS: 90,
+    MAX_ATTEMPTS: 3,
+    CLEANUP_INTERVAL_MS: 30_000,
 } as const;

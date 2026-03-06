@@ -21,6 +21,9 @@ function buildSummary(events: AuditEvent[]): Array<{ label: string; value: strin
         { label: "would_redact", value: String(counts.get("would_redact") ?? 0) },
         { label: "blocked", value: String(counts.get("blocked") ?? 0) },
         { label: "redacted", value: String(counts.get("redacted") ?? 0) },
+        { label: "confirm_required", value: String(counts.get("confirm_required") ?? 0) },
+        { label: "would_confirm_required", value: String(counts.get("would_confirm_required") ?? 0) },
+        { label: "allowed_by_confirm", value: String(counts.get("allowed_by_confirm") ?? 0) },
     ];
 }
 

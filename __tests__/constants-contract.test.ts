@@ -100,6 +100,9 @@ describe("Constants Contract", () => {
         expect(AUDIT_DECISIONS.WOULD_REDACT).toBe("would_redact");
         expect(AUDIT_DECISIONS.BLOCKED).toBe("blocked");
         expect(AUDIT_DECISIONS.REDACTED).toBe("redacted");
+        expect(AUDIT_DECISIONS.CONFIRM_REQUIRED).toBe("confirm_required");
+        expect(AUDIT_DECISIONS.WOULD_CONFIRM_REQUIRED).toBe("would_confirm_required");
+        expect(AUDIT_DECISIONS.ALLOWED_BY_CONFIRM).toBe("allowed_by_confirm");
     });
 
     it("should have stable security layer identifiers", () => {

@@ -23,7 +23,12 @@ interface AuditEventBase {
  * Event emitted when an action would be (or was) blocked.
  */
 export interface AuditBlockEvent extends AuditEventBase {
-    decision: typeof AUDIT_DECISIONS.WOULD_BLOCK | typeof AUDIT_DECISIONS.BLOCKED;
+    decision:
+        | typeof AUDIT_DECISIONS.WOULD_BLOCK
+        | typeof AUDIT_DECISIONS.BLOCKED
+        | typeof AUDIT_DECISIONS.CONFIRM_REQUIRED
+        | typeof AUDIT_DECISIONS.WOULD_CONFIRM_REQUIRED
+        | typeof AUDIT_DECISIONS.ALLOWED_BY_CONFIRM;
     /** Why the action was flagged */
     reason: string;
     /** The target of the action (command, file path, etc.) */
