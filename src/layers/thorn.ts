@@ -16,7 +16,8 @@ import type { AuditBlockEvent } from "../types/audit-event.js";
 import { formatAuditEvent } from "../types/audit-event.js";
 import { AUDIT_DECISIONS, SECURITY_LAYERS } from "../constants.js";
 import { appendAuditEvent } from "../audit/writer.js";
-import { BRAND_SYMBOL, HOOKS } from "../constants.js";
+import { HOOKS } from "../constants.js";
+import { formatCardForBlockReason } from "../ui/decision-card/format-text.js";
 import { notifyPolicyDenied } from "../policy/runtime-state.js";
 import {
     getAllDestructiveCommandPatterns,
@@ -186,7 +187,13 @@ export function registerBerryThorn(
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
-                    blockReason: `${BRAND_SYMBOL} Berry Shield: ${reason}. This command could cause irreversible damage.`,
+                    blockReason: formatCardForBlockReason({
+                        status: "BLOCKED",
+                        layer: "Thorn",
+                        operation: "exec",
+                        target: command,
+                        reason: "Destructive command detected",
+                    }),
                 };
             }
 
@@ -222,7 +229,13 @@ export function registerBerryThorn(
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
-                    blockReason: `${BRAND_SYMBOL} Berry Shield: ${reason}. This file may contain secrets or credentials.`,
+                    blockReason: formatCardForBlockReason({
+                        status: "BLOCKED",
+                        layer: "Thorn",
+                        operation: "exec",
+                        target: command,
+                        reason: "Command references sensitive file",
+                    }),
                 };
             }
 
@@ -259,7 +272,12 @@ export function registerBerryThorn(
                 api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
-                    blockReason: `${BRAND_SYMBOL} Berry Shield: ${reason}. This file may contain secrets or credentials.`,
+                    blockReason: formatCardForBlockReason({
+                        status: "BLOCKED",
+                        layer: "Thorn",
+                        target: filePath,
+                        reason: "Sensitive file access",
+                    }),
                 };
             }
 

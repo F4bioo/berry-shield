@@ -120,6 +120,8 @@ describe("Enforce parity events", () => {
         const denied = await tool.execute("x", { operation: "read", target: "/home/user/.env" });
 
         expect(denied.details.status).toBe("denied");
+        expect(denied.content?.[0]?.text).toContain("STATUS: DENIED");
+        expect(denied.content?.[0]?.text).toContain("REASON:");
         expect(notifyPolicyDeniedMock).not.toHaveBeenCalled();
     });
 
@@ -152,6 +154,9 @@ describe("Enforce parity events", () => {
         const result = handler({ toolName: "exec", params: { command: "rm -rf /tmp" } });
 
         expect(result?.block).toBe(true);
+        expect(result?.blockReason).toContain("STATUS: BLOCKED");
+        expect(result?.blockReason).toContain("LAYER: Thorn");
+        expect(result?.blockReason).toContain("REASON:");
         expect(notifyPolicyDeniedMock).not.toHaveBeenCalled();
     });
 

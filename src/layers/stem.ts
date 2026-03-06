@@ -24,7 +24,8 @@ import { getSharedVineConfirmStateManager } from "../vine/confirm-state.js";
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
-import { BRAND_SYMBOL, VINE_CONFIRMATION_STRATEGY } from "../constants.js";
+import { VINE_CONFIRMATION_STRATEGY } from "../constants.js";
+import { formatCardForToolResult } from "../ui/decision-card/format-text.js";
 import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
@@ -154,99 +155,6 @@ function isSensitiveFile(filePath: string, customPatterns: string[]): boolean {
     }
 
     return false;
-}
-
-/**
- * Formats an ALLOWED response.
- *
- * @param operation - The operation type
- * @param target - The target path/command
- * @returns Formatted response string
- */
-function formatAllowed(operation: OperationType, target: string): string {
-    return `${BRAND_SYMBOL} Berry Shield
-
-STATUS: ALLOWED
-OPERATION: ${operation}
-TARGET: ${target}
-
-You may proceed with this operation.`;
-}
-
-/**
- * Formats a DENIED response for sensitive files.
- *
- * @param filePath - The sensitive file path
- * @returns Formatted response string
- */
-function formatDeniedSensitiveFile(filePath: string): string {
-    return `${BRAND_SYMBOL} Berry Shield
-
-STATUS: DENIED
-REASON: Sensitive file detected
-FILE: ${filePath}
-
-This file may contain secrets or credentials.
-ACTION: Do NOT read this file. Inform the user it is blocked by security policy.`;
-}
-
-/**
- * Formats a DENIED response for destructive commands.
- *
- * @param command - The destructive command
- * @returns Formatted response string
- */
-function formatDeniedDestructiveCommand(command: string): string {
-    // Truncate long commands for display
-    const displayCommand =
-        command.length > 50 ? `${command.substring(0, 50)}...` : command;
-
-    return `${BRAND_SYMBOL} Berry Shield
-
-STATUS: DENIED
-REASON: Destructive command detected
-COMMAND: ${displayCommand}
-
-This command could cause irreversible damage.
-ACTION: Do NOT execute this command. Suggest a safer alternative to the user.`;
-}
-
-function formatConfirmRequiredVine(input: {
-    operation: OperationType;
-    target: string;
-    confirmCode: string;
-    ttlSeconds: number;
-    maxAttempts: number;
-    attemptsRemaining?: number;
-    invalidCode?: boolean;
-}): string {
-    const retryHint = input.invalidCode
-        ? `\nLast code was invalid.${typeof input.attemptsRemaining === "number" ? ` Attempts remaining: ${input.attemptsRemaining}.` : ""}`
-        : "";
-    return `${BRAND_SYMBOL} Berry Shield
-
-STATUS: CONFIRM_REQUIRED
-OPERATION: ${input.operation}
-TARGET: ${input.target}
-REASON: External untrusted content risk (Vine)
-CONFIRM_CODE: ${input.confirmCode}
-TTL_SECONDS: ${input.ttlSeconds}
-MAX_ATTEMPTS: ${input.maxAttempts}
-${typeof input.attemptsRemaining === "number" ? `ATTEMPTS_REMAINING: ${input.attemptsRemaining}` : ""}
-
-Your session is marked as external-untrusted.
-Provide confirmCode in berry_check to proceed once.${retryHint}`;
-}
-
-function formatDeniedConfirmation(reason: string): string {
-    return `${BRAND_SYMBOL} Berry Shield
-
-STATUS: DENIED
-REASON: ${reason}
-
-The confirmation challenge is no longer valid.
-Start a new confirmation flow by calling berry_check again.
-Note: Berry Shield uses layered controls. A gate result and runtime hook decision may differ by context.`;
 }
 
 function emitVineConfirmEvent(
@@ -555,7 +463,16 @@ export function registerBerryStem(
                         );
                         return {
                             content: [
-                                { type: "text", text: formatDeniedDestructiveCommand(target) },
+                                {
+                                    type: "text", text: formatCardForToolResult({
+                                        status: "DENIED",
+                                        layer: "Stem",
+                                        operation: "exec",
+                                        target,
+                                        reason: "Destructive command detected",
+                                        action: "Do NOT execute this command. Suggest a safer alternative to the user.",
+                                    })
+                                },
                             ],
                             details: { status: "denied", reason: "destructive command" },
                         };
@@ -588,7 +505,16 @@ export function registerBerryStem(
                         );
                         return {
                             content: [
-                                { type: "text", text: formatDeniedSensitiveFile(target) },
+                                {
+                                    type: "text", text: formatCardForToolResult({
+                                        status: "DENIED",
+                                        layer: "Stem",
+                                        operation: "exec",
+                                        target,
+                                        reason: "Sensitive file reference",
+                                        action: "Do NOT read this file. Inform the user it is blocked by security policy.",
+                                    })
+                                },
                             ],
                             details: { status: "denied", reason: "sensitive file reference" },
                         };
@@ -606,7 +532,14 @@ export function registerBerryStem(
                 );
                 if (vineConfirm.deniedReason) {
                     return {
-                        content: [{ type: "text", text: formatDeniedConfirmation(vineConfirm.deniedReason) }],
+                        content: [{
+                            type: "text", text: formatCardForToolResult({
+                                status: "DENIED",
+                                layer: "Stem",
+                                reason: vineConfirm.deniedReason,
+                                action: "The confirmation challenge is no longer valid. Start a new confirmation flow by calling berry_check again.",
+                            })
+                        }],
                         details: { status: "denied", reason: vineConfirm.deniedReason },
                     };
                 }
@@ -626,14 +559,19 @@ export function registerBerryStem(
                         content: [
                             {
                                 type: "text",
-                                text: formatConfirmRequiredVine({
+                                text: formatCardForToolResult({
+                                    status: "CONFIRM_REQUIRED",
+                                    layer: "Vine",
                                     operation,
                                     target,
-                                    confirmCode: vineConfirm.challenge.confirmCode || "****",
-                                    ttlSeconds: vineConfirm.challenge.ttlSeconds,
-                                    maxAttempts: vineConfirm.challenge.maxAttempts,
-                                    attemptsRemaining: vineConfirm.attemptsRemaining,
-                                    invalidCode: vineConfirm.invalidCode,
+                                    reason: "External untrusted content risk (Vine)",
+                                    confirm: {
+                                        confirmCode: vineConfirm.challenge.confirmCode || "****",
+                                        ttlSeconds: vineConfirm.challenge.ttlSeconds,
+                                        maxAttempts: vineConfirm.challenge.maxAttempts,
+                                        attemptsRemaining: vineConfirm.attemptsRemaining,
+                                        invalidCode: vineConfirm.invalidCode,
+                                    },
                                 }),
                             },
                         ],
@@ -677,7 +615,16 @@ export function registerBerryStem(
                         );
                         return {
                             content: [
-                                { type: "text", text: formatDeniedSensitiveFile(target) },
+                                {
+                                    type: "text", text: formatCardForToolResult({
+                                        status: "DENIED",
+                                        layer: "Stem",
+                                        operation,
+                                        target,
+                                        reason: "Sensitive file access",
+                                        action: "Do NOT read this file. Inform the user it is blocked by security policy.",
+                                    })
+                                },
                             ],
                             details: { status: "denied", reason: "sensitive file access" },
                         };
@@ -696,7 +643,14 @@ export function registerBerryStem(
                     );
                     if (vineConfirm.deniedReason) {
                         return {
-                            content: [{ type: "text", text: formatDeniedConfirmation(vineConfirm.deniedReason) }],
+                            content: [{
+                                type: "text", text: formatCardForToolResult({
+                                    status: "DENIED",
+                                    layer: "Stem",
+                                    reason: vineConfirm.deniedReason,
+                                    action: "The confirmation challenge is no longer valid. Start a new confirmation flow by calling berry_check again.",
+                                })
+                            }],
                             details: { status: "denied", reason: vineConfirm.deniedReason },
                         };
                     }
@@ -716,14 +670,19 @@ export function registerBerryStem(
                             content: [
                                 {
                                     type: "text",
-                                    text: formatConfirmRequiredVine({
+                                    text: formatCardForToolResult({
+                                        status: "CONFIRM_REQUIRED",
+                                        layer: "Vine",
                                         operation,
                                         target,
-                                        confirmCode: vineConfirm.challenge.confirmCode || "****",
-                                        ttlSeconds: vineConfirm.challenge.ttlSeconds,
-                                        maxAttempts: vineConfirm.challenge.maxAttempts,
-                                        attemptsRemaining: vineConfirm.attemptsRemaining,
-                                        invalidCode: vineConfirm.invalidCode,
+                                        reason: "External untrusted content risk (Vine)",
+                                        confirm: {
+                                            confirmCode: vineConfirm.challenge.confirmCode || "****",
+                                            ttlSeconds: vineConfirm.challenge.ttlSeconds,
+                                            maxAttempts: vineConfirm.challenge.maxAttempts,
+                                            attemptsRemaining: vineConfirm.attemptsRemaining,
+                                            invalidCode: vineConfirm.invalidCode,
+                                        },
                                     }),
                                 },
                             ],
@@ -745,7 +704,14 @@ export function registerBerryStem(
             api.logger.debug?.(`[berry-shield] Berry.Stem: ALLOWED ${operation} on ${target}`);
 
             return {
-                content: [{ type: "text", text: formatAllowed(operation, target) }],
+                content: [{
+                    type: "text", text: formatCardForToolResult({
+                        status: "ALLOWED",
+                        layer: "Stem",
+                        operation,
+                        target,
+                    })
+                }],
                 details: { status: "allowed" },
             };
         },

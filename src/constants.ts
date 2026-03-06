@@ -135,3 +135,7 @@ export const VINE_CONFIRMATION_STRATEGY = {
     ONE_TO_ONE: "one_to_one",
     ONE_TO_MANY: "one_to_many",
 } as const;
+
+/** Decision card ui defaults */
+export const MAX_TARGET_LENGTH = 120;
+export const DEFAULT_REASON = "Security policy violation";

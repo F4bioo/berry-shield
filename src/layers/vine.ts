@@ -2,7 +2,8 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
 import type { AuditBlockEvent } from "../types/audit-event.js";
 import { appendAuditEvent } from "../audit/writer.js";
-import { AUDIT_DECISIONS, BRAND_SYMBOL, HOOKS, SECURITY_LAYERS } from "../constants.js";
+import { AUDIT_DECISIONS, HOOKS, SECURITY_LAYERS } from "../constants.js";
+import { formatCardForBlockReason } from "../ui/decision-card/format-text.js";
 import { formatAuditEvent } from "../types/audit-event.js";
 import { getSharedVineStateManager } from "../vine/runtime-state.js";
 import { findMatches } from "../utils/redaction.js";
@@ -197,6 +198,17 @@ function isSensitiveAction(toolName: string, params: Record<string, unknown>): {
     }
 
     return { sensitive: false, target: toolName };
+}
+
+function inferOperationFromToolName(toolName: string): "exec" | "read" | "write" {
+    const normalized = normalizeName(toolName);
+    if (normalized.includes("write") || normalized.includes("edit")) {
+        return "write";
+    }
+    if (normalized.includes("read") || normalized.includes("view")) {
+        return "read";
+    }
+    return "exec";
 }
 
 function resolveSessionKey(input: SessionResolutionInput): string {
@@ -408,6 +420,7 @@ export function registerBerryVine(
             if (!sensitive.sensitive) {
                 return undefined;
             }
+            const operation = inferOperationFromToolName(event.toolName);
 
             const hasGuardRisk = vineState.shouldGuardSensitiveAction(sessionKey);
             const hasUnknownSignal = vineState.hasUnknownSignal(sessionKey);
@@ -428,7 +441,13 @@ export function registerBerryVine(
                 vineState.consumeForcedGuardTurn(sessionKey);
                 return {
                     block: true,
-                    blockReason: `${BRAND_SYMBOL} Berry Shield: blocked by Berry.Vine (external content risk). Layered guardrails active: prior gate checks do not bypass runtime hook policy.`,
+                    blockReason: formatCardForBlockReason({
+                        status: "BLOCKED",
+                        layer: "Vine",
+                        operation,
+                        target: sensitive.target,
+                        reason: "External content risk",
+                    }),
                 };
             }
 
@@ -440,7 +459,13 @@ export function registerBerryVine(
                 vineState.consumeForcedGuardTurn(sessionKey);
                 return {
                     block: true,
-                    blockReason: `${BRAND_SYMBOL} Berry Shield: blocked by Berry.Vine (external content risk). Layered guardrails active: prior gate checks do not bypass runtime hook policy.`,
+                    blockReason: formatCardForBlockReason({
+                        status: "BLOCKED",
+                        layer: "Vine",
+                        operation,
+                        target: sensitive.target,
+                        reason: "External content risk",
+                    }),
                 };
             }
 

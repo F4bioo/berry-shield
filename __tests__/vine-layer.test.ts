@@ -62,6 +62,9 @@ describe("Berry.Vine", () => {
         }, { sessionKey: "s1" });
 
         expect(result?.block).toBe(true);
+        expect(result?.blockReason).toContain("STATUS: BLOCKED");
+        expect(result?.blockReason).toContain("LAYER: Vine");
+        expect(result?.blockReason).toContain("REASON:");
     });
 
     it("enforce blocks write-like exec after external signal", () => {
