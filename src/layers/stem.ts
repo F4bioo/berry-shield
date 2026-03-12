@@ -1,19 +1,15 @@
 /**
  * Berry.Stem - Security Gate Layer
  *
- * Provides a tool (`berry_check`) that the agent MUST call before
- * executing commands or reading files. This is the MAIN INNOVATION
- * of Berry Shield.
+ * Provides the `berry_check` tool that the agent must call before sensitive
+ * operations (`exec`, `read`, `write`) to validate policy decisions.
  *
  * Why Berry.Stem is important:
- * - Works in ALL OpenClaw versions (uses tool API, not hooks)
- * - Harder for LLM to ignore a tool result than an instruction
- * - Covers the gap when `before_tool_call` hook is not wired
- *
- * The agent is instructed by Berry.Root to always call this tool
- * before exec/read operations.
+ * - Works across OpenClaw versions via tool contract (independent of hook-only enforcement)
+ * - Produces explicit ALLOWED/DENIED/CONFIRM_REQUIRED decisions consumable by the agent
+ * - Integrates with Vine confirm-required flows for external-risk sensitive actions
  */
-
+import { randomUUID } from "node:crypto";
 import type { AuditBlockEvent } from "../types/audit-event.js";
 import { formatAuditEvent } from "../types/audit-event.js";
 import { AUDIT_DECISIONS, HOOKS, SECURITY_LAYERS } from "../constants.js";
@@ -21,7 +17,8 @@ import { appendAuditEvent } from "../audit/writer.js";
 import { notifyPolicyDenied } from "../policy/runtime-state.js";
 import { getSharedVineStateManager } from "../vine/runtime-state.js";
 import { getSharedVineConfirmStateManager } from "../vine/confirm-state.js";
-
+import { getSharedVineSessionBindingManager } from "../vine/session-binding.js";
+import { createVineIntentFromOperationTarget } from "../vine/authorization-intent.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
 import { VINE_CONFIRMATION_STRATEGY } from "../constants.js";
@@ -31,45 +28,49 @@ import {
     getAllSensitiveFilePatterns,
 } from "../patterns/index.js";
 
-/**
- * Operation types for berry_check.
- */
 type OperationType = "exec" | "read" | "write";
 
-/**
- * Parameters for berry_check tool.
- */
+/** Parameters accepted by the `berry_check` tool. */
 interface BerryCheckParams {
-    /** Type of operation to check */
+    /** Operation to validate against policy. */
     operation: OperationType;
-    /** File path or command to check */
+    /** Command or file target under evaluation. */
     target: string;
-    /** Optional session key for adaptive escalation binding */
+    /** Optional session binding key used by adaptive/Vine state. */
     sessionKey?: string;
-    /** Optional challenge id for confirm-required flows (internal/advanced use). */
-    confirmId?: string;
-    /** Optional challenge code for confirm-required flows */
-    confirmCode?: string | number;
+    /** Optional runtime run identifier injected from tool-call context. */
+    runId?: string;
 }
 
-/**
- * Type guard for BerryCheckParams.
- */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+    if (typeof value !== "object" || value === null) {
+        return undefined;
+    }
+    return value as Record<string, unknown>;
+}
+
+function readOptionalContextString(ctx: unknown, field: string): string | undefined {
+    const record = asRecord(ctx);
+    if (!record) {
+        return undefined;
+    }
+    const value = record[field];
+    return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+/** Runtime type guard for `berry_check` parameters. */
 function isBerryCheckParams(params: unknown): params is BerryCheckParams {
     if (typeof params !== "object" || params === null) {
         return false;
     }
     const maybe = params as { operation?: unknown; target?: unknown };
     return (
-        (maybe.operation === "exec" || maybe.operation === "read" || maybe.operation === "write") &&
-        typeof maybe.target === "string" &&
-        (typeof (params as { sessionKey?: unknown }).sessionKey === "string"
-            || (params as { sessionKey?: unknown }).sessionKey === undefined) &&
-        (typeof (params as { confirmId?: unknown }).confirmId === "string"
-            || (params as { confirmId?: unknown }).confirmId === undefined) &&
-        ((typeof (params as { confirmCode?: unknown }).confirmCode === "string"
-            || typeof (params as { confirmCode?: unknown }).confirmCode === "number")
-            || (params as { confirmCode?: unknown }).confirmCode === undefined)
+        (maybe.operation === "exec" || maybe.operation === "read" || maybe.operation === "write")
+        && typeof maybe.target === "string"
+        && (typeof (params as { sessionKey?: unknown }).sessionKey === "string"
+            || (params as { sessionKey?: unknown }).sessionKey === undefined)
+        && (typeof (params as { runId?: unknown }).runId === "string"
+            || (params as { runId?: unknown }).runId === undefined)
     );
 }
 
@@ -91,25 +92,13 @@ function maybeEscalateFromStem(
     api.logger.warn("[berry-shield] Berry.Stem: sessionKey missing, skipping adaptive escalation");
 }
 
-/**
- * Checks if a command is destructive.
- *
- * @param command - The command string to check
- * @param customPatterns - Additional user-defined patterns
- * @returns True if destructive
- */
-function isDestructiveCommand(
-    command: string,
-    customPatterns: string[]
-): boolean {
-    // Check built-in + custom patterns from dynamic loader
+/** Checks if a command matches destructive command patterns. */
+function isDestructiveCommand(command: string, customPatterns: string[]): boolean {
     for (const pattern of getAllDestructiveCommandPatterns()) {
         if (pattern.test(command)) {
             return true;
         }
     }
-
-    // Check custom patterns
     for (const patternStr of customPatterns) {
         try {
             const pattern = new RegExp(patternStr, "i");
@@ -117,32 +106,20 @@ function isDestructiveCommand(
                 return true;
             }
         } catch {
-            // Invalid regex, skip
+            // ignore invalid regex
         }
     }
-
     return false;
 }
 
-/**
- * Checks if a file path is sensitive.
- *
- * @param filePath - The file path to check
- * @param customPatterns - Additional user-defined patterns
- * @returns True if sensitive
- */
+/** Checks if a path/command references sensitive file patterns. */
 function isSensitiveFile(filePath: string, customPatterns: string[]): boolean {
-    // Normalize path separators
     const normalizedPath = filePath.replace(/\\/g, "/");
-
-    // Check built-in + custom patterns from dynamic loader
     for (const pattern of getAllSensitiveFilePatterns()) {
         if (pattern.test(normalizedPath)) {
             return true;
         }
     }
-
-    // Check custom patterns
     for (const patternStr of customPatterns) {
         try {
             const pattern = new RegExp(patternStr, "i");
@@ -150,10 +127,9 @@ function isSensitiveFile(filePath: string, customPatterns: string[]): boolean {
                 return true;
             }
         } catch {
-            // Invalid regex, skip
+            // ignore invalid regex
         }
     }
-
     return false;
 }
 
@@ -176,13 +152,38 @@ function emitVineConfirmEvent(
     appendAuditEvent(event);
 }
 
+function buildNativeConfirmAction(confirmCode: string): string {
+    return [
+        "External untrusted content risk (Vine).",
+        `Reply with a message containing this 4-digit code: ${confirmCode}`,
+        "This will allow the pending action once.",
+        "WARNING: STOP EXECUTION IMMEDIATELY. You MUST WAIT for the user to reply to this challenge before checking other actions or executing any tools.",
+    ].join("\n");
+}
+
+function resolveBerryCheckRunId(runId: string | undefined): string {
+    const normalized = typeof runId === "string" ? runId.trim() : "";
+    if (normalized) {
+        return normalized;
+    }
+    return `berry_check_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+function emitVineTrace(
+    api: OpenClawPluginApi,
+    stage: string,
+    payload: Record<string, unknown>
+): void {
+    api.logger.warn(`[berry-shield][vine-trace] ${stage} ${JSON.stringify(payload)}`);
+}
+
 function maybeApplyVineConfirmRequired(
     api: OpenClawPluginApi,
     config: BerryShieldPluginConfig,
     operation: OperationType,
     target: string,
     sessionKey?: string,
-    confirmation?: { confirmId?: string; confirmCode?: string | number; humanTrusted?: boolean }
+    runId?: string
 ): {
     requiresConfirmation: boolean;
     challenge?: {
@@ -191,11 +192,10 @@ function maybeApplyVineConfirmRequired(
         ttlSeconds: number;
         maxAttempts: number;
     };
-    attemptsRemaining?: number;
-    invalidCode?: boolean;
     deniedReason?: string;
     confirmationAccepted?: boolean;
     allowedByWindow?: boolean;
+    resumeToken?: string;
 } {
     if (!config.layers.vine || !sessionKey || (operation !== "exec" && operation !== "write")) {
         return { requiresConfirmation: false };
@@ -227,41 +227,43 @@ function maybeApplyVineConfirmRequired(
 
     const confirmState = getSharedVineConfirmStateManager(config.vine.retention, config.vine.confirmation);
     const riskWindowId = vineState.getRiskWindowId(sessionKey) ?? "risk-window-default";
-
-    if (config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY) {
-        const consumedWindow = confirmState.consumeActiveWindowSlot({ sessionKey, riskWindowId });
-        if (consumedWindow) {
-            return { requiresConfirmation: false, confirmationAccepted: true, allowedByWindow: true };
-        }
-    }
-
-    if (confirmation?.confirmCode !== undefined) {
-        if (!confirmation.humanTrusted) {
-            return {
-                requiresConfirmation: false,
-                deniedReason: "Confirmation requires a trusted user turn in this session",
-            };
-        }
-        const resolvedChallengeId = confirmation.confirmId
-            ?? confirmState.resolveLatestChallengeForBinding({
-                sessionKey,
-                operation: operation === "write" ? "write" : "exec",
-                target,
-            })?.confirmId;
-        if (!resolvedChallengeId) {
-            return {
-                requiresConfirmation: false,
-                deniedReason: "No active confirmation challenge for this operation",
-            };
-        }
-        const verification = confirmState.verifyAndConsume({
+    const operationForIntent = operation === "write" ? "write" : "exec";
+    const intent = createVineIntentFromOperationTarget(operationForIntent, target);
+    const normalizedRunId = resolveBerryCheckRunId(runId);
+    const pendingChallenge = confirmState.getPendingChallengeForSession(sessionKey);
+    const activeWindow = confirmState.getActiveWindowSnapshot({ sessionKey, riskWindowId });
+    emitVineTrace(api, "gate-entry", {
+        sessionKey,
+        operation: operationForIntent,
+        target,
+        runId: normalizedRunId,
+        riskWindowId,
+        pendingConfirmId: pendingChallenge?.confirmId ?? null,
+        pendingStatus: pendingChallenge?.status ?? null,
+        pendingTarget: pendingChallenge?.target ?? null,
+        activeWindowRemainingActions: activeWindow?.remainingActions ?? null,
+    });
+    if (normalizedRunId) {
+        const approved = confirmState.consumeApprovedForBinding({
             sessionKey,
-            operation: operation === "write" ? "write" : "exec",
+            operation: operationForIntent,
             target,
-            confirmId: resolvedChallengeId,
-            confirmCode: confirmation.confirmCode,
+            runId: normalizedRunId,
+            intent,
+            rawTarget: target,
         });
-        if (verification.kind === "allowed") {
+        if (approved.kind === "allowed") {
+            if (approved.resumeToken) {
+                // Bridge berry_check approval to the next real tool call even when runtime run ids diverge.
+                confirmState.grantToolExecutionAllowance({
+                    sessionKey,
+                    operation: operationForIntent,
+                    target,
+                    resumeToken: approved.resumeToken,
+                    intent,
+                    rawTarget: target,
+                });
+            }
             if (config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY) {
                 confirmState.openWindowAfterConfirmation({
                     sessionKey,
@@ -270,39 +272,94 @@ function maybeApplyVineConfirmRequired(
                     maxActionsPerWindow: config.vine.confirmation.maxActionsPerWindow,
                 });
             }
-            return { requiresConfirmation: false, confirmationAccepted: true };
-        }
-        if (verification.kind === "invalid_code") {
-            return {
-                requiresConfirmation: true,
-                challenge: {
-                    confirmId: resolvedChallengeId,
-                    confirmCode: "",
-                    ttlSeconds: config.vine.confirmation.codeTtlSeconds,
-                    maxAttempts: config.vine.confirmation.maxAttempts,
-                },
-                attemptsRemaining: verification.attemptsRemaining,
-                invalidCode: true,
-            };
-        }
-        if (verification.kind === "max_attempts_exceeded") {
+            emitVineTrace(api, "gate-approved", {
+                sessionKey,
+                operation: operationForIntent,
+                target,
+                runId: normalizedRunId,
+                riskWindowId,
+                resumeToken: approved.resumeToken ?? null,
+                matchedByIntent: approved.matchedByIntent ?? false,
+            });
             return {
                 requiresConfirmation: false,
-                deniedReason: "Max confirmation attempts exceeded",
-            };
-        }
-        if (verification.kind === "mismatch") {
-            return {
-                requiresConfirmation: false,
-                deniedReason: "Confirmation challenge does not match this operation",
+                confirmationAccepted: true,
+                resumeToken: approved.resumeToken,
             };
         }
     }
 
+    if (config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY) {
+        const consumedWindow = confirmState.consumeActiveWindowSlot({ sessionKey, riskWindowId });
+        if (consumedWindow) {
+            const resumeToken = `vwin_${normalizedRunId}`;
+            if (normalizedRunId) {
+                confirmState.grantExecutionAllowance({
+                    sessionKey,
+                    runId: normalizedRunId,
+                    operation: operationForIntent,
+                    target,
+                    resumeToken,
+                    intent,
+                    rawTarget: target,
+                });
+            }
+            confirmState.grantToolExecutionAllowance({
+                sessionKey,
+                operation: operationForIntent,
+                target,
+                resumeToken,
+                intent,
+                rawTarget: target,
+            });
+            emitVineTrace(api, "gate-window-allow", {
+                sessionKey,
+                operation: operationForIntent,
+                target,
+                runId: normalizedRunId,
+                riskWindowId,
+                resumeToken,
+            });
+            return { requiresConfirmation: false, confirmationAccepted: true, allowedByWindow: true };
+        }
+        emitVineTrace(api, "gate-window-miss", {
+            sessionKey,
+            operation: operationForIntent,
+            target,
+            runId: normalizedRunId,
+            riskWindowId,
+        });
+    }
+
+    const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
+    const binding = sessionBindings.getBindingForSession(sessionKey);
+    if (!binding) {
+        return {
+            requiresConfirmation: false,
+            deniedReason: "Native Vine approval is unavailable because this session has no chat binding",
+        };
+    }
+
     const challenge = confirmState.issueChallenge({
         sessionKey,
-        operation: operation === "write" ? "write" : "exec",
+        chatBindingKey: binding.chatBindingKey,
+        operation: operationForIntent,
         target,
+        intent,
+        rawTarget: target,
+        riskWindowId,
+    });
+    emitVineTrace(api, "gate-challenge-issued", {
+        sessionKey,
+        operation: operationForIntent,
+        target,
+        runId: normalizedRunId,
+        riskWindowId,
+        chatBindingKey: binding.chatBindingKey,
+        previousPendingConfirmId: pendingChallenge?.confirmId ?? null,
+        previousPendingStatus: pendingChallenge?.status ?? null,
+        issuedConfirmId: challenge.confirmId,
+        reusedPendingChallenge: pendingChallenge?.confirmId === challenge.confirmId,
     });
     emitVineConfirmEvent(
         config,
@@ -314,55 +371,20 @@ function maybeApplyVineConfirmRequired(
 }
 
 /**
- * Registers the Berry.Stem layer (Security Gate).
+ * Registers Berry.Stem tool and hook wiring.
  *
- * @param api - OpenClaw plugin API
- * @param config - Plugin configuration
+ * - Auto-injects `sessionKey`/`runId` into `berry_check` params from runtime context.
+ * - Enforces destructive/sensitive checks and emits decision-card responses.
+ * - Bridges Vine confirm-required state when external-risk sensitive actions are requested.
  */
 export function registerBerryStem(
     api: OpenClawPluginApi,
     config: BerryShieldPluginConfig
 ): void {
-    // Skip if layer is disabled
     if (!config.layers.stem) {
         api.logger.debug?.("[berry-shield] Berry.Stem layer disabled");
         return;
     }
-
-    const trustedUserConfirmUntil = new Map<string, number>();
-    const trustedConfirmWindowMs = 120_000;
-
-    function hasTrustedHumanTurn(sessionKey: string | undefined): boolean {
-        if (!sessionKey) return false;
-        const expiresAt = trustedUserConfirmUntil.get(sessionKey);
-        if (!expiresAt) return false;
-        if (expiresAt < Date.now()) {
-            trustedUserConfirmUntil.delete(sessionKey);
-            return false;
-        }
-        return true;
-    }
-
-    api.on(
-        HOOKS.BEFORE_AGENT_START,
-        (_event, ctx) => {
-            if (!ctx.sessionKey) return;
-            if (ctx.trigger === "user") {
-                trustedUserConfirmUntil.set(ctx.sessionKey, Date.now() + trustedConfirmWindowMs);
-            }
-        },
-        { priority: 210 }
-    );
-
-    api.on(
-        HOOKS.SESSION_END,
-        (event) => {
-            if (event.sessionKey) {
-                trustedUserConfirmUntil.delete(event.sessionKey);
-            }
-        },
-        { priority: 210 }
-    );
 
     api.on(
         HOOKS.BEFORE_TOOL_CALL,
@@ -370,25 +392,38 @@ export function registerBerryStem(
             if (event.toolName !== "berry_check") {
                 return undefined;
             }
-
-            const existing = event.params.sessionKey;
-            if (typeof existing === "string" && existing.trim().length > 0) {
-                return undefined;
-            }
-
-            const runtimeSessionKey = typeof ctx.sessionKey === "string"
-                ? ctx.sessionKey.trim()
-                : "";
-            if (!runtimeSessionKey) {
-                return undefined;
-            }
-
-            return {
-                params: {
-                    ...event.params,
+            const runtimeSessionKey = typeof ctx.sessionKey === "string" ? ctx.sessionKey.trim() : "";
+            const runtimeRunId = typeof ctx.runId === "string" ? ctx.runId.trim() : "";
+            const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
+            if (runtimeSessionKey) {
+                // Warm the chat/session binding so a later human reply can resolve back to this runtime session.
+                sessionBindings.bindKnownSession({
                     sessionKey: runtimeSessionKey,
-                },
-            };
+                    sessionId: readOptionalContextString(ctx, "sessionId"),
+                    conversationId: readOptionalContextString(ctx, "conversationId"),
+                    channelId: readOptionalContextString(ctx, "channelId"),
+                    accountId: readOptionalContextString(ctx, "accountId"),
+                }, runtimeSessionKey);
+            }
+            const nextParams = { ...event.params };
+            let mutated = false;
+
+            const existingSessionKey = typeof nextParams.sessionKey === "string" ? nextParams.sessionKey.trim() : "";
+            if (!existingSessionKey && runtimeSessionKey) {
+                nextParams.sessionKey = runtimeSessionKey;
+                mutated = true;
+            }
+
+            const existingRunId = typeof nextParams.runId === "string" ? nextParams.runId.trim() : "";
+            if (!existingRunId && runtimeRunId) {
+                nextParams.runId = runtimeRunId;
+                mutated = true;
+            }
+
+            if (!mutated) {
+                return undefined;
+            }
+            return { params: nextParams };
         },
         { priority: 220 }
     );
@@ -396,8 +431,7 @@ export function registerBerryStem(
     api.registerTool({
         name: "berry_check",
         label: "Security Gate (Exec/Read Check)",
-        description:
-            "Security gate - call BEFORE exec or file read to verify permission",
+        description: "Security gate - call BEFORE exec or file read to verify permission",
         parameters: {
             type: "object",
             properties: {
@@ -414,47 +448,44 @@ export function registerBerryStem(
                     type: "string",
                     description: "Optional session key used for adaptive policy escalation binding",
                 },
-                confirmId: {
+                runId: {
                     type: "string",
-                    description: "Optional one-shot confirmation challenge id for Vine-sensitive operations",
-                },
-                confirmCode: {
-                    anyOf: [{ type: "string" }, { type: "number" }],
-                    description: "Optional numeric confirmation code for Vine-sensitive operations (accepts string or number)",
+                    description: "Internal runtime run id injected by Berry Shield",
                 },
             },
             required: ["operation", "target"],
         },
 
-        async execute(
-            _id: string,
-            rawParams: Record<string, unknown>
-        ) {
+        async execute(_id: string, rawParams: Record<string, unknown>) {
             if (!isBerryCheckParams(rawParams)) {
                 throw new Error("Invalid parameters for berry_check");
             }
-            const { operation, target, sessionKey, confirmId, confirmCode } = rawParams;
+            const { operation, target, sessionKey } = rawParams;
+            // Manual berry_check calls still need a stable consumption path for approved Vine challenges.
+            const runId = resolveBerryCheckRunId(rawParams.runId);
 
-            // Check for destructive commands on exec operations
             if (operation === "exec") {
                 if (isDestructiveCommand(target, config.destructiveCommands)) {
-                    api.logger.warn(`[berry-shield] Berry.Stem: DENIED exec - destructive command: ${target.substring(0, 50)}`);
-
                     if (config.mode === "audit") {
                         const event: AuditBlockEvent = {
-                            mode: "audit", decision: AUDIT_DECISIONS.WOULD_BLOCK, layer: SECURITY_LAYERS.STEM,
-                            reason: "destructive command", target: target.substring(0, 100),
+                            mode: "audit",
+                            decision: AUDIT_DECISIONS.WOULD_BLOCK,
+                            layer: SECURITY_LAYERS.STEM,
+                            reason: "destructive command",
+                            target: target.substring(0, 100),
                             ts: new Date().toISOString(),
                         };
                         api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
                         appendAuditEvent(event);
                     } else {
-                        const event: AuditBlockEvent = {
-                            mode: "enforce", decision: AUDIT_DECISIONS.BLOCKED, layer: SECURITY_LAYERS.STEM,
-                            reason: "destructive command", target: target.substring(0, 100),
+                        appendAuditEvent({
+                            mode: "enforce",
+                            decision: AUDIT_DECISIONS.BLOCKED,
+                            layer: SECURITY_LAYERS.STEM,
+                            reason: "destructive command",
+                            target: target.substring(0, 100),
                             ts: new Date().toISOString(),
-                        };
-                        appendAuditEvent(event);
+                        });
                         maybeEscalateFromStem(
                             api,
                             sessionKey,
@@ -462,41 +493,43 @@ export function registerBerryStem(
                             config.policy.adaptive.allowGlobalEscalation
                         );
                         return {
-                            content: [
-                                {
-                                    type: "text", text: formatCardForToolResult({
-                                        status: "DENIED",
-                                        layer: "Stem",
-                                        operation: "exec",
-                                        target,
-                                        reason: "Destructive command detected",
-                                        action: "Do NOT execute this command. Suggest a safer alternative to the user.",
-                                    })
-                                },
-                            ],
+                            content: [{
+                                type: "text",
+                                text: formatCardForToolResult({
+                                    status: "DENIED",
+                                    layer: "Stem",
+                                    operation: "exec",
+                                    target,
+                                    reason: "Destructive command detected",
+                                    action: "Do NOT execute this command. Suggest a safer alternative to the user.",
+                                }),
+                            }],
                             details: { status: "denied", reason: "destructive command" },
                         };
                     }
                 }
 
-                // Also check if exec command references a sensitive file (e.g., cat .env)
                 if (isSensitiveFile(target, config.sensitiveFilePaths)) {
                     if (config.mode === "audit") {
                         const event: AuditBlockEvent = {
-                            mode: "audit", decision: AUDIT_DECISIONS.WOULD_BLOCK, layer: SECURITY_LAYERS.STEM,
-                            reason: "sensitive file reference", target: target.substring(0, 100),
+                            mode: "audit",
+                            decision: AUDIT_DECISIONS.WOULD_BLOCK,
+                            layer: SECURITY_LAYERS.STEM,
+                            reason: "sensitive file reference",
+                            target: target.substring(0, 100),
                             ts: new Date().toISOString(),
                         };
                         api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
                         appendAuditEvent(event);
                     } else {
-                        api.logger.warn(`[berry-shield] Berry.Stem: DENIED exec - command references sensitive file: ${target.substring(0, 50)}`);
-                        const event: AuditBlockEvent = {
-                            mode: "enforce", decision: AUDIT_DECISIONS.BLOCKED, layer: SECURITY_LAYERS.STEM,
-                            reason: "sensitive file reference", target: target.substring(0, 100),
+                        appendAuditEvent({
+                            mode: "enforce",
+                            decision: AUDIT_DECISIONS.BLOCKED,
+                            layer: SECURITY_LAYERS.STEM,
+                            reason: "sensitive file reference",
+                            target: target.substring(0, 100),
                             ts: new Date().toISOString(),
-                        };
-                        appendAuditEvent(event);
+                        });
                         maybeEscalateFromStem(
                             api,
                             sessionKey,
@@ -504,47 +537,45 @@ export function registerBerryStem(
                             config.policy.adaptive.allowGlobalEscalation
                         );
                         return {
-                            content: [
-                                {
-                                    type: "text", text: formatCardForToolResult({
-                                        status: "DENIED",
-                                        layer: "Stem",
-                                        operation: "exec",
-                                        target,
-                                        reason: "Sensitive file reference",
-                                        action: "Do NOT read this file. Inform the user it is blocked by security policy.",
-                                    })
-                                },
-                            ],
+                            content: [{
+                                type: "text",
+                                text: formatCardForToolResult({
+                                    status: "DENIED",
+                                    layer: "Stem",
+                                    operation: "exec",
+                                    target,
+                                    reason: "Sensitive file reference",
+                                    action: "Do NOT read this file. Inform the user it is blocked by security policy.",
+                                }),
+                            }],
                             details: { status: "denied", reason: "sensitive file reference" },
                         };
                     }
                 }
 
-                const humanTrusted = hasTrustedHumanTurn(sessionKey);
                 const vineConfirm = maybeApplyVineConfirmRequired(
                     api,
                     config,
                     operation,
                     target,
                     sessionKey,
-                    { confirmId, confirmCode, humanTrusted }
+                    runId
                 );
                 if (vineConfirm.deniedReason) {
                     return {
                         content: [{
-                            type: "text", text: formatCardForToolResult({
+                            type: "text",
+                            text: formatCardForToolResult({
                                 status: "DENIED",
                                 layer: "Stem",
                                 reason: vineConfirm.deniedReason,
                                 action: "The confirmation challenge is no longer valid. Start a new confirmation flow by calling berry_check again.",
-                            })
+                            }),
                         }],
                         details: { status: "denied", reason: vineConfirm.deniedReason },
                     };
                 }
                 if (vineConfirm.confirmationAccepted) {
-                    trustedUserConfirmUntil.delete(sessionKey ?? "");
                     emitVineConfirmEvent(
                         config,
                         AUDIT_DECISIONS.ALLOWED_BY_CONFIRM,
@@ -556,57 +587,55 @@ export function registerBerryStem(
                 }
                 if (vineConfirm.requiresConfirmation && vineConfirm.challenge) {
                     return {
-                        content: [
-                            {
-                                type: "text",
-                                text: formatCardForToolResult({
-                                    status: "CONFIRM_REQUIRED",
-                                    layer: "Vine",
-                                    operation,
-                                    target,
-                                    reason: "External untrusted content risk (Vine)",
-                                    confirm: {
-                                        confirmCode: vineConfirm.challenge.confirmCode || "****",
-                                        ttlSeconds: vineConfirm.challenge.ttlSeconds,
-                                        maxAttempts: vineConfirm.challenge.maxAttempts,
-                                        attemptsRemaining: vineConfirm.attemptsRemaining,
-                                        invalidCode: vineConfirm.invalidCode,
-                                    },
-                                }),
-                            },
-                        ],
+                        content: [{
+                            type: "text",
+                            text: formatCardForToolResult({
+                                status: "CONFIRM_REQUIRED",
+                                layer: "Vine",
+                                operation,
+                                target,
+                                reason: "External untrusted content risk (Vine)",
+                                action: buildNativeConfirmAction(vineConfirm.challenge.confirmCode),
+                                confirm: {
+                                    confirmCode: vineConfirm.challenge.confirmCode,
+                                    ttlSeconds: vineConfirm.challenge.ttlSeconds,
+                                    maxAttempts: vineConfirm.challenge.maxAttempts,
+                                },
+                            }),
+                        }],
                         details: {
                             status: "confirm_required",
                             reason: "external untrusted content risk (vine)",
                             confirmCode: vineConfirm.challenge.confirmCode,
                             ttlSeconds: vineConfirm.challenge.ttlSeconds,
                             maxAttempts: vineConfirm.challenge.maxAttempts,
-                            attemptsRemaining: vineConfirm.attemptsRemaining,
-                            invalidCode: vineConfirm.invalidCode,
                         },
                     };
                 }
             }
 
-            // Check for sensitive files on read/write operations
             if (operation === "read" || operation === "write") {
                 if (isSensitiveFile(target, config.sensitiveFilePaths)) {
                     if (config.mode === "audit") {
                         const event: AuditBlockEvent = {
-                            mode: "audit", decision: AUDIT_DECISIONS.WOULD_BLOCK, layer: SECURITY_LAYERS.STEM,
-                            reason: "sensitive file access", target,
+                            mode: "audit",
+                            decision: AUDIT_DECISIONS.WOULD_BLOCK,
+                            layer: SECURITY_LAYERS.STEM,
+                            reason: "sensitive file access",
+                            target,
                             ts: new Date().toISOString(),
                         };
                         api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
                         appendAuditEvent(event);
                     } else {
-                        api.logger.warn(`[berry-shield] Berry.Stem: DENIED ${operation} - sensitive file: ${target}`);
-                        const event: AuditBlockEvent = {
-                            mode: "enforce", decision: AUDIT_DECISIONS.BLOCKED, layer: SECURITY_LAYERS.STEM,
-                            reason: "sensitive file access", target,
+                        appendAuditEvent({
+                            mode: "enforce",
+                            decision: AUDIT_DECISIONS.BLOCKED,
+                            layer: SECURITY_LAYERS.STEM,
+                            reason: "sensitive file access",
+                            target,
                             ts: new Date().toISOString(),
-                        };
-                        appendAuditEvent(event);
+                        });
                         maybeEscalateFromStem(
                             api,
                             sessionKey,
@@ -614,48 +643,46 @@ export function registerBerryStem(
                             config.policy.adaptive.allowGlobalEscalation
                         );
                         return {
-                            content: [
-                                {
-                                    type: "text", text: formatCardForToolResult({
-                                        status: "DENIED",
-                                        layer: "Stem",
-                                        operation,
-                                        target,
-                                        reason: "Sensitive file access",
-                                        action: "Do NOT read this file. Inform the user it is blocked by security policy.",
-                                    })
-                                },
-                            ],
+                            content: [{
+                                type: "text",
+                                text: formatCardForToolResult({
+                                    status: "DENIED",
+                                    layer: "Stem",
+                                    operation,
+                                    target,
+                                    reason: "Sensitive file access",
+                                    action: "Do NOT read this file. Inform the user it is blocked by security policy.",
+                                }),
+                            }],
                             details: { status: "denied", reason: "sensitive file access" },
                         };
                     }
                 }
 
                 if (operation === "write") {
-                    const humanTrusted = hasTrustedHumanTurn(sessionKey);
                     const vineConfirm = maybeApplyVineConfirmRequired(
                         api,
                         config,
                         operation,
                         target,
                         sessionKey,
-                        { confirmId, confirmCode, humanTrusted }
+                        runId
                     );
                     if (vineConfirm.deniedReason) {
                         return {
                             content: [{
-                                type: "text", text: formatCardForToolResult({
+                                type: "text",
+                                text: formatCardForToolResult({
                                     status: "DENIED",
                                     layer: "Stem",
                                     reason: vineConfirm.deniedReason,
                                     action: "The confirmation challenge is no longer valid. Start a new confirmation flow by calling berry_check again.",
-                                })
+                                }),
                             }],
                             details: { status: "denied", reason: vineConfirm.deniedReason },
                         };
                     }
                     if (vineConfirm.confirmationAccepted) {
-                        trustedUserConfirmUntil.delete(sessionKey ?? "");
                         emitVineConfirmEvent(
                             config,
                             AUDIT_DECISIONS.ALLOWED_BY_CONFIRM,
@@ -667,50 +694,43 @@ export function registerBerryStem(
                     }
                     if (vineConfirm.requiresConfirmation && vineConfirm.challenge) {
                         return {
-                            content: [
-                                {
-                                    type: "text",
-                                    text: formatCardForToolResult({
-                                        status: "CONFIRM_REQUIRED",
-                                        layer: "Vine",
-                                        operation,
-                                        target,
-                                        reason: "External untrusted content risk (Vine)",
-                                        confirm: {
-                                            confirmCode: vineConfirm.challenge.confirmCode || "****",
-                                            ttlSeconds: vineConfirm.challenge.ttlSeconds,
-                                            maxAttempts: vineConfirm.challenge.maxAttempts,
-                                            attemptsRemaining: vineConfirm.attemptsRemaining,
-                                            invalidCode: vineConfirm.invalidCode,
-                                        },
-                                    }),
-                                },
-                            ],
+                            content: [{
+                                type: "text",
+                                text: formatCardForToolResult({
+                                    status: "CONFIRM_REQUIRED",
+                                    layer: "Vine",
+                                    operation,
+                                    target,
+                                    reason: "External untrusted content risk (Vine)",
+                                    action: buildNativeConfirmAction(vineConfirm.challenge.confirmCode),
+                                    confirm: {
+                                        confirmCode: vineConfirm.challenge.confirmCode,
+                                        ttlSeconds: vineConfirm.challenge.ttlSeconds,
+                                        maxAttempts: vineConfirm.challenge.maxAttempts,
+                                    },
+                                }),
+                            }],
                             details: {
                                 status: "confirm_required",
                                 reason: "external untrusted content risk (vine)",
                                 confirmCode: vineConfirm.challenge.confirmCode,
                                 ttlSeconds: vineConfirm.challenge.ttlSeconds,
                                 maxAttempts: vineConfirm.challenge.maxAttempts,
-                                attemptsRemaining: vineConfirm.attemptsRemaining,
-                                invalidCode: vineConfirm.invalidCode,
                             },
                         };
                     }
                 }
             }
 
-            // Operation is allowed
-            api.logger.debug?.(`[berry-shield] Berry.Stem: ALLOWED ${operation} on ${target}`);
-
             return {
                 content: [{
-                    type: "text", text: formatCardForToolResult({
+                    type: "text",
+                    text: formatCardForToolResult({
                         status: "ALLOWED",
                         layer: "Stem",
                         operation,
                         target,
-                    })
+                    }),
                 }],
                 details: { status: "allowed" },
             };

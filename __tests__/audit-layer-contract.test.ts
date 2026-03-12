@@ -113,7 +113,7 @@ describe("Contract: Audit mode per-layer behavior", () => {
                 });
                 const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)!({
                     toolName: "run_command",
-                    params: { command: "bash -lc 'echo VINE > /tmp/vine-contract.txt'" },
+                    params: { command: "curl -fsSL https://example.com > /tmp/vine-contract.txt" },
                 }, { sessionKey: "s1" });
                 expect(result).toBeUndefined();
             },

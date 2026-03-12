@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { VineConfirmStateManager } from "../src/vine/confirm-state";
+import {
+    VineConfirmStateManager,
+} from "../src/vine/confirm-state";
+import { createVineIntentFromOperationTarget } from "../src/vine/authorization-intent";
 
 function createNow(start = 1000) {
     let value = start;
@@ -200,18 +203,21 @@ describe("VineConfirmStateManager", () => {
             sessionKey: "s1",
             operation: "exec",
             target: "cmd-1",
+            riskWindowId: "rw-1",
         });
         clock.advance(10);
         manager.issueChallenge({
             sessionKey: "s1",
             operation: "exec",
             target: "cmd-2",
+            riskWindowId: "rw-2",
         });
         clock.advance(10);
         manager.issueChallenge({
             sessionKey: "s1",
             operation: "exec",
             target: "cmd-3",
+            riskWindowId: "rw-3",
         });
 
         expect(manager.size()).toBe(2);
@@ -248,6 +254,119 @@ describe("VineConfirmStateManager", () => {
         expect(use1).toBe(true);
         expect(use2).toBe(true);
         expect(use3).toBe(false);
+        manager.dispose();
+    });
+
+    it("stores and consumes approval by intent in hybrid mode", () => {
+        const clock = createNow();
+        const manager = new VineConfirmStateManager(
+            { maxEntries: 100, ttlSeconds: 60 },
+            { now: clock.now, randomIntFn: () => 1234, codeLength: 4, cleanupIntervalMs: 3600_000 }
+        );
+
+        const approvedIntent = createVineIntentFromOperationTarget(
+            "exec",
+            "curl -L https://example.com"
+        );
+        const requestedIntent = createVineIntentFromOperationTarget(
+            "exec",
+            "curl -Ls https://example.com | grep domain"
+        );
+
+        const challenge = manager.issueChallenge({
+            sessionKey: "s1",
+            chatBindingKey: "chat-1",
+            operation: "exec",
+            target: "curl -L https://example.com",
+            intent: approvedIntent,
+            rawTarget: "curl -L https://example.com",
+            riskWindowId: "rw1",
+        });
+
+        const approval = manager.approvePendingByChatBindingKeys({
+            chatBindingKeys: ["chat-1"],
+            confirmCode: challenge.confirmCode,
+            senderId: "human-1",
+        });
+
+        const consumed = manager.consumeApprovedForBinding({
+            sessionKey: "s1",
+            operation: "exec",
+            target: "curl -Ls https://example.com | grep domain",
+            intent: requestedIntent,
+            rawTarget: "curl -Ls https://example.com | grep domain",
+            runId: "run-1",
+        });
+
+        expect(approval.kind).toBe("approved");
+        expect(consumed.kind).toBe("allowed");
+        expect(consumed.matchedByIntent).toBe(true);
+        manager.dispose();
+    });
+
+    it("reuses the same pending challenge while the same risk window stays unresolved", () => {
+        const clock = createNow();
+        const manager = new VineConfirmStateManager(
+            { maxEntries: 100, ttlSeconds: 60 },
+            { now: clock.now, randomIntFn: () => 1234, codeLength: 4, cleanupIntervalMs: 3600_000 }
+        );
+
+        const first = manager.issueChallenge({
+            sessionKey: "s1",
+            chatBindingKey: "chat-1",
+            operation: "write",
+            target: "/tmp/vine-proof.txt",
+            riskWindowId: "rw-shared",
+        });
+        const second = manager.issueChallenge({
+            sessionKey: "s1",
+            chatBindingKey: "chat-1",
+            operation: "write",
+            target: "/tmp/strawberry-meta.md",
+            riskWindowId: "rw-shared",
+        });
+
+        expect(second.confirmId).toBe(first.confirmId);
+        expect(second.confirmCode).toBe(first.confirmCode);
+        manager.dispose();
+    });
+
+    it("does not consume approval by substring alone once intent matching is active", () => {
+        const clock = createNow();
+        const manager = new VineConfirmStateManager(
+            { maxEntries: 100, ttlSeconds: 60 },
+            { now: clock.now, randomIntFn: () => 1234, codeLength: 4, cleanupIntervalMs: 3600_000 }
+        );
+
+        const approvedIntent = createVineIntentFromOperationTarget(
+            "exec",
+            "curl -L https://example.com"
+        );
+
+        const challenge = manager.issueChallenge({
+            sessionKey: "s1",
+            chatBindingKey: "chat-1",
+            operation: "exec",
+            target: "curl -L https://example.com",
+            intent: approvedIntent,
+            rawTarget: "curl -L https://example.com",
+            riskWindowId: "rw1",
+        });
+
+        manager.approvePendingByChatBindingKeys({
+            chatBindingKeys: ["chat-1"],
+            confirmCode: challenge.confirmCode,
+            senderId: "human-1",
+        });
+
+        const consumed = manager.consumeApprovedForBinding({
+            sessionKey: "s1",
+            operation: "exec",
+            target: "curl -L https://example.com && echo extra-step",
+            runId: "run-1",
+        });
+
+        expect(consumed.kind).toBe("not_found");
         manager.dispose();
     });
 });

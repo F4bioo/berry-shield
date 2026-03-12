@@ -82,7 +82,7 @@ export function formatCardForToolResult(card: DecisionCard): string {
             ? `\nLast code was invalid.${typeof card.confirm.attemptsRemaining === "number" ? ` Attempts remaining: ${card.confirm.attemptsRemaining}.` : ""}`
             : "";
         lines.push(`Your session is marked as external-untrusted.`);
-        lines.push(`Provide confirmCode in berry_check to proceed once.${retryHint}`);
+        lines.push(`Reply with a message containing ${card.confirm?.confirmCode ?? "****"} to proceed once.${retryHint}`);
     } else if (card.status === "DENIED") {
         lines.push(`This operation was denied by security policy.`);
     } else if (card.status === "BLOCKED") {

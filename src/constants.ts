@@ -65,6 +65,7 @@ export const DEFAULTS = {
 /** Hook names used by Berry Shield core security flows */
 export const HOOKS = {
     BEFORE_AGENT_START: "before_agent_start",
+    BEFORE_MESSAGE_WRITE: "before_message_write",
     MESSAGE_RECEIVED: "message_received",
     MESSAGE_SENDING: "message_sending",
     BEFORE_TOOL_CALL: "before_tool_call",
@@ -125,7 +126,7 @@ export const AUDIT_LOG = {
 /** Vine confirmation defaults (confirm-required flow). */
 export const VINE_CONFIRMATION = {
     CODE_LENGTH: 4,
-    TTL_SECONDS: 90,
+    TTL_SECONDS: 180,
     MAX_ATTEMPTS: 3,
     CLEANUP_INTERVAL_MS: 30_000,
 } as const;
@@ -134,6 +135,33 @@ export const VINE_CONFIRMATION = {
 export const VINE_CONFIRMATION_STRATEGY = {
     ONE_TO_ONE: "one_to_one",
     ONE_TO_MANY: "one_to_many",
+} as const;
+
+/** Vine approval inject message contract (shared UI copy and fields). */
+export const VINE_APPROVAL_INJECT = {
+    TITLE: "Berry Shield",
+    FIELD_STATUS: "STATUS",
+    FIELD_DETAIL: "DETAIL",
+    FIELD_ACTION: "ACTION",
+    STATUS_SUCCESS: "SUCCESS",
+    STATUS_FAILURE: "FAILURE",
+    DETAIL_SUCCESS: "Confirmation accepted.",
+    DETAIL_USAGE_ERROR: "Invalid input format.",
+    DETAIL_INVALID_CODE: "Incorrect confirmation code.",
+    DETAIL_EXPIRED_OR_MISSING: "Code expired or no pending action found.",
+    DETAIL_MAX_ATTEMPTS_EXCEEDED: "Maximum confirmation attempts reached.",
+    DETAIL_AMBIGUOUS: "Multiple pending approvals detected.",
+    DETAIL_RESUME_FAILED: "Approval accepted but resume failed.",
+    REASON_USAGE_ERROR: "Invalid command usage format.",
+    REASON_INVALID_CODE: "Invalid confirmation code provided.",
+    REASON_EXPIRED_OR_MISSING: "Confirmation challenge expired or no matching pending action.",
+    REASON_MAX_ATTEMPTS_EXCEEDED: "Maximum confirmation attempts exceeded.",
+    REASON_AMBIGUOUS: "Ambiguous confirmation request.",
+    REASON_RESUME_FAILED: "Automatic resume failed after approval.",
+    ACTION_USE_CODE_PREFIX: "Send a message containing this 4-digit code: ",
+    ACTION_NEW_CODE: "Run the original prompt to get a new code.",
+    ACTION_RETRY_ORIGINAL_PROMPT: "Run the original prompt again.",
+    ACTION_RETRY_CURRENT_CODE: "Retry with a message containing the current 4-digit code.",
 } as const;
 
 /** Decision card ui defaults */

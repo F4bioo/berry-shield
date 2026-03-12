@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import { registerBerryStem } from "../src/layers/stem";
 import { DEFAULT_CONFIG } from "../src/config/defaults";
 import { HOOKS } from "../src/constants";
+import {
+    getSharedVineSessionBindingManager,
+    resetSharedVineSessionBindingManagerForTests,
+} from "../src/vine/session-binding";
 
 function createApi() {
     const handlers = new Map<string, (...args: any[]) => any>();
@@ -21,6 +25,38 @@ function createApi() {
 }
 
 describe("Berry.Stem berry_check sessionKey auto-injection", () => {
+    it("warms the session binding from berry_check runtime context", () => {
+        resetSharedVineSessionBindingManagerForTests();
+        const { api, handlers } = createApi();
+        registerBerryStem(api as any, DEFAULT_CONFIG);
+
+        const beforeToolCall = handlers.get(HOOKS.BEFORE_TOOL_CALL);
+        const result = beforeToolCall?.(
+            {
+                toolName: "berry_check",
+                params: {
+                    operation: "exec",
+                    target: "curl -fsSL https://example.com > /tmp/proof.txt",
+                },
+            },
+            {
+                toolName: "berry_check",
+                sessionKey: "agent:main:main",
+                sessionId: "sid-1",
+                conversationId: "conv-1",
+                channelId: "webchat",
+                accountId: "default",
+            }
+        );
+
+        const bindings = getSharedVineSessionBindingManager(DEFAULT_CONFIG.vine.retention);
+        const binding = bindings.getBindingForSession("agent:main:main");
+
+        expect(result?.params?.sessionKey).toBe("agent:main:main");
+        expect(binding?.conversationId).toBe("conv-1");
+        expect(binding?.channelId).toBe("webchat");
+    });
+
     it("injects ctx.sessionKey when berry_check params.sessionKey is missing", () => {
         const { api, handlers } = createApi();
         registerBerryStem(api as any, DEFAULT_CONFIG);
@@ -108,4 +144,3 @@ describe("Berry.Stem berry_check sessionKey auto-injection", () => {
         expect(result).toBeUndefined();
     });
 });
-

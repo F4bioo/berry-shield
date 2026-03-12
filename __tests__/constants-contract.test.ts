@@ -3,6 +3,17 @@ import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOO
 import { DEFAULT_CONFIG } from "../src/config/defaults";
 import { readFileSync } from "node:fs";
 
+const EXPECTED_HOOKS = {
+    BEFORE_AGENT_START: "before_agent_start",
+    BEFORE_MESSAGE_WRITE: "before_message_write",
+    MESSAGE_RECEIVED: "message_received",
+    MESSAGE_SENDING: "message_sending",
+    BEFORE_TOOL_CALL: "before_tool_call",
+    AFTER_TOOL_CALL: "after_tool_call",
+    TOOL_RESULT_PERSIST: "tool_result_persist",
+    SESSION_END: "session_end",
+} as const;
+
 /**
  * Version contract:
  * - src/constants.ts (VERSION)
@@ -52,12 +63,11 @@ describe("Constants Contract", () => {
     });
 
     it("should have stable core hook names", () => {
-        expect(HOOKS.BEFORE_AGENT_START).toBe("before_agent_start");
-        expect(HOOKS.MESSAGE_RECEIVED).toBe("message_received");
-        expect(HOOKS.MESSAGE_SENDING).toBe("message_sending");
-        expect(HOOKS.BEFORE_TOOL_CALL).toBe("before_tool_call");
-        expect(HOOKS.AFTER_TOOL_CALL).toBe("after_tool_call");
-        expect(HOOKS.TOOL_RESULT_PERSIST).toBe("tool_result_persist");
+        expect(HOOKS).toEqual(EXPECTED_HOOKS);
+        expect(
+            Object.keys(HOOKS).sort(),
+            "New hook added to HOOKS but tests were not updated. Review constants-contract.test.ts."
+        ).toEqual(Object.keys(EXPECTED_HOOKS).sort());
     });
 
     it("should keep required security hooks list synchronized", () => {

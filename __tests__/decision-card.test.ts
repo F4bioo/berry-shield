@@ -83,7 +83,7 @@ describe("decision-card / format-text", () => {
             expect(result).toContain("CONFIRM_CODE: 8750");
             expect(result).toContain("TTL_SECONDS: 90");
             expect(result).toContain("MAX_ATTEMPTS: 3");
-            expect(result).toContain("Provide confirmCode in berry_check to proceed once.");
+            expect(result).toContain("Reply with a message containing 8750 to proceed once.");
             expect(result).not.toContain("ATTEMPTS_REMAINING:");
         });
 
@@ -275,7 +275,7 @@ describe("decision-card / format-text", () => {
               MAX_ATTEMPTS: 3
               
               Your session is marked as external-untrusted.
-              Provide confirmCode in berry_check to proceed once."
+              Reply with a message containing 1234 to proceed once."
             `);
         });
     });
