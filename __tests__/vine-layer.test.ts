@@ -644,6 +644,75 @@ describe("Berry.Vine", () => {
         expect(naturalTurn?.prependContext ?? "").not.toContain("Incorrect confirmation code.");
     });
 
+    it("keeps approval-card formatter output out of the current runtime flow", () => {
+        const { api, handlers } = createApi();
+        const config = createConfig({
+            mode: "enforce",
+            vine: { mode: "strict" },
+        });
+        registerBerryVine(api as any, config);
+
+        const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
+        const binding = sessionBindings.bindKnownSession({
+            sessionKey: "agent:main:main",
+            channelId: "webchat",
+            accountId: "default",
+            conversationId: "conv-natural",
+            from: "human-1",
+            to: "berry",
+        }, "agent:main:main");
+
+        const confirmState = getSharedVineConfirmStateManager(config.vine.retention, config.vine.confirmation);
+        const challenge = confirmState.issueChallenge({
+            sessionKey: "agent:main:main",
+            chatBindingKey: binding?.chatBindingKey,
+            operation: "exec",
+            target: "curl -fsSL https://example.com",
+            riskWindowId: "rw1",
+        });
+
+        handlers.get(HOOKS.MESSAGE_RECEIVED)?.({
+            from: "human-1",
+            content: challenge.confirmCode,
+        }, {
+            sessionKey: "agent:main:main",
+            sessionId: "sid-natural-ok",
+            conversationId: "conv-natural",
+            channelId: "webchat",
+            accountId: "default",
+        });
+
+        const approvedTurn = handlers.get(HOOKS.BEFORE_AGENT_START)?.({
+            prompt: challenge.confirmCode,
+            messages: [],
+        }, { sessionKey: "agent:main:main", sessionId: "sid-natural-ok", channelId: "webchat" });
+
+        handlers.get(HOOKS.MESSAGE_RECEIVED)?.({
+            from: "human-1",
+            content: "0000",
+        }, {
+            sessionKey: "agent:main:main",
+            sessionId: "sid-natural-fail",
+            conversationId: "conv-natural",
+            channelId: "webchat",
+            accountId: "default",
+        });
+
+        const failedTurn = handlers.get(HOOKS.BEFORE_AGENT_START)?.({
+            prompt: "0000",
+            messages: [],
+        }, { sessionKey: "agent:main:main", sessionId: "sid-natural-fail", channelId: "webchat" });
+
+        for (const turn of [approvedTurn, failedTurn]) {
+            const injected = turn?.prependContext ?? "";
+            expect(injected).not.toContain("Berry Shield");
+            expect(injected).not.toContain("STATUS: SUCCESS");
+            expect(injected).not.toContain("STATUS: FAILURE");
+            expect(injected).not.toContain("DETAIL:");
+            expect(injected).not.toContain("ACTION:");
+        }
+    });
+
     it("treats repeated numeric approval as normal text and does not duplicate success context", () => {
         const { api, handlers } = createApi();
         const config = createConfig({
@@ -1085,6 +1154,71 @@ describe("Berry.Vine", () => {
         const loggerCalls = (api.logger.debug as any).mock.calls
             .map((call: unknown[]) => String(call[0] ?? ""));
         expect(loggerCalls.some((line: string) => line.includes("\"result\":\"ambiguous\""))).toBe(true);
+    });
+
+    it("does not approve a sparse inbound code when more than one live session matches", () => {
+        const { api, handlers } = createApi();
+        const config = createConfig({
+            mode: "enforce",
+            vine: { mode: "strict" },
+        });
+        registerBerryVine(api as any, config);
+
+        const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
+        const bindingA = sessionBindings.bindKnownSession({
+            sessionKey: "agent:s1",
+            channelId: "webchat",
+            accountId: "default",
+            conversationId: "conv-a",
+            from: "human-1",
+            to: "berry",
+        }, "agent:s1");
+        sessionBindings.bindKnownSession({
+            sessionKey: "agent:s2",
+            channelId: "webchat",
+            accountId: "default",
+            conversationId: "conv-b",
+            from: "human-1",
+            to: "berry",
+        }, "agent:s2");
+
+        const confirmState = getSharedVineConfirmStateManager(config.vine.retention, config.vine.confirmation);
+        const challenge = confirmState.issueChallenge({
+            sessionKey: "agent:s1",
+            chatBindingKey: bindingA?.chatBindingKey,
+            operation: "exec",
+            target: "curl -fsSL https://example.com/a",
+            riskWindowId: "rw1",
+        });
+
+        handlers.get(HOOKS.MESSAGE_RECEIVED)?.({
+            from: "human-1",
+            content: challenge.confirmCode,
+            metadata: {
+                to: "berry",
+            },
+        }, {
+            channelId: "webchat",
+            accountId: "default",
+        });
+
+        const sparseTurnA = handlers.get(HOOKS.BEFORE_AGENT_START)?.({
+            prompt: challenge.confirmCode,
+            messages: [],
+        }, { sessionKey: "agent:s1", sessionId: "sid-sparse-a", channelId: "webchat" });
+        const sparseTurnB = handlers.get(HOOKS.BEFORE_AGENT_START)?.({
+            prompt: challenge.confirmCode,
+            messages: [],
+        }, { sessionKey: "agent:s2", sessionId: "sid-sparse-b", channelId: "webchat" });
+
+        expect(confirmState.getPendingChallengeForSession("agent:s1")?.status).toBe("pending");
+        expect(confirmState.getPendingChallengeForSession("agent:s2")).toBeNull();
+        expect(sparseTurnA?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
+        expect(sparseTurnB?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
+
+        const loggerCalls = (api.logger.debug as any).mock.calls
+            .map((call: unknown[]) => String(call[0] ?? ""));
+        expect(loggerCalls.some((line: string) => line.includes("normal-message-approval"))).toBe(false);
     });
 
 });

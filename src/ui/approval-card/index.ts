@@ -1,3 +1,4 @@
+// Preserved for future UI reuse; the current native Vine approval flow does not import this formatter path.
 export type {
     ApprovalCardStatus,
     ApprovalCardMessage,

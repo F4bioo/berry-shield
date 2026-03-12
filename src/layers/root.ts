@@ -10,6 +10,7 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
 import { HOOKS } from "../constants.js";
 import { getSharedPolicyStateManager } from "../policy/runtime-state.js";
+import { BERRY_LOG_CATEGORY, berryLog } from "../log/berry-log.js";
 
 /**
  * Security policy XML that gets injected into the agent's context.
@@ -60,7 +61,7 @@ export function registerBerryRoot(
 ): void {
     // Skip if layer is disabled
     if (!config.layers.root) {
-        api.logger.debug?.("[berry-shield] Berry.Root layer disabled");
+        berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Root layer disabled");
         return;
     }
 
@@ -73,7 +74,7 @@ export function registerBerryRoot(
             const hasSessionIdentity = sessionKey !== "global_session";
 
             if (!hasSessionIdentity) {
-                api.logger.warn("[berry-shield] Berry.Root: session id missing, forcing full policy for safety");
+                berryLog(api.logger, BERRY_LOG_CATEGORY.COMPAT_EVENT, "Berry.Root session id missing, forcing full policy for safety");
             }
 
             const decision = policyState.consumeTurnDecision({
@@ -85,17 +86,17 @@ export function registerBerryRoot(
 
             if (decision === "full") {
                 policyState.markInjected(sessionKey);
-                api.logger.debug?.("[berry-shield] Berry.Root: injecting full security policy");
+                berryLog(api.logger, BERRY_LOG_CATEGORY.POLICY_TRACE, "Berry.Root injecting full security policy");
                 return { prependContext: SECURITY_POLICY };
             }
 
             if (decision === "short") {
                 policyState.markInjected(sessionKey);
-                api.logger.debug?.("[berry-shield] Berry.Root: session active, injecting short reminder");
+                berryLog(api.logger, BERRY_LOG_CATEGORY.POLICY_TRACE, "Berry.Root session active, injecting short reminder");
                 return { prependContext: SHORT_SECURITY_POLICY };
             }
 
-            api.logger.debug?.("[berry-shield] Berry.Root: session active, skipping policy injection");
+            berryLog(api.logger, BERRY_LOG_CATEGORY.POLICY_TRACE, "Berry.Root session active, skipping policy injection");
             return;
         },
         { priority: 200 } // High priority - security runs first
@@ -105,10 +106,10 @@ export function registerBerryRoot(
         HOOKS.SESSION_END,
         (event) => {
             policyState.delete(event.sessionId);
-            api.logger.debug?.(`[berry-shield] Berry.Root: cleared policy state for session ${event.sessionId}`);
+            berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, `Berry.Root cleared policy state for session ${event.sessionId}`);
         },
         { priority: 200 }
     );
 
-    api.logger.debug?.("[berry-shield] Berry.Root layer registered");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Root layer registered");
 }

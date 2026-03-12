@@ -137,7 +137,7 @@ export const VINE_CONFIRMATION_STRATEGY = {
     ONE_TO_MANY: "one_to_many",
 } as const;
 
-/** Vine approval inject message contract (shared UI copy and fields). */
+/** Preserved shared copy for approval-card UI helpers; not injected into the current native Vine runtime path. */
 export const VINE_APPROVAL_INJECT = {
     TITLE: "Berry Shield",
     FIELD_STATUS: "STATUS",

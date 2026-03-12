@@ -27,6 +27,7 @@ import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
 } from "../patterns/index.js";
+import { BERRY_LOG_CATEGORY, berryLog } from "../log/berry-log.js";
 
 type OperationType = "exec" | "read" | "write";
 
@@ -85,11 +86,11 @@ function maybeEscalateFromStem(
         return;
     }
     if (allowGlobalEscalation) {
-        api.logger.warn("[berry-shield] Berry.Stem: sessionKey missing, applying configured global adaptive escalation");
+        berryLog(api.logger, BERRY_LOG_CATEGORY.COMPAT_EVENT, "Berry.Stem: sessionKey missing, applying configured global adaptive escalation");
         notifyPolicyDenied(undefined, escalationTurns, true);
         return;
     }
-    api.logger.warn("[berry-shield] Berry.Stem: sessionKey missing, skipping adaptive escalation");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.COMPAT_EVENT, "Berry.Stem: sessionKey missing, skipping adaptive escalation");
 }
 
 /** Checks if a command matches destructive command patterns. */
@@ -174,7 +175,7 @@ function emitVineTrace(
     stage: string,
     payload: Record<string, unknown>
 ): void {
-    api.logger.warn(`[berry-shield][vine-trace] ${stage} ${JSON.stringify(payload)}`);
+    berryLog(api.logger, BERRY_LOG_CATEGORY.LAYER_TRACE, `Berry.Vine ${stage} ${JSON.stringify(payload)}`);
 }
 
 function maybeApplyVineConfirmRequired(
@@ -220,7 +221,7 @@ function maybeApplyVineConfirmRequired(
             target: target.slice(0, 120),
             ts: new Date().toISOString(),
         };
-        api.logger.warn(`[berry-shield] Berry.Vine: ${formatAuditEvent(event)}`);
+        berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Vine: ${formatAuditEvent(event)}`);
         appendAuditEvent(event);
         return { requiresConfirmation: false };
     }
@@ -382,7 +383,7 @@ export function registerBerryStem(
     config: BerryShieldPluginConfig
 ): void {
     if (!config.layers.stem) {
-        api.logger.debug?.("[berry-shield] Berry.Stem layer disabled");
+        berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Stem layer disabled");
         return;
     }
 
@@ -475,7 +476,7 @@ export function registerBerryStem(
                             target: target.substring(0, 100),
                             ts: new Date().toISOString(),
                         };
-                        api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
+                        berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Stem: ${formatAuditEvent(event)}`);
                         appendAuditEvent(event);
                     } else {
                         appendAuditEvent({
@@ -519,7 +520,7 @@ export function registerBerryStem(
                             target: target.substring(0, 100),
                             ts: new Date().toISOString(),
                         };
-                        api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
+                        berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Stem: ${formatAuditEvent(event)}`);
                         appendAuditEvent(event);
                     } else {
                         appendAuditEvent({
@@ -625,7 +626,7 @@ export function registerBerryStem(
                             target,
                             ts: new Date().toISOString(),
                         };
-                        api.logger.warn(`[berry-shield] Berry.Stem: ${formatAuditEvent(event)}`);
+                        berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Stem: ${formatAuditEvent(event)}`);
                         appendAuditEvent(event);
                     } else {
                         appendAuditEvent({
@@ -737,5 +738,5 @@ export function registerBerryStem(
         },
     });
 
-    api.logger.debug?.("[berry-shield] Berry.Stem layer registered");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Stem layer registered");
 }

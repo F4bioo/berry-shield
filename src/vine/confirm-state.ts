@@ -493,6 +493,7 @@ export class VineConfirmStateManager {
         };
     }
 
+    // Converts an approved human reply into a single run-scoped allowance and consumes the pending challenge.
     public consumeApprovedForBinding(input: {
         sessionKey: string;
         operation: VineConfirmOperation;
@@ -557,6 +558,7 @@ export class VineConfirmStateManager {
         };
     }
 
+    // Stores a one-shot runtime allowance keyed by session + runId for the immediate tool execution handoff.
     public grantExecutionAllowance(input: {
         sessionKey: string;
         runId: string;
@@ -584,6 +586,7 @@ export class VineConfirmStateManager {
         });
     }
 
+    // Stores a fallback one-shot allowance for the next matching tool call when runtime run ids diverge.
     public grantToolExecutionAllowance(input: {
         sessionKey: string;
         operation: VineConfirmOperation;
@@ -611,6 +614,7 @@ export class VineConfirmStateManager {
         });
     }
 
+    // Consumes the exact run-scoped allowance created during the approved berry_check handoff.
     public consumeExecutionAllowance(input: {
         sessionKey: string;
         runId: string;
@@ -647,6 +651,7 @@ export class VineConfirmStateManager {
         return true;
     }
 
+    // Consumes the fallback tool allowance when the real tool call cannot be correlated through the original run id.
     public consumeToolExecutionAllowance(input: {
         sessionKey: string;
         operation: VineConfirmOperation;

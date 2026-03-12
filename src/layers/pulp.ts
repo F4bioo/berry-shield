@@ -18,6 +18,7 @@ import { AUDIT_DECISIONS, SECURITY_LAYERS, HOOKS } from "../constants.js";
 import { appendAuditEvent } from "../audit/writer.js";
 import { getAllRedactionPatterns } from "../patterns/index.js";
 import { walkAndRedact } from "../utils/redaction.js";
+import { BERRY_LOG_CATEGORY, berryLog } from "../log/berry-log.js";
 
 const POLICY_BLOCK_PATTERN = /<berry_shield_policy>[\s\S]*?<\/berry_shield_policy>/gi;
 
@@ -38,7 +39,7 @@ export function registerBerryPulp(
 ): void {
     // Skip if layer is disabled
     if (!config.layers.pulp) {
-        api.logger.debug?.("[berry-shield] Berry.Pulp layer disabled");
+        berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Pulp layer disabled");
         return;
     }
 
@@ -56,7 +57,7 @@ export function registerBerryPulp(
                         count: redactionCount, types: redactedTypes,
                         ts: new Date().toISOString(),
                     };
-                    api.logger.warn(`[berry-shield] Berry.Pulp: ${formatAuditEvent(auditEvent)}`);
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Pulp: ${formatAuditEvent(auditEvent)}`);
                     appendAuditEvent(auditEvent);
                     return event;
                 }
@@ -68,7 +69,11 @@ export function registerBerryPulp(
                     ts: new Date().toISOString(),
                 };
                 appendAuditEvent(auditEvent);
-                api.logger.warn(`[berry-shield] Redacted ${redactionCount} items [${redactedTypes.join(", ")}] from tool result: ${event.toolName}`);
+                berryLog(
+                    api.logger,
+                    BERRY_LOG_CATEGORY.SECURITY_EVENT,
+                    `Berry.Pulp redacted ${redactionCount} item(s) [${redactedTypes.join(", ")}] from tool result: ${event.toolName}`
+                );
 
                 // Return modified message. 'content' is the redacted version of event.message.
                 return { ...event, message: content };
@@ -85,7 +90,7 @@ export function registerBerryPulp(
         (event) => {
             const stripped = stripPolicyBlocks(event.content);
             if (stripped.removed) {
-                api.logger.warn("[berry-shield] Berry.Pulp: stripped leaked <berry_shield_policy> block from outgoing message");
+                berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, "Berry.Pulp stripped leaked <berry_shield_policy> block from outgoing message");
             }
 
             const patterns = getAllRedactionPatterns();
@@ -99,7 +104,7 @@ export function registerBerryPulp(
                         count: redactionCount, types: redactedTypes,
                         ts: new Date().toISOString(),
                     };
-                    api.logger.warn(`[berry-shield] Berry.Pulp: ${formatAuditEvent(auditEvent)}`);
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Pulp: ${formatAuditEvent(auditEvent)}`);
                     appendAuditEvent(auditEvent);
                     if (stripped.removed) {
                         return { content: stripped.content };
@@ -114,7 +119,11 @@ export function registerBerryPulp(
                     ts: new Date().toISOString(),
                 };
                 appendAuditEvent(auditEvent);
-                api.logger.warn(`[berry-shield] Berry.Pulp: redacted ${redactionCount} item(s) [${redactedTypes.join(", ")}] in outgoing message`);
+                berryLog(
+                    api.logger,
+                    BERRY_LOG_CATEGORY.SECURITY_EVENT,
+                    `Berry.Pulp redacted ${redactionCount} item(s) [${redactedTypes.join(", ")}] in outgoing message`
+                );
                 return { content: content };
             }
 
@@ -127,5 +136,5 @@ export function registerBerryPulp(
         { priority: 200 }
     );
 
-    api.logger.debug?.("[berry-shield] Berry.Pulp layer registered (Output Scanner)");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Pulp layer registered (Output Scanner)");
 }

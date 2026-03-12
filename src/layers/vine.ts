@@ -20,6 +20,7 @@ import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
 } from "../patterns/index.js";
+import { BERRY_LOG_CATEGORY, berryLog } from "../log/berry-log.js";
 
 const VINE_POLICY = `<berry_vine_policy>
 UNTRUSTED EXTERNAL CONTENT GUARD:
@@ -161,7 +162,7 @@ function emitVineTrace(
     stage: string,
     payload: Record<string, unknown>
 ): void {
-    api.logger.warn(`[berry-shield][vine-trace] ${stage} ${JSON.stringify(payload)}`);
+    berryLog(api.logger, BERRY_LOG_CATEGORY.LAYER_TRACE, `Berry.Vine ${stage} ${JSON.stringify(payload)}`);
 }
 
 function emitBlockEvent(
@@ -179,7 +180,7 @@ function emitBlockEvent(
         ts: new Date().toISOString(),
     };
     if (config.mode === "audit") {
-        api.logger.warn(`[berry-shield] Berry.Vine: ${formatAuditEvent(event)}`);
+        berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Vine: ${formatAuditEvent(event)}`);
     }
     appendAuditEvent(event);
 }
@@ -201,7 +202,7 @@ export function registerBerryVine(
     config: BerryShieldPluginConfig
 ): void {
     if (!config.layers.vine) {
-        api.logger.debug?.("[berry-shield] Berry.Vine layer disabled");
+        berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Vine layer disabled");
         return;
     }
 
@@ -316,12 +317,16 @@ export function registerBerryVine(
                         senderId: event.from,
                     });
                 }
-                api.logger.debug?.(`[berry-shield][vine-debug] normal-message-approval ${JSON.stringify({
-                    sessionKey,
-                    chatBindingKey: chatBindingKeys[0] ?? null,
-                    authPath: "binding_1to1",
-                    result: approval.kind,
-                })}`);
+                berryLog(
+                    api.logger,
+                    BERRY_LOG_CATEGORY.LAYER_TRACE,
+                    `Berry.Vine normal-message-approval ${JSON.stringify({
+                        sessionKey,
+                        chatBindingKey: chatBindingKeys[0] ?? null,
+                        authPath: "binding_1to1",
+                        result: approval.kind,
+                    })}`
+                );
                 emitVineTrace(api, "message-approval-result", {
                     sessionKey,
                     chatBindingKey: chatBindingKeys[0] ?? null,
@@ -598,5 +603,5 @@ export function registerBerryVine(
         { priority: 190 }
     );
 
-    api.logger.debug?.("[berry-shield] Berry.Vine layer registered");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Vine layer registered");
 }

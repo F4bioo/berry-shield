@@ -40,7 +40,7 @@ describe("Berry.Leaf", () => {
 
         expect(api.on).not.toHaveBeenCalled();
         expect(handlers.has(HOOKS.MESSAGE_RECEIVED)).toBe(false);
-        expect(api.logger.debug).toHaveBeenCalledWith("[berry-shield] Berry.Leaf layer disabled");
+        expect(api.logger.info).toHaveBeenCalledWith("[berry-shield][runtime] Berry.Leaf layer disabled");
     });
 
     it("registers message_received hook when enabled", () => {
@@ -71,7 +71,10 @@ describe("Berry.Leaf", () => {
 
         expect(result).toBeUndefined();
         expect(api.logger.warn).toHaveBeenCalledWith(
-            expect.stringContaining("Berry.Leaf: AUDIT - sensitive content detected")
+            expect.stringContaining("[berry-shield][security] Berry.Leaf sensitive content detected")
+        );
+        expect(api.logger.debug).toHaveBeenCalledWith(
+            expect.stringContaining("[berry-shield][layer-trace] Berry.Leaf ")
         );
         expect(api.logger.debug).toHaveBeenCalledWith(
             expect.stringContaining("\"event\":\"message_received\"")
@@ -94,7 +97,10 @@ describe("Berry.Leaf", () => {
 
         expect(result).toBeUndefined();
         expect(api.logger.warn).not.toHaveBeenCalledWith(
-            expect.stringContaining("AUDIT - sensitive content detected")
+            expect.stringContaining("Leaf sensitive content detected")
+        );
+        expect(api.logger.debug).toHaveBeenCalledWith(
+            expect.stringContaining("[berry-shield][layer-trace] Berry.Leaf ")
         );
         expect(api.logger.debug).toHaveBeenCalledWith(
             expect.stringContaining("\"event\":\"message_received\"")
