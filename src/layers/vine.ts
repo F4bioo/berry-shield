@@ -10,6 +10,7 @@ import { getSharedVineConfirmStateManager } from "../vine/confirm-state.js";
 import { buildChatBindingKey, getSharedVineSessionBindingManager } from "../vine/session-binding.js";
 import {
     extractVineIntent,
+    hasIntrinsicExternalHostActionRisk,
     inferVineOperationFromToolName,
     resolveAuthorizationTargetFromToolCall,
     resolveDisplayTargetFromToolCall,
@@ -124,6 +125,9 @@ function isSensitiveAction(toolName: string, params: Record<string, unknown>): {
         ) {
             return { sensitive: true, target: authorizationTarget };
         }
+    } else if (operation === "write") {
+        // External-risk writes must not bypass Vine confirmation just because the path is non-sensitive.
+        return { sensitive: true, target: authorizationTarget };
     } else if (isSensitiveFile(authorizationTarget)) {
         return { sensitive: true, target: authorizationTarget };
     }
@@ -471,6 +475,9 @@ export function registerBerryVine(
             const displayTarget = resolveDisplayTargetFromToolCall(event.toolName, event.params);
             const intent = extractVineIntent(event.toolName, event.params, operation);
             const vineOperation = operation === "write" ? "write" : "exec";
+            // Same-command external fetch plus host-side execution must not rely on previously persisted session risk.
+            const hasIntrinsicExecRisk = operation === "exec"
+                && hasIntrinsicExternalHostActionRisk(intent);
 
             const allowedByExecutionAllowance = Boolean(
                 ctx.runId
@@ -520,20 +527,21 @@ export function registerBerryVine(
 
             // Audit mode never blocks, but logs would_block.
             if (runtimeMode === "audit") {
-                if (hasGuardRisk || hasUnknownSignal) {
+                if (hasIntrinsicExecRisk || hasGuardRisk || hasUnknownSignal) {
                     emitBlockEvent(api, { ...config, mode: runtimeMode }, "external-untrusted instruction risk", displayTarget);
                 }
                 return undefined;
             }
 
             // Enforce strict: unknown and risk both block.
-            if (config.vine.mode === "strict" && (hasGuardRisk || hasUnknownSignal)) {
+            if (hasIntrinsicExecRisk || (config.vine.mode === "strict" && (hasGuardRisk || hasUnknownSignal))) {
                 emitVineTrace(api, "before-tool-call-block", {
                     sessionKey,
                     toolName: event.toolName,
                     operation,
                     target: allowanceTarget,
                     runId: ctx.runId ?? null,
+                    hasIntrinsicExecRisk,
                     hasGuardRisk,
                     hasUnknownSignal,
                 });
@@ -561,6 +569,7 @@ export function registerBerryVine(
                     operation,
                     target: allowanceTarget,
                     runId: ctx.runId ?? null,
+                    hasIntrinsicExecRisk,
                     hasGuardRisk,
                     hasUnknownSignal,
                 });
@@ -603,5 +612,5 @@ export function registerBerryVine(
         { priority: 190 }
     );
 
-    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Vine layer registered");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Vine layer registered (External Content Guard)");
 }

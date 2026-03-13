@@ -111,5 +111,5 @@ export function registerBerryRoot(
         { priority: 200 }
     );
 
-    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Root layer registered");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Root layer registered (Prompt Guard)");
 }

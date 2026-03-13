@@ -69,7 +69,7 @@ describe("Berry.Thorn", () => {
             { priority: 200 }
         );
         expect(handlers.has(HOOKS.BEFORE_TOOL_CALL)).toBe(true);
-        expect(api.logger.info).toHaveBeenCalledWith("[berry-shield][runtime] Berry.Thorn layer registered");
+        expect(api.logger.info).toHaveBeenCalledWith("[berry-shield][runtime] Berry.Thorn layer registered (Tool Blocker)");
     });
 
     it("logs would_block and does not block in audit mode", () => {

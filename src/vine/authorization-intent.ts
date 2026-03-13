@@ -98,8 +98,10 @@ function isDestructiveCommand(command: string): boolean {
     return findMatches(command, getAllDestructiveCommandPatterns()).length > 0;
 }
 
+// Detect common interpreter-execution patterns in shell commands so Vine can treat script sinks as high-risk exec intents.
 function looksLikeInterpreterSink(command: string): boolean {
     return /\|\s*(?:sh|bash|zsh|pwsh|powershell|python|python3|node|perl|ruby)\b/i.test(command)
+        || /(?:^|\s)(?:python|python3|node|perl|ruby|pwsh|powershell)\b[\s\S]*<<\s*['"]?[A-Za-z_][A-Za-z0-9_]*['"]?/i.test(command)
         || /(?:^|\s)(?:python|python3|node|perl|ruby|pwsh|powershell)\b[\s\S]*\s(?:-c|-e|-Command)\b/i.test(command);
 }
 
@@ -134,6 +136,19 @@ function collectExecCapabilities(command: string, writeLikeTarget: string | unde
         capabilities.push("destructive_exec");
     }
     return capabilities;
+}
+
+export function hasIntrinsicExternalHostActionRisk(intent: VineIntent): boolean {
+    if (!intent.capabilities.includes("external_read")) {
+        return false;
+    }
+
+    return (
+        intent.capabilities.includes("local_write")
+        || intent.capabilities.includes("sensitive_write")
+        || intent.capabilities.includes("external_send")
+        || intent.capabilities.includes("destructive_exec")
+    );
 }
 
 function buildIntentFromExecCommand(command: string): VineIntent {

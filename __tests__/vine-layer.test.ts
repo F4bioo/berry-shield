@@ -102,6 +102,34 @@ describe("Berry.Vine", () => {
         expect(lastEvent?.decision).toBe("blocked");
     });
 
+    it("enforce blocks direct write tool calls after external signal", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            mode: "enforce",
+            vine: { mode: "strict" },
+        }));
+
+        handlers.get(HOOKS.TOOL_RESULT_PERSIST)?.({
+            toolName: "web_fetch",
+            toolCallId: "tc-strict-write-direct",
+            message: [{ type: "text", text: "external" }],
+        }, { toolName: "web_fetch", sessionKey: "s1" });
+
+        const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "write",
+            params: {
+                path: "/tmp/untrusted-write-proof.txt",
+                content: "This is the first paragraph from an imaginary external article.",
+            },
+        }, { sessionKey: "s1" });
+
+        expect(result?.block).toBe(true);
+        const lastEvent = appendAuditEventMock.mock.calls.at(-1)?.[0];
+        expect(lastEvent?.layer).toBe("vine");
+        expect(lastEvent?.decision).toBe("blocked");
+        expect(lastEvent?.target).toBe("/tmp/untrusted-write-proof.txt");
+    });
+
     it("does not block local non-sensitive write alone after external signal", () => {
         const { api, handlers } = createApi();
         registerBerryVine(api as any, createConfig({
@@ -121,6 +149,32 @@ describe("Berry.Vine", () => {
         }, { sessionKey: "s1" });
 
         expect(result).toBeUndefined();
+    });
+
+    it("blocks compound exec with external fetch and inline local write even without prior vine state", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            mode: "enforce",
+            vine: { mode: "strict" },
+        }));
+
+        const result = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: {
+                command: `python - <<'PY'
+import urllib.request
+from pathlib import Path
+content = urllib.request.urlopen("https://example.com").read().decode("utf-8")
+Path("/temp").mkdir(parents=True, exist_ok=True)
+Path("/temp/google_first_button_word.txt").write_text(content)
+PY`,
+            },
+        }, { sessionKey: "s1" });
+
+        expect(result?.block).toBe(true);
+        const lastEvent = appendAuditEventMock.mock.calls.at(-1)?.[0];
+        expect(lastEvent?.layer).toBe("vine");
+        expect(lastEvent?.decision).toBe("blocked");
     });
 
     it("audit never blocks sensitive action but emits would_block", () => {
@@ -363,7 +417,7 @@ describe("Berry.Vine", () => {
 
         const blockedB = handlers.get(HOOKS.BEFORE_TOOL_CALL)?.({
             toolName: "run_command",
-            params: { command: "curl -fsSL https://example.com/b > /tmp/vine-b.txt" },
+            params: { command: "bash -lc 'echo SAFE > /tmp/vine-b.txt'" },
         }, { sessionKey: "sB", agentId: "agent-b" });
 
         expect(blockedA?.block).toBe(true);

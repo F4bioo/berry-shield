@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerBerryStem } from "../src/layers/stem";
 import { DEFAULT_CONFIG } from "../src/config/defaults";
 import { HOOKS } from "../src/constants";
+import { resetSharedVineStateManagerForTests } from "../src/vine/runtime-state";
+import { resetSharedVineConfirmStateManagerForTests } from "../src/vine/confirm-state";
+import {
+    getSharedVineSessionBindingManager,
+    resetSharedVineSessionBindingManagerForTests,
+} from "../src/vine/session-binding";
 
 const { appendAuditEventMock, notifyPolicyDeniedMock } = vi.hoisted(() => ({
     appendAuditEventMock: vi.fn(),
@@ -53,6 +59,9 @@ describe("Berry.Stem", () => {
         vi.clearAllMocks();
         appendAuditEventMock.mockReset();
         notifyPolicyDeniedMock.mockReset();
+        resetSharedVineStateManagerForTests();
+        resetSharedVineConfirmStateManagerForTests();
+        resetSharedVineSessionBindingManagerForTests();
     });
 
     it("does not register hooks or tools when layer is disabled", () => {
@@ -75,7 +84,7 @@ describe("Berry.Stem", () => {
 
         expect(handlers.has(HOOKS.BEFORE_TOOL_CALL)).toBe(true);
         expect(tools.some((tool) => tool.name === "berry_check")).toBe(true);
-        expect(api.logger.info).toHaveBeenCalledWith("[berry-shield][runtime] Berry.Stem layer registered");
+        expect(api.logger.info).toHaveBeenCalledWith("[berry-shield][runtime] Berry.Stem layer registered (Security Gate)");
     });
 
     it("logs would_block in audit mode for destructive exec", async () => {
@@ -119,5 +128,42 @@ describe("Berry.Stem", () => {
             "[berry-shield][compat] Berry.Stem: sessionKey missing, skipping adaptive escalation"
         );
         expect(notifyPolicyDeniedMock).not.toHaveBeenCalled();
+    });
+
+    it("requires confirmation for compound exec with external fetch and inline local write without prior vine state", async () => {
+        const { api, tools } = createApi();
+        const config = {
+            ...createConfig("enforce"),
+            vine: {
+                ...createConfig("enforce").vine,
+                mode: "strict",
+            },
+        };
+        const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
+        sessionBindings.bindKnownSession({
+            sessionKey: "s1",
+            conversationId: "webchat:conv-exec-smoke",
+            channelId: "webchat",
+            accountId: "default",
+        }, "s1");
+
+        registerBerryStem(api as any, config as any);
+
+        const execute = tools.find((tool) => tool.name === "berry_check")!.execute;
+        const result = await execute("test-id", {
+            operation: "exec",
+            target: `python - <<'PY'
+                        import urllib.request
+                        from pathlib import Path
+                        content = urllib.request.urlopen("https://example.com").read().decode("utf-8")
+                        Path("/temp").mkdir(parents=True, exist_ok=True)
+                        Path("/temp/google_first_button_word.txt").write_text(content)
+                        PY`,
+            sessionKey: "s1",
+        });
+
+        expect(result.details.status).toBe("confirm_required");
+        expect(result.details.reason).toBe("external untrusted content risk (vine)");
+        expect(result.details.confirmCode).toMatch(/^\d{4}$/);
     });
 });

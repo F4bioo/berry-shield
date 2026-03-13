@@ -18,7 +18,10 @@ import { notifyPolicyDenied } from "../policy/runtime-state.js";
 import { getSharedVineStateManager } from "../vine/runtime-state.js";
 import { getSharedVineConfirmStateManager } from "../vine/confirm-state.js";
 import { getSharedVineSessionBindingManager } from "../vine/session-binding.js";
-import { createVineIntentFromOperationTarget } from "../vine/authorization-intent.js";
+import {
+    createVineIntentFromOperationTarget,
+    hasIntrinsicExternalHostActionRisk,
+} from "../vine/authorization-intent.js";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
 import { VINE_CONFIRMATION_STRATEGY } from "../constants.js";
@@ -204,9 +207,14 @@ function maybeApplyVineConfirmRequired(
     const vineState = getSharedVineStateManager(config.vine.retention);
     const hasGuardRisk = vineState.shouldGuardSensitiveAction(sessionKey);
     const hasUnknownSignal = vineState.hasUnknownSignal(sessionKey);
-    const requiresConfirmation = config.vine.mode === "strict"
+    const operationForIntent = operation === "write" ? "write" : "exec";
+    const intent = createVineIntentFromOperationTarget(operationForIntent, target);
+    // Same-command fetch-and-act flows must not bypass confirmation just because no prior session risk exists yet.
+    const hasIntrinsicExecRisk = operationForIntent === "exec"
+        && hasIntrinsicExternalHostActionRisk(intent);
+    const requiresConfirmation = hasIntrinsicExecRisk || (config.vine.mode === "strict"
         ? (hasGuardRisk || hasUnknownSignal)
-        : hasGuardRisk;
+        : hasGuardRisk);
 
     if (!requiresConfirmation) {
         return { requiresConfirmation: false };
@@ -228,8 +236,6 @@ function maybeApplyVineConfirmRequired(
 
     const confirmState = getSharedVineConfirmStateManager(config.vine.retention, config.vine.confirmation);
     const riskWindowId = vineState.getRiskWindowId(sessionKey) ?? "risk-window-default";
-    const operationForIntent = operation === "write" ? "write" : "exec";
-    const intent = createVineIntentFromOperationTarget(operationForIntent, target);
     const normalizedRunId = resolveBerryCheckRunId(runId);
     const pendingChallenge = confirmState.getPendingChallengeForSession(sessionKey);
     const activeWindow = confirmState.getActiveWindowSnapshot({ sessionKey, riskWindowId });
@@ -243,6 +249,7 @@ function maybeApplyVineConfirmRequired(
         pendingStatus: pendingChallenge?.status ?? null,
         pendingTarget: pendingChallenge?.target ?? null,
         activeWindowRemainingActions: activeWindow?.remainingActions ?? null,
+        hasIntrinsicExecRisk,
     });
     if (normalizedRunId) {
         const approved = confirmState.consumeApprovedForBinding({
@@ -738,5 +745,5 @@ export function registerBerryStem(
         },
     });
 
-    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Stem layer registered");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Stem layer registered (Security Gate)");
 }

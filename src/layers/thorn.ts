@@ -288,5 +288,5 @@ export function registerBerryThorn(
         { priority: 200 } // High priority - security runs first
     );
 
-    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Thorn layer registered");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Thorn layer registered (Tool Blocker)");
 }
