@@ -88,7 +88,7 @@ export class VineStateManager {
         return entry;
     }
 
-    public shouldInjectContext(sessionKey: string, minIntervalMs = 120_000): boolean {
+    public shouldInjectContext(sessionKey: string, minIntervalMs = 180_000): boolean {
         const entry = this.state.get(sessionKey);
         if (!entry) return false;
         if (!entry.stickyExternalRisk && entry.forcedGuardTurnsRemaining <= 0) return false;

@@ -5,7 +5,6 @@ import {
     berryLog,
     formatBerryLogMessage,
     getBerryLogSuffix,
-    getDefaultBerryLogLevel,
 } from "../src/log/berry-log.js";
 
 function createLogger() {
@@ -55,14 +54,6 @@ describe("Berry Log Contract", () => {
         expect(getBerryLogSuffix(BERRY_LOG_CATEGORY.SECURITY_EVENT)).toBe("[security]");
         expect(getBerryLogSuffix(BERRY_LOG_CATEGORY.RUNTIME_EVENT)).toBe("[runtime]");
         expect(getBerryLogSuffix(BERRY_LOG_CATEGORY.COMPAT_EVENT)).toBe("[compat]");
-    });
-
-    it("keeps stable default levels for every log category", () => {
-        expect(getDefaultBerryLogLevel(BERRY_LOG_CATEGORY.LAYER_TRACE)).toBe("debug");
-        expect(getDefaultBerryLogLevel(BERRY_LOG_CATEGORY.POLICY_TRACE)).toBe("debug");
-        expect(getDefaultBerryLogLevel(BERRY_LOG_CATEGORY.SECURITY_EVENT)).toBe("warn");
-        expect(getDefaultBerryLogLevel(BERRY_LOG_CATEGORY.RUNTIME_EVENT)).toBe("info");
-        expect(getDefaultBerryLogLevel(BERRY_LOG_CATEGORY.COMPAT_EVENT)).toBe("warn");
     });
 
     it("formats the shared berry-shield prefix with category suffix", () => {

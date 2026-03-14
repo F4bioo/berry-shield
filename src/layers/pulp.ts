@@ -19,13 +19,7 @@ import { appendAuditEvent } from "../audit/writer.js";
 import { getAllRedactionPatterns } from "../patterns/index.js";
 import { walkAndRedact } from "../utils/redaction.js";
 import { BERRY_LOG_CATEGORY, berryLog } from "../log/berry-log.js";
-
-const POLICY_BLOCK_PATTERN = /<berry_shield_policy>[\s\S]*?<\/berry_shield_policy>/gi;
-
-function stripPolicyBlocks(input: string): { content: string; removed: boolean } {
-    const stripped = input.replace(POLICY_BLOCK_PATTERN, "").trim();
-    return { content: stripped, removed: stripped !== input };
-}
+import { stripPolicyCards } from "../ui/policy-card/index.js";
 
 /**
  * Registers the Berry.Pulp layer (Output Scanner).
@@ -88,7 +82,7 @@ export function registerBerryPulp(
     api.on(
         HOOKS.MESSAGE_SENDING,
         (event) => {
-            const stripped = stripPolicyBlocks(event.content);
+            const stripped = stripPolicyCards(event.content);
             if (stripped.removed) {
                 berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, "Berry.Pulp stripped leaked <berry_shield_policy> block from outgoing message");
             }

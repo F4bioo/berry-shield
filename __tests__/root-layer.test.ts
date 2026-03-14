@@ -4,7 +4,10 @@ import { HOOKS, VINE_CONFIRMATION_STRATEGY } from "../src/constants";
 import type { BerryShieldPluginConfig } from "../src/types/config";
 import { resetSharedPolicyStateManagerForTests } from "../src/policy/runtime-state";
 
-type RootHandler = (event: unknown, ctx: { sessionId?: string; sessionKey?: string; messageProvider?: string }) => { prependContext?: string } | void;
+type RootHandler = (
+    event: unknown,
+    ctx: { sessionId?: string; sessionKey?: string; messageProvider?: string }
+) => { prependContext?: string } | void;
 type SessionEndHandler = (event: { sessionId: string }) => void;
 
 function createConfig(

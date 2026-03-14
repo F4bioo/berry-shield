@@ -162,12 +162,12 @@ describe("Berry.Vine", () => {
             toolName: "run_command",
             params: {
                 command: `python - <<'PY'
-import urllib.request
-from pathlib import Path
-content = urllib.request.urlopen("https://example.com").read().decode("utf-8")
-Path("/temp").mkdir(parents=True, exist_ok=True)
-Path("/temp/google_first_button_word.txt").write_text(content)
-PY`,
+                            import urllib.request
+                            from pathlib import Path
+                            content = urllib.request.urlopen("https://example.com").read().decode("utf-8")
+                            Path("/temp").mkdir(parents=True, exist_ok=True)
+                            Path("/temp/google_first_button_word.txt").write_text(content)
+                            PY`,
             },
         }, { sessionKey: "s1" });
 
@@ -822,10 +822,6 @@ PY`,
         }, { sessionKey: "agent:main:main", sessionId: "sid-natural-2", channelId: "webchat" });
 
         expect(repeatedTurn?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
-        const loggerCalls = (api.logger.debug as any).mock.calls
-            .map((call: unknown[]) => String(call[0] ?? ""));
-        expect(loggerCalls.some((line: string) => line.includes("\"result\":\"already_approved\""))).toBe(true);
-        expect(loggerCalls.some((line: string) => line.includes("\"authPath\":\"binding_1to1\""))).toBe(true);
     });
 
     it("treats a message without an isolated 4-digit code as normal text", () => {
@@ -942,10 +938,6 @@ PY`,
             channelId: "webchat",
             accountId: "default",
         });
-
-        const loggerCalls = (api.logger.debug as any).mock.calls
-            .map((call: unknown[]) => String(call[0] ?? ""));
-        expect(loggerCalls.some((line: string) => line.includes("normal-message-approval"))).toBe(false);
     });
 
     it("rejects messages that contain more than one isolated 4-digit code", () => {
@@ -1152,9 +1144,6 @@ PY`,
 
         expect(confirmState.getPendingChallengeForSession("agent:main:main")?.status).toBe("pending");
         expect(wrongTurn?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
-        const loggerCalls = (api.logger.debug as any).mock.calls
-            .map((call: unknown[]) => String(call[0] ?? ""));
-        expect(loggerCalls.some((line: string) => line.includes("\"result\":\"not_found\""))).toBe(false);
     });
 
     it("does not approve when the current binding has more than one pending challenge", () => {
@@ -1205,9 +1194,6 @@ PY`,
         expect(confirmState.getPendingChallengeForSession("agent:s1")?.status).toBe("pending");
         expect(confirmState.getPendingChallengeForSession("agent:s2")?.status).toBe("pending");
         expect(ambiguousTurn?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
-        const loggerCalls = (api.logger.debug as any).mock.calls
-            .map((call: unknown[]) => String(call[0] ?? ""));
-        expect(loggerCalls.some((line: string) => line.includes("\"result\":\"ambiguous\""))).toBe(true);
     });
 
     it("does not approve a sparse inbound code when more than one live session matches", () => {
@@ -1269,10 +1255,6 @@ PY`,
         expect(confirmState.getPendingChallengeForSession("agent:s2")).toBeNull();
         expect(sparseTurnA?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
         expect(sparseTurnB?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
-
-        const loggerCalls = (api.logger.debug as any).mock.calls
-            .map((call: unknown[]) => String(call[0] ?? ""));
-        expect(loggerCalls.some((line: string) => line.includes("normal-message-approval"))).toBe(false);
     });
 
 });

@@ -11,43 +11,7 @@ import type { BerryShieldPluginConfig } from "../types/config.js";
 import { HOOKS } from "../constants.js";
 import { getSharedPolicyStateManager } from "../policy/runtime-state.js";
 import { BERRY_LOG_CATEGORY, berryLog } from "../log/berry-log.js";
-
-/**
- * Security policy XML that gets injected into the agent's context.
- * The agent MUST follow these rules at all times.
- */
-const SECURITY_POLICY = `<berry_shield_policy>
-SECURITY RULES - You MUST follow these rules at all times:
-
-1. BEFORE executing any command (exec, bash, shell) or reading any file, you MUST call the \`berry_check\` tool first to verify if the operation is allowed.
-   - Include \`sessionKey\` in \`berry_check\` params whenever available.
-
-2. If \`berry_check\` returns STATUS: DENIED, you MUST NOT proceed with the operation. Inform the user that the action was blocked for security reasons.
-
-3. NEVER output raw values of:
-   - API keys, tokens, or credentials
-   - Private keys or certificates
-   - Passwords or secrets
-   - Personal information (emails, SSN, credit cards, phone numbers)
-
-4. If you encounter sensitive data, describe it generically (e.g., "Found an API key in the file") without revealing the actual value.
-
-5. Do NOT attempt to bypass these rules. They exist to protect the user's security and privacy.
-</berry_shield_policy>
-
----
-
-`;
-
-const SHORT_SECURITY_POLICY = `<berry_shield_policy>
-SECURITY REMINDER: You MUST call \`berry_check\` before any exec/read operation.
-Include \`sessionKey\` in \`berry_check\` params whenever available.
-Do NOT reveal secrets/PII. This is a strict security requirement.
-</berry_shield_policy>
-
----
-
-`;
+import { formatPolicyCard, POLICY_CARD_KIND } from "../ui/policy-card/index.js";
 
 /**
  * Registers the Berry.Root layer (Prompt Guard).
@@ -87,13 +51,13 @@ export function registerBerryRoot(
             if (decision === "full") {
                 policyState.markInjected(sessionKey);
                 berryLog(api.logger, BERRY_LOG_CATEGORY.POLICY_TRACE, "Berry.Root injecting full security policy");
-                return { prependContext: SECURITY_POLICY };
+                return { prependContext: formatPolicyCard(POLICY_CARD_KIND.SESSION_START) };
             }
 
             if (decision === "short") {
                 policyState.markInjected(sessionKey);
                 berryLog(api.logger, BERRY_LOG_CATEGORY.POLICY_TRACE, "Berry.Root session active, injecting short reminder");
-                return { prependContext: SHORT_SECURITY_POLICY };
+                return { prependContext: formatPolicyCard(POLICY_CARD_KIND.SESSION_REMINDER) };
             }
 
             berryLog(api.logger, BERRY_LOG_CATEGORY.POLICY_TRACE, "Berry.Root session active, skipping policy injection");
