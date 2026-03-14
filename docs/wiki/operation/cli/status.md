@@ -16,6 +16,7 @@ Show the effective Berry Shield runtime state resolved from OpenClaw plugin conf
 - Prints current plugin state (`Status`, `Mode`, and rule counters).
 - Prints policy state (`Profile`, adaptive values, and global escalation toggle).
 - Prints Vine state (`Mode`, thresholds, retention, and allowlist size).
+- Prints Vine confirmation state (`Confirmation Strategy`, active strategy marker, TTL, attempts, and window values).
 - Prints each security layer status as `ACTIVE` or `OFF`.
 
 ## When to use
@@ -62,6 +63,17 @@ Result expected:
 - `Mode` shows Vine behavior (`BALANCED` or `STRICT`).
 - Thresholds and retention values match expected operational tuning.
 - `Allowlist` shows the number of exempt tools.
+
+### Vine Confirmation section
+Command for this check: `openclaw bshield status`.
+Result expected:
+- `Confirmation Strategy` shows the configured runtime contract (`ONE_TO_ONE` or `ONE_TO_MANY`).
+- `ONE_TO_ONE` and `ONE_TO_MANY` show which strategy is currently `ACTIVE`.
+- `Code TTL (sec)` shows how long the challenge code remains valid.
+- `Max Attempts` shows how many invalid confirmation tries are tolerated.
+- `Window (sec)` and `Max Actions/Window` matter primarily for `ONE_TO_MANY`.
+- `Window (sec)` is the active multi-action approval window after a successful confirmation.
+- `Max Actions/Window` is the maximum number of sensitive actions that one `1:N` approval can unlock inside that window.
 
 ### Security layers section
 Command for this check: `openclaw bshield status`.

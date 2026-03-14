@@ -165,6 +165,10 @@ function buildNativeConfirmAction(confirmCode: string): string {
     ].join("\n");
 }
 
+function buildDegradedHumanConfirmAction(): string {
+    return "Binding degraded; confirm explicitly to proceed with this single action.";
+}
+
 function resolveBerryCheckRunId(runId: string | undefined): string {
     const normalized = typeof runId === "string" ? runId.trim() : "";
     if (normalized) {
@@ -196,22 +200,51 @@ function maybeApplyVineConfirmRequired(
         ttlSeconds: number;
         maxAttempts: number;
     };
+    humanConfirmRequired?: boolean;
     deniedReason?: string;
     confirmationAccepted?: boolean;
     allowedByWindow?: boolean;
     resumeToken?: string;
 } {
-    if (!config.layers.vine || !sessionKey || (operation !== "exec" && operation !== "write")) {
+    if (!config.layers.vine || (operation !== "exec" && operation !== "write")) {
         return { requiresConfirmation: false };
     }
-    const vineState = getSharedVineStateManager(config.vine.retention);
-    const hasGuardRisk = vineState.shouldGuardSensitiveAction(sessionKey);
-    const hasUnknownSignal = vineState.hasUnknownSignal(sessionKey);
     const operationForIntent = operation === "write" ? "write" : "exec";
     const intent = createVineIntentFromOperationTarget(operationForIntent, target);
     // Same-command fetch-and-act flows must not bypass confirmation just because no prior session risk exists yet.
     const hasIntrinsicExecRisk = operationForIntent === "exec"
         && hasIntrinsicExternalHostActionRisk(intent);
+    if (!sessionKey) {
+        if (!hasIntrinsicExecRisk && operationForIntent !== "write") {
+            return { requiresConfirmation: false };
+        }
+
+        if (config.mode === "audit") {
+            const event: AuditBlockEvent = {
+                mode: "audit",
+                decision: AUDIT_DECISIONS.WOULD_CONFIRM_REQUIRED,
+                layer: SECURITY_LAYERS.VINE,
+                reason: "external-untrusted instruction risk (binding degraded)",
+                target: target.slice(0, 120),
+                ts: new Date().toISOString(),
+            };
+            berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Vine: ${formatAuditEvent(event)}`);
+            appendAuditEvent(event);
+            return { requiresConfirmation: false };
+        }
+
+        emitVineConfirmEvent(
+            config,
+            AUDIT_DECISIONS.CONFIRM_REQUIRED,
+            target,
+            "external-untrusted instruction risk (binding degraded)"
+        );
+        return { requiresConfirmation: false, humanConfirmRequired: true };
+    }
+
+    const vineState = getSharedVineStateManager(config.vine.retention);
+    const hasGuardRisk = vineState.shouldGuardSensitiveAction(sessionKey);
+    const hasUnknownSignal = vineState.hasUnknownSignal(sessionKey);
     const requiresConfirmation = hasIntrinsicExecRisk || (config.vine.mode === "strict"
         ? (hasGuardRisk || hasUnknownSignal)
         : hasGuardRisk);
@@ -341,16 +374,9 @@ function maybeApplyVineConfirmRequired(
 
     const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
     const binding = sessionBindings.getBindingForSession(sessionKey);
-    if (!binding) {
-        return {
-            requiresConfirmation: false,
-            deniedReason: "Native Vine approval is unavailable because this session has no chat binding",
-        };
-    }
-
     const challenge = confirmState.issueChallenge({
         sessionKey,
-        chatBindingKey: binding.chatBindingKey,
+        chatBindingKey: binding?.chatBindingKey,
         operation: operationForIntent,
         target,
         intent,
@@ -363,7 +389,7 @@ function maybeApplyVineConfirmRequired(
         target,
         runId: normalizedRunId,
         riskWindowId,
-        chatBindingKey: binding.chatBindingKey,
+        chatBindingKey: binding?.chatBindingKey ?? null,
         previousPendingConfirmId: pendingChallenge?.confirmId ?? null,
         previousPendingStatus: pendingChallenge?.status ?? null,
         issuedConfirmId: challenge.confirmId,
@@ -400,25 +426,48 @@ export function registerBerryStem(
             if (event.toolName !== "berry_check") {
                 return undefined;
             }
-            const runtimeSessionKey = typeof ctx.sessionKey === "string" ? ctx.sessionKey.trim() : "";
+            const rawRuntimeSessionKey = typeof ctx.sessionKey === "string" ? ctx.sessionKey.trim() : "";
             const runtimeRunId = typeof ctx.runId === "string" ? ctx.runId.trim() : "";
+            const runtimeSessionId = readOptionalContextString(ctx, "sessionId");
+            const runtimeConversationId = readOptionalContextString(ctx, "conversationId");
+            const runtimeChannelId = readOptionalContextString(ctx, "channelId");
+            const runtimeAccountId = readOptionalContextString(ctx, "accountId");
             const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
-            if (runtimeSessionKey) {
+            const resolvedRuntimeSessionKey = (() => {
+                if (rawRuntimeSessionKey) {
+                    return rawRuntimeSessionKey;
+                }
+                const resolvedFromIdentity = sessionBindings.resolveSessionKey({
+                    sessionKey: undefined,
+                    sessionId: runtimeSessionId,
+                    conversationId: runtimeConversationId,
+                });
+                if (resolvedFromIdentity !== "global_session") {
+                    return resolvedFromIdentity;
+                }
+                const resolvedFromBinding = sessionBindings.resolveSessionKeyByChatBinding({
+                    channelId: runtimeChannelId,
+                    accountId: runtimeAccountId,
+                    conversationId: runtimeConversationId,
+                });
+                return resolvedFromBinding ?? "";
+            })();
+            if (resolvedRuntimeSessionKey) {
                 // Warm the chat/session binding so a later human reply can resolve back to this runtime session.
                 sessionBindings.bindKnownSession({
-                    sessionKey: runtimeSessionKey,
-                    sessionId: readOptionalContextString(ctx, "sessionId"),
-                    conversationId: readOptionalContextString(ctx, "conversationId"),
-                    channelId: readOptionalContextString(ctx, "channelId"),
-                    accountId: readOptionalContextString(ctx, "accountId"),
-                }, runtimeSessionKey);
+                    sessionKey: resolvedRuntimeSessionKey,
+                    sessionId: runtimeSessionId,
+                    conversationId: runtimeConversationId,
+                    channelId: runtimeChannelId,
+                    accountId: runtimeAccountId,
+                }, resolvedRuntimeSessionKey);
             }
             const nextParams = { ...event.params };
             let mutated = false;
 
             const existingSessionKey = typeof nextParams.sessionKey === "string" ? nextParams.sessionKey.trim() : "";
-            if (!existingSessionKey && runtimeSessionKey) {
-                nextParams.sessionKey = runtimeSessionKey;
+            if (!existingSessionKey && resolvedRuntimeSessionKey) {
+                nextParams.sessionKey = resolvedRuntimeSessionKey;
                 mutated = true;
             }
 
@@ -583,6 +632,25 @@ export function registerBerryStem(
                         details: { status: "denied", reason: vineConfirm.deniedReason },
                     };
                 }
+                if (vineConfirm.humanConfirmRequired) {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: formatCardForToolResult({
+                                status: "HUMAN_CONFIRM_REQUIRED",
+                                layer: "Vine",
+                                operation,
+                                target,
+                                reason: "External untrusted content risk (Vine)",
+                                action: buildDegradedHumanConfirmAction(),
+                            }),
+                        }],
+                        details: {
+                            status: "allowed_with_warning",
+                            reason: "binding degraded; explicit human confirmation required",
+                        },
+                    };
+                }
                 if (vineConfirm.confirmationAccepted) {
                     emitVineConfirmEvent(
                         config,
@@ -688,6 +756,25 @@ export function registerBerryStem(
                                 }),
                             }],
                             details: { status: "denied", reason: vineConfirm.deniedReason },
+                        };
+                    }
+                    if (vineConfirm.humanConfirmRequired) {
+                        return {
+                            content: [{
+                                type: "text",
+                                text: formatCardForToolResult({
+                                    status: "HUMAN_CONFIRM_REQUIRED",
+                                    layer: "Vine",
+                                    operation,
+                                    target,
+                                    reason: "External untrusted content risk (Vine)",
+                                    action: buildDegradedHumanConfirmAction(),
+                                }),
+                            }],
+                            details: {
+                                status: "allowed_with_warning",
+                                reason: "binding degraded; explicit human confirmation required",
+                            },
                         };
                     }
                     if (vineConfirm.confirmationAccepted) {

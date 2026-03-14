@@ -20,6 +20,8 @@ export const TIPS = [
     "Stem layer acts as a mandatory security gate for file operations.",
     "Pulp layer scans and redacts secrets from all outgoing logs.",
     "Vine layer guards against external-untrusted instruction escalation.",
+    "Vine confirmation 1:1 requires one code per sensitive action.",
+    "Vine confirmation 1:N reuses one code for multiple sensitive actions within the active window.",
     "Redaction replaces sensitive data with markers to ensure privacy.",
 ];
 

@@ -16,6 +16,7 @@ Manage Berry.Vine configuration and tool allowlist from CLI.
 - Writes deterministic Vine paths (set).
 - Adds one tool to Vine allowlist (allow).
 - Removes one tool from Vine allowlist (deny).
+- Opens the interactive confirmation-strategy selector (confirmation).
 
 ## When to use
 - Before smoke tests that need strict/balanced Vine behavior.
@@ -80,6 +81,21 @@ Supported `set` paths:
 - `thresholds.forcedGuardTurns` (integer `>= 1`)
 - `retention.maxEntries` (integer `>= 1`)
 - `retention.ttlSeconds` (integer `>= 1`)
+- `confirmation.strategy` (`one_to_one | one_to_many`)
+- `confirmation.codeTtlSeconds` (integer `>= 1`)
+- `confirmation.maxAttempts` (integer `>= 1`)
+- `confirmation.windowSeconds` (integer `>= 1`)
+- `confirmation.maxActionsPerWindow` (integer `>= 1`)
+
+Confirmation strategy meanings:
+- `one_to_one` (`1:1`): one code unlocks one sensitive action.
+- `one_to_many` (`1:N`): one code can unlock multiple sensitive actions inside the active confirmation window.
+
+Default:
+- `one_to_many` is the default confirmation strategy.
+
+Operational note:
+- if host/runtime binding is degraded, the visible confirmation path may fall back to an explicit human-confirm-required warning without changing the configured Vine strategy itself.
 
 ## Tuning guide
 
@@ -139,6 +155,20 @@ openclaw bshield vine set thresholds.forcedGuardTurns 2
 ```
 Result: CLI confirms forced guard turns updated.
 
+### Switch confirmation strategy to one-to-one
+Use this when every sensitive action must consume its own confirmation.
+```bash
+openclaw bshield vine set confirmation.strategy one_to_one
+```
+Result: CLI confirms `confirmation.strategy = one_to_one`.
+
+### Open interactive confirmation strategy selector
+Use this when you prefer the TTY selector with `1:1` and `1:N` labels.
+```bash
+openclaw bshield vine confirmation
+```
+Result: CLI opens the interactive selector and updates strategy after confirmation.
+
 ### Allowlist one tool
 Use this when one trusted tool should not trigger Vine escalation.
 ```bash
@@ -179,6 +209,13 @@ Use this check for numeric/type validation.
 openclaw bshield vine set thresholds.forcedGuardTurns zero
 ```
 Expected: CLI fails with integer validation message.
+
+### Invalid confirmation strategy value
+Use this check when a direct confirmation strategy write uses an unsupported value.
+```bash
+openclaw bshield vine set confirmation.strategy invalid
+```
+Expected: CLI fails and prints the allowed confirmation strategies.
 
 ## Related commands
 - [index](README.md)

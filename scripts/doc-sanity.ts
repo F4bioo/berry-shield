@@ -48,7 +48,7 @@ const DENSITY_RULES: DensityRule[] = [
     { pattern: /^operation\/README\.md$/i, maxWords: 900, label: "operation-index" },
     { pattern: /^operation\/cli\/README\.md$/i, maxWords: 900, label: "cli-index" },
     { pattern: /^operation\/web\/README\.md$/i, maxWords: 900, label: "web-index" },
-    { pattern: /^operation\/cli\/.+\.md$/i, maxWords: 1000, label: "cli-command" },
+    { pattern: /^operation\/cli\/.+\.md$/i, maxWords: 1500, label: "cli-command" },
     { pattern: /^decision\/README\.md$/i, maxWords: 900, label: "decision-index" },
     { pattern: /^decision\/.+\.md$/i, maxWords: 1500, label: "decision-page" },
     { pattern: /^layers\/README\.md$/i, maxWords: 900, label: "layers-index" },

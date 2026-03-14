@@ -295,37 +295,55 @@ export function registerBerryVine(
                 pendingStatus: activeChallenge?.status ?? null,
             });
 
-            if (activeChallenge && approvalInput.kind === "single" && (binding?.chatBindingKey || inboundChatBindingKey)) {
+            if (activeChallenge && approvalInput.kind === "single") {
                 const chatBindingKeys = [...new Set([
                     binding?.chatBindingKey,
                     inboundChatBindingKey ?? undefined,
                 ].filter((value): value is string => Boolean(value)))];
-                let approval = vineConfirmState.approvePendingByChatBindingKeys({
-                    chatBindingKeys,
-                    confirmCode: approvalInput.code,
-                    senderId: event.from,
-                });
-                if (approval.kind === "not_found" && sessionKey !== "global_session") {
-                    // Session-resolved approval must still work after chat binding promotion enriches the runtime context.
+                let approval;
+                let authPath = "binding_1to1";
+
+                if (chatBindingKeys.length > 0) {
+                    approval = vineConfirmState.approvePendingByChatBindingKeys({
+                        chatBindingKeys,
+                        confirmCode: approvalInput.code,
+                        senderId: event.from,
+                    });
+                    if (approval.kind === "not_found" && sessionKey !== "global_session") {
+                        // Session-resolved approval must still work after chat binding promotion enriches the runtime context.
+                        approval = vineConfirmState.approvePendingForSession({
+                            sessionKey,
+                            confirmCode: approvalInput.code,
+                            senderId: event.from,
+                        });
+                        authPath = "session_fallback";
+                    }
+                } else if (sessionKey !== "global_session") {
                     approval = vineConfirmState.approvePendingForSession({
                         sessionKey,
                         confirmCode: approvalInput.code,
                         senderId: event.from,
                     });
+                    authPath = "session_only";
+                } else {
+                    approval = { kind: "not_found" } as const;
+                    authPath = "unbound";
                 }
+
                 berryLog(
                     api.logger,
                     BERRY_LOG_CATEGORY.LAYER_TRACE,
                     `Berry.Vine normal-message-approval ${JSON.stringify({
                         sessionKey,
                         chatBindingKey: chatBindingKeys[0] ?? null,
-                        authPath: "binding_1to1",
+                        authPath,
                         result: approval.kind,
                     })}`
                 );
                 emitVineTrace(api, "message-approval-result", {
                     sessionKey,
                     chatBindingKey: chatBindingKeys[0] ?? null,
+                    authPath,
                     result: approval.kind,
                     challengeConfirmId: approval.challenge?.confirmId ?? null,
                     challengeStatus: approval.challenge?.status ?? null,

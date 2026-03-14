@@ -1146,6 +1146,33 @@ describe("Berry.Vine", () => {
         expect(wrongTurn?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
     });
 
+    it("approves a pending challenge by sessionKey when no chat binding is available", () => {
+        const { api, handlers } = createApi();
+        const config = createConfig({
+            mode: "enforce",
+            vine: { mode: "strict" },
+        });
+        registerBerryVine(api as any, config);
+
+        const confirmState = getSharedVineConfirmStateManager(config.vine.retention, config.vine.confirmation);
+        const challenge = confirmState.issueChallenge({
+            sessionKey: "agent:main:main",
+            operation: "write",
+            target: "/tmp/session-only-approval.txt",
+            riskWindowId: "rw-session-only",
+        });
+
+        handlers.get(HOOKS.MESSAGE_RECEIVED)?.({
+            from: "human-1",
+            content: challenge.confirmCode,
+        }, {
+            sessionKey: "agent:main:main",
+            sessionId: "sid-session-only",
+        });
+
+        expect(confirmState.getPendingChallengeForSession("agent:main:main")?.status).toBe("approved");
+    });
+
     it("does not approve when the current binding has more than one pending challenge", () => {
         const { api, handlers } = createApi();
         const config = createConfig({

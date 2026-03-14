@@ -6,7 +6,6 @@ import {
     BerryShieldVineConfirmationStrategy,
 } from "../types/config.js";
 import { DEFAULT_CONFIG } from "./defaults.js";
-import { VINE_CONFIRMATION_STRATEGY } from "../constants.js";
 
 /**
  * Merges user config with defaults.
@@ -194,8 +193,8 @@ export function mergeConfig(userConfig: unknown): BerryShieldPluginConfig {
         : {};
 
     const confirmationStrategy = (
-        rawVineConfirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE
-        || rawVineConfirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+        rawVineConfirmation.strategy ===  "one_to_one"
+        || rawVineConfirmation.strategy === "one_to_many"
     )
         ? rawVineConfirmation.strategy as BerryShieldVineConfirmationStrategy
         : DEFAULT_CONFIG.vine.confirmation.strategy;

@@ -107,6 +107,21 @@ describe("decision-card / format-text", () => {
             expect(result).toContain("Attempts remaining: 2.");
         });
 
+        it("renders HUMAN_CONFIRM_REQUIRED with explicit degraded-binding action", () => {
+            const card: DecisionCard = {
+                status: "HUMAN_CONFIRM_REQUIRED",
+                layer: "Vine",
+                operation: "write",
+                target: "/tmp/proof.txt",
+                reason: "External untrusted content risk (Vine)",
+                action: "Binding degraded; confirm explicitly to proceed with this single action.",
+            };
+            const result = formatCardForToolResult(card);
+            expect(result).toContain("STATUS: HUMAN_CONFIRM_REQUIRED !");
+            expect(result).toContain("REASON: External untrusted content risk (Vine)");
+            expect(result).toContain("Binding degraded; confirm explicitly to proceed with this single action.");
+        });
+
         it("omits optional fields when absent", () => {
             const card: DecisionCard = {
                 status: "DENIED",
@@ -237,16 +252,7 @@ describe("decision-card / format-text", () => {
                 reason: "External content risk",
             });
             expect(result).toMatchInlineSnapshot(`
-              "🍓 Berry Shield
-              
-              STATUS: BLOCKED ✗
-              LAYER: Vine
-              OPERATION: exec
-              TARGET: /tmp/strawberry-journal-proof.txt
-              REASON: External content risk
-              
-              This operation was blocked by runtime security hook.
-              ACTION: Request explicit user confirmation and retry via berry_check."
+              "🍓 Berry Shield | STATUS: BLOCKED ✗ | LAYER: Vine | OPERATION: exec | TARGET: /tmp/strawberry-journal-proof.txt | REASON: External content risk | This operation was blocked by runtime security hook. | ACTION: Request explicit user confirmation and retry via berry_check."
             `);
         });
 
@@ -329,6 +335,18 @@ describe("decision-card / format-tui", () => {
             expect(result).toContain("4321");
             expect(result).toContain("90s");
             expect(result).toContain("2 remaining");
+        });
+
+        it("renders HUMAN_CONFIRM_REQUIRED with warning styling", () => {
+            const card: DecisionCard = {
+                status: "HUMAN_CONFIRM_REQUIRED",
+                layer: "Vine",
+                reason: "External untrusted content risk (Vine)",
+                action: "Binding degraded; confirm explicitly to proceed with this single action.",
+            };
+            const result = formatCardForTui(card);
+            expect(result).toContain("HUMAN_CONFIRM_REQUIRED");
+            expect(result).toContain("Binding degraded; confirm explicitly to proceed with this single action.");
         });
 
         it("truncates long target", () => {

@@ -166,4 +166,28 @@ describe("Berry.Stem", () => {
         expect(result.details.reason).toBe("external untrusted content risk (vine)");
         expect(result.details.confirmCode).toMatch(/^\d{4}$/);
     });
+
+    it("returns HUMAN_CONFIRM_REQUIRED warning for degraded Vine write confirmation without session identity", async () => {
+        const { api, tools } = createApi();
+        const config = {
+            ...createConfig("enforce"),
+            vine: {
+                ...createConfig("enforce").vine,
+                mode: "strict",
+            },
+        };
+
+        registerBerryStem(api as any, config as any);
+
+        const execute = tools.find((tool) => tool.name === "berry_check")!.execute;
+        const result = await execute("test-id", {
+            operation: "write",
+            target: "/tmp/degraded-binding-proof.txt",
+        });
+
+        expect(result.details.status).toBe("allowed_with_warning");
+        expect(result.details.reason).toBe("binding degraded; explicit human confirmation required");
+        expect(String(result.content?.[0]?.text ?? "")).toContain("STATUS: HUMAN_CONFIRM_REQUIRED");
+        expect(String(result.content?.[0]?.text ?? "")).toContain("Binding degraded; confirm explicitly to proceed with this single action.");
+    });
 });

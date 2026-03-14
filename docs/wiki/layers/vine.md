@@ -13,6 +13,18 @@ Berry.Vine is the **external-content trust guard layer**.
 
 It reduces prompt-injection risk by treating external content as untrusted by default and enforcing trust-aware checks before sensitive operations.
 
+## Philosophy
+
+Vine is designed to act as a **pause layer**, not as a hard isolation barrier.
+
+Its job is to slow down risky external-content-driven flows long enough to require visible human intent before the agent continues with a sensitive action.
+
+Operationally, this means:
+- prefer an explicit confirmation pause over a silent allow when external risk is active;
+- avoid turning degraded binding or imperfect session identity into a hard product lockout by default;
+- use confirmation as the pragmatic fallback when the host/runtime context is incomplete but the channel can still support a human pause;
+- keep the focus on interrupting unsafe momentum, not on pretending Vine is a complete antivirus-style boundary.
+
 ## What Vine does
 
 - Tracks external-risk signals per session.
@@ -28,6 +40,32 @@ It reduces prompt-injection risk by treating external content as untrusted by de
 - It does not replace Stem/Thorn/Pulp controls.
 - It does not rely on semantic AI classification.
 - It does not auto-remediate without explicit operator action.
+
+## Confirmation strategies
+
+Vine supports two confirmation strategies for sensitive actions under active external risk:
+
+- `one_to_one` (`1:1`): one human confirmation code is consumed by one sensitive action.
+- `one_to_many` (`1:N`): one human confirmation code can unlock multiple sensitive actions within a short bounded window.
+
+Operational default:
+- `one_to_many` is the default strategy.
+
+Important fields:
+- code TTL: how long a challenge code remains valid.
+- confirmation window: how long the `1:N` execution window stays open after approval.
+- max actions per window: how many sensitive actions the `1:N` approval can unlock inside that window.
+- max attempts: how many invalid confirmation attempts are tolerated before the challenge is exhausted.
+
+High-level confirmation flow:
+- Berry detects active external-risk state.
+- A sensitive action is evaluated through `berry_check` or `before_tool_call`.
+- Vine emits a confirmation challenge when human intent must be made explicit.
+- Human approval unlocks the real action according to the configured strategy.
+
+Degraded path:
+- if native binding or session identity is degraded, Berry can surface `HUMAN_CONFIRM_REQUIRED` with `allowed_with_warning` instead of silently allowing the action;
+- this fallback exists to preserve the visible human pause even when host/runtime identity is imperfect.
 
 ## Runtime flow
 
@@ -61,6 +99,7 @@ Key operational rule:
 ### Enforce
 - Sensitive actions under active external risk can be blocked.
 - In strict profile, unknown-origin sensitive attempts can also block.
+- When native confirmation binding is degraded, Berry can still surface an explicit human-confirm-required warning instead of silently allowing the action.
 
 ### Audit
 - No hard block.
@@ -129,6 +168,7 @@ Important scope:
 ## Limits and caveats
 
 - Hook timing and availability still depend on host runtime behavior.
+- If the host disables prompt-injection style context prepend for plugin hooks, Vine reminder text from `before_agent_start` can be neutralized even though risk tracking and action guarding still exist.
 - Unknown-origin classification can create false positives if over-tuned.
 - Risk decay should not depend only on elapsed time.
 

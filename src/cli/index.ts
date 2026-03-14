@@ -60,15 +60,15 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
             // Add command
             attachSubcommandHelp(
                 bshield
-                .command("add [type]")
-                .description("Add a new security rule (interactive wizard if no args)")
-                .option("-n, --name <name>", "Rule name (required for secret, file, and command)")
-                .option("-p, --pattern <pattern>", "Regex pattern to match")
-                .option("-r, --placeholder <text>", "Custom placeholder for redaction")
-                .option("-f, --force", "Override existing rule with same name")
-                .action(async (type: string | undefined, options: any) => {
-                    await addCommand(type, options, config, logger, wrapper);
-                }),
+                    .command("add [type]")
+                    .description("Add a new security rule (interactive wizard if no args)")
+                    .option("-n, --name <name>", "Rule name (required for secret, file, and command)")
+                    .option("-p, --pattern <pattern>", "Regex pattern to match")
+                    .option("-r, --placeholder <text>", "Custom placeholder for redaction")
+                    .option("-f, --force", "Override existing rule with same name")
+                    .action(async (type: string | undefined, options: any) => {
+                        await addCommand(type, options, config, logger, wrapper);
+                    }),
             );
 
             // Rules command group
@@ -78,150 +78,150 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
 
             attachSubcommandHelp(
                 rules
-                .command("list")
-                .description("List baseline and custom rules")
-                .option("-d, --detailed", "Show detailed pattern view for baseline and custom rules")
-                .action(async (options: { detailed?: boolean }) => {
-                    await rulesListCommand(wrapper, { detailed: options.detailed });
-                }),
+                    .command("list")
+                    .description("List baseline and custom rules")
+                    .option("-d, --detailed", "Show detailed pattern view for baseline and custom rules")
+                    .action(async (options: { detailed?: boolean }) => {
+                        await rulesListCommand(wrapper, { detailed: options.detailed });
+                    }),
             );
 
             attachSubcommandHelp(
                 rules
-                .command("remove <target> [id]")
-                .description("Remove custom rule by id (format: secret:<name> | file:<name> | command:<name>)")
-                .action(async (target: string, id: string | undefined) => {
-                    await rulesRemoveCommand(target, id, wrapper);
-                }),
+                    .command("remove <target> [id]")
+                    .description("Remove custom rule by id (format: secret:<name> | file:<name> | command:<name>)")
+                    .action(async (target: string, id: string | undefined) => {
+                        await rulesRemoveCommand(target, id, wrapper);
+                    }),
             );
 
             attachSubcommandHelp(
                 rules
-                .command("disable [target] [id]")
-                .description("Disable baseline/custom rule by id, target --all, or global --all")
-                .option("--all", "Apply operation to all rules in scope")
-                .option("--yes", "Skip confirmation prompt")
-                .action(async (target: string | undefined, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
-                    await rulesDisableCommand(target, id, options, wrapper);
-                }),
+                    .command("disable [target] [id]")
+                    .description("Disable baseline/custom rule by id, target --all, or global --all")
+                    .option("--all", "Apply operation to all rules in scope")
+                    .option("--yes", "Skip confirmation prompt")
+                    .action(async (target: string | undefined, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
+                        await rulesDisableCommand(target, id, options, wrapper);
+                    }),
             );
 
             attachSubcommandHelp(
                 rules
-                .command("enable [target] [id]")
-                .description("Enable baseline/custom rule by id, target --all, or global --all")
-                .option("--all", "Apply operation to all rules in scope")
-                .option("--yes", "Skip confirmation prompt")
-                .action(async (target: string | undefined, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
-                    await rulesEnableCommand(target, id, options, wrapper);
-                }),
+                    .command("enable [target] [id]")
+                    .description("Enable baseline/custom rule by id, target --all, or global --all")
+                    .option("--all", "Apply operation to all rules in scope")
+                    .option("--yes", "Skip confirmation prompt")
+                    .action(async (target: string | undefined, id: string | undefined, options: { all?: boolean; yes?: boolean }) => {
+                        await rulesEnableCommand(target, id, options, wrapper);
+                    }),
             );
 
             // Test command
             attachSubcommandHelp(
                 bshield
-                .command("test <input>")
-                .description("Test if input matches any security pattern")
-                .action(async (input: string) => {
-                    await testCommand(input, config, logger, wrapper);
-                }),
+                    .command("test <input>")
+                    .description("Test if input matches any security pattern")
+                    .action(async (input: string) => {
+                        await testCommand(input, config, logger, wrapper);
+                    }),
             );
 
             // Init command
             attachSubcommandHelp(
                 bshield
-                .command("init")
-                .description("Initialize Berry Shield configuration")
-                .action(async () => {
-                    await initCommand(context, wrapper);
-                }),
+                    .command("init")
+                    .description("Initialize Berry Shield configuration")
+                    .action(async () => {
+                        await initCommand(context, wrapper);
+                    }),
             );
 
             // Status command
             attachSubcommandHelp(
                 bshield
-                .command("status")
-                .description("Show current status and configuration")
-                .action(async () => {
-                    await statusCommand(context, wrapper);
-                }),
+                    .command("status")
+                    .description("Show current status and configuration")
+                    .action(async () => {
+                        await statusCommand(context, wrapper);
+                    }),
             );
 
             // Mode command
             attachSubcommandHelp(
                 bshield
-                .command("mode <mode>")
-                .description("Set operation mode (audit | enforce)")
-                .action(async (mode: string) => {
-                    await modeCommand(mode, context, wrapper);
-                }),
+                    .command("mode <mode>")
+                    .description("Set operation mode (audit | enforce)")
+                    .action(async (mode: string) => {
+                        await modeCommand(mode, context, wrapper);
+                    }),
             );
 
             // Profile command
             attachSubcommandHelp(
                 bshield
-                .command("profile <profile>")
-                .description("Set policy profile (strict | balanced | minimal)")
-                .action(async (profile: string) => {
-                    await profileCommand(profile, context, wrapper);
-                }),
+                    .command("profile <profile>")
+                    .description("Set policy profile (strict | balanced | minimal)")
+                    .action(async (profile: string) => {
+                        await profileCommand(profile, context, wrapper);
+                    }),
             );
 
             // Policy command
             attachSubcommandHelp(
                 bshield
-                .command("policy [action] [path] [value]")
-                .description("Manage policy settings (wizard, get, set)")
-                .action(async (action: string | undefined, path: string | undefined, value: string | undefined) => {
-                    await policyCommand(action, path, value, context, wrapper);
-                }),
+                    .command("policy [action] [path] [value]")
+                    .description("Manage policy settings (wizard, get, set)")
+                    .action(async (action: string | undefined, path: string | undefined, value: string | undefined) => {
+                        await policyCommand(action, path, value, context, wrapper);
+                    }),
             );
 
             // Vine command
             attachSubcommandHelp(
                 bshield
-                .command("vine [action] [pathOrTool] [value]")
-                .description("Manage Berry.Vine settings and tool allowlist")
-                .addHelpText(
-                    "after",
-                    `\nExamples:\n  openclaw bshield vine confirmation\n  openclaw bshield vine set confirmation.strategy ${VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY}\n  openclaw bshield vine set confirmation.strategy ${VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE}`
-                )
-                .action(async (action: string | undefined, pathOrTool: string | undefined, value: string | undefined) => {
-                    await vineCommand(action, pathOrTool, value, context, wrapper);
-                }),
+                    .command("vine [action] [pathOrTool] [value]")
+                    .description("Manage Berry.Vine settings and tool allowlist")
+                    .addHelpText(
+                        "after",
+                        `\nExamples:\n  openclaw bshield vine confirmation\n  openclaw bshield vine set confirmation.strategy ${VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY}\n  openclaw bshield vine set confirmation.strategy ${VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE}`
+                    )
+                    .action(async (action: string | undefined, pathOrTool: string | undefined, value: string | undefined) => {
+                        await vineCommand(action, pathOrTool, value, context, wrapper);
+                    }),
             );
 
             // Toggle command
             attachSubcommandHelp(
                 bshield
-                .command("toggle <layer>")
-                .description("Toggle a security layer on/off")
-                .action(async (layer: string) => {
-                    await toggleCommand(layer, context, wrapper);
-                }),
+                    .command("toggle <layer>")
+                    .description("Toggle a security layer on/off")
+                    .action(async (layer: string) => {
+                        await toggleCommand(layer, context, wrapper);
+                    }),
             );
 
             // Report command
             attachSubcommandHelp(
                 bshield
-                .command("report")
-                .description("Show global audit report from persisted events")
-                .option("--clear", "Clear the persisted audit log")
-                .action(async (options: { clear?: boolean }) => {
-                    await reportCommand(options, logger);
-                }),
+                    .command("report")
+                    .description("Show global audit report from persisted events")
+                    .option("--clear", "Clear the persisted audit log")
+                    .action(async (options: { clear?: boolean }) => {
+                        await reportCommand(options, logger);
+                    }),
             );
 
             // Reset command
             attachSubcommandHelp(
                 bshield
-                .command("reset <target>")
-                .description("Reset defaults (builtins or full scope)")
-                .option("--scope <scope>", "Reset scope (builtins | all)")
-                .option("--yes", "Skip confirmation prompt")
-                .action(async (target: string, options: { scope?: string; yes?: boolean }) => {
-                    await resetCommand(target, options, context, wrapper);
-                }),
+                    .command("reset <target>")
+                    .description("Reset defaults (builtins or full scope)")
+                    .option("--scope <scope>", "Reset scope (builtins | all)")
+                    .option("--yes", "Skip confirmation prompt")
+                    .action(async (target: string, options: { scope?: string; yes?: boolean }) => {
+                        await resetCommand(target, options, context, wrapper);
+                    }),
             );
         },
         { commands: ["bshield"] }

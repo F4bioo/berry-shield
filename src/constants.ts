@@ -62,6 +62,25 @@ export const DEFAULTS = {
     WIN_BINARY_EXT: ".cmd",
 };
 
+/** Stable plugin mode values shared by config parsing, schema, and CLI validation. */
+export const PLUGIN_MODE = {
+    ENFORCE: "enforce",
+    AUDIT: "audit",
+} as const;
+
+/** Stable policy profile values shared by config parsing, schema, and CLI validation. */
+export const POLICY_PROFILE = {
+    STRICT: "strict",
+    BALANCED: "balanced",
+    MINIMAL: "minimal",
+} as const;
+
+/** Stable Vine mode values shared by config parsing, schema, and CLI validation. */
+export const VINE_MODE = {
+    BALANCED: "balanced",
+    STRICT: "strict",
+} as const;
+
 /** Hook names used by Berry Shield core security flows */
 export const HOOKS = {
     BEFORE_AGENT_START: "before_agent_start",
@@ -123,11 +142,9 @@ export const AUDIT_LOG = {
     MAX_FILE_SIZE: 5 * 1024 * 1024,
 } as const;
 
-/** Vine confirmation defaults (confirm-required flow). */
+/** Non-configurable Vine confirmation protocol constants. */
 export const VINE_CONFIRMATION = {
     CODE_LENGTH: 4,
-    TTL_SECONDS: 180,
-    MAX_ATTEMPTS: 3,
     CLEANUP_INTERVAL_MS: 30_000,
 } as const;
 

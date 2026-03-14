@@ -186,12 +186,12 @@
                                     "one_to_many"
                                 ],
                                 "default": "one_to_many",
-                                "description": "Confirmation strategy: one_to_one = one code per action, one_to_many = one code for multiple actions within a short window"
+                                "description": "Confirmation strategy: 1:1 = one code per action, 1:N = one code for multiple actions within a short window"
                             },
                             "codeTtlSeconds": {
                                 "type": "integer",
                                 "minimum": 1,
-                                "default": 90,
+                                "default": 180,
                                 "description": "Confirmation code time-to-live in seconds"
                             },
                             "maxAttempts": {
@@ -204,13 +204,13 @@
                                 "type": "integer",
                                 "minimum": 1,
                                 "default": 120,
-                                "description": "Window lifetime in seconds when strategy is one_to_many"
+                                "description": "Window lifetime in seconds when strategy is 1:N"
                             },
                             "maxActionsPerWindow": {
                                 "type": "integer",
                                 "minimum": 1,
                                 "default": 3,
-                                "description": "Maximum sensitive actions allowed during one_to_many confirmation window"
+                                "description": "Maximum sensitive actions allowed during 1:N confirmation window"
                             }
                         }
                     }

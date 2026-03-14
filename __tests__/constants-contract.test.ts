@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOOKS, REQUIRED_SECURITY_HOOKS, AUDIT_HOOKS, COMPAT_POLICY, AUDIT_DECISIONS, SECURITY_LAYERS, VINE_CONFIRMATION_STRATEGY } from "../src/constants";
+import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOOKS, REQUIRED_SECURITY_HOOKS, AUDIT_HOOKS, COMPAT_POLICY, AUDIT_DECISIONS, SECURITY_LAYERS, VINE_CONFIRMATION, VINE_CONFIRMATION_STRATEGY } from "../src/constants";
 import { DEFAULT_CONFIG } from "../src/config/defaults";
 import { readFileSync } from "node:fs";
 
@@ -125,5 +125,12 @@ describe("Constants Contract", () => {
     it("should have stable vine confirmation strategy labels", () => {
         expect(VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE).toBe("one_to_one");
         expect(VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY).toBe("one_to_many");
+    });
+
+    it("should keep configurable Vine confirmation defaults out of constants.ts", () => {
+        expect("TTL_SECONDS" in VINE_CONFIRMATION).toBe(false);
+        expect("MAX_ATTEMPTS" in VINE_CONFIRMATION).toBe(false);
+        expect(VINE_CONFIRMATION.CODE_LENGTH).toBe(4);
+        expect(VINE_CONFIRMATION.CLEANUP_INTERVAL_MS).toBe(30_000);
     });
 });

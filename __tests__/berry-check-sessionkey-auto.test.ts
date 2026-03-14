@@ -81,6 +81,41 @@ describe("Berry.Stem berry_check sessionKey auto-injection", () => {
         expect(result?.params?.sessionKey).toBe("agent:main:main");
     });
 
+    it("injects a resolved sessionKey from sessionId when ctx.sessionKey is missing", () => {
+        resetSharedVineSessionBindingManagerForTests();
+        const bindings = getSharedVineSessionBindingManager(DEFAULT_CONFIG.vine.retention);
+        bindings.bindKnownSession({
+            sessionKey: "agent:main:main",
+            sessionId: "sid-restore-1",
+            conversationId: "conv-restore-1",
+            channelId: "webchat",
+            accountId: "default",
+        }, "agent:main:main");
+
+        const { api, handlers } = createApi();
+        registerBerryStem(api as any, DEFAULT_CONFIG);
+
+        const beforeToolCall = handlers.get(HOOKS.BEFORE_TOOL_CALL);
+        const result = beforeToolCall?.(
+            {
+                toolName: "berry_check",
+                params: {
+                    operation: "write",
+                    target: "/tmp/proof.txt",
+                },
+            },
+            {
+                toolName: "berry_check",
+                sessionId: "sid-restore-1",
+                conversationId: "conv-restore-1",
+                channelId: "webchat",
+                accountId: "default",
+            }
+        );
+
+        expect(result?.params?.sessionKey).toBe("agent:main:main");
+    });
+
     it("does not override explicit params.sessionKey", () => {
         const { api, handlers } = createApi();
         registerBerryStem(api as any, DEFAULT_CONFIG);

@@ -15,6 +15,7 @@ const STATUS_ICON: Record<DecisionStatus, string> = {
     DENIED: "✗",
     BLOCKED: "✗",
     CONFIRM_REQUIRED: "!",
+    HUMAN_CONFIRM_REQUIRED: "!",
 };
 
 function resolveLayer(card: DecisionCard): string {
@@ -83,6 +84,8 @@ export function formatCardForToolResult(card: DecisionCard): string {
             : "";
         lines.push(`Your session is marked as external-untrusted.`);
         lines.push(`Reply with a message containing ${card.confirm?.confirmCode ?? "****"} to proceed once.${retryHint}`);
+    } else if (card.status === "HUMAN_CONFIRM_REQUIRED") {
+        lines.push("Human confirmation is required before proceeding.");
     } else if (card.status === "DENIED") {
         lines.push(`This operation was denied by security policy.`);
     } else if (card.status === "BLOCKED") {
@@ -101,34 +104,38 @@ export function formatCardForToolResult(card: DecisionCard): string {
  *
  * Produces a compact single-purpose string that the host wraps
  * inside an error envelope ({status:'error', error: ...}).
+ *
+ * OpenClaw exposes `blockReason` as a plain string in the
+ * `before_tool_call` hook contract. The host currently renders
+ * that value through the error envelope rather than a rich card,
+ * so multi-line formatting is surfaced as escaped `\n` sequences.
+ * Keep this formatter single-line and compact for readability.
  */
 export function formatCardForBlockReason(card: DecisionCard): string {
     const layer = resolveLayer(card);
     const reason = card.reason || DEFAULT_REASON;
-    const lines: string[] = [
+    const parts: string[] = [
         `${BRAND_SYMBOL} Berry Shield`,
-        "",
         `STATUS: BLOCKED ${STATUS_ICON.BLOCKED}`,
         `LAYER: ${layer}`,
     ];
 
     if (card.operation) {
-        lines.push(`OPERATION: ${card.operation}`);
+        parts.push(`OPERATION: ${card.operation}`);
     }
 
     if (card.target) {
-        lines.push(`TARGET: ${truncateTarget(card.target)}`);
+        parts.push(`TARGET: ${truncateTarget(card.target)}`);
     }
 
-    lines.push(`REASON: ${reason}`);
-    lines.push("");
+    parts.push(`REASON: ${reason}`);
 
     if (card.action) {
-        lines.push(card.action);
+        parts.push(card.action);
     } else {
-        lines.push("This operation was blocked by runtime security hook.");
-        lines.push("ACTION: Request explicit user confirmation and retry via berry_check.");
+        parts.push("This operation was blocked by runtime security hook.");
+        parts.push("ACTION: Request explicit user confirmation and retry via berry_check.");
     }
 
-    return lines.join("\n");
+    return parts.join(" | ");
 }

@@ -11,7 +11,8 @@ export type DecisionStatus =
     | "ALLOWED"
     | "DENIED"
     | "BLOCKED"
-    | "CONFIRM_REQUIRED";
+    | "CONFIRM_REQUIRED"
+    | "HUMAN_CONFIRM_REQUIRED";
 
 /** Layers that produce user-visible decision messages. */
 export type DecisionLayer = "Stem" | "Thorn" | "Vine";

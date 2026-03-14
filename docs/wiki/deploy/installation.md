@@ -34,6 +34,16 @@ Practical rule:
 For official OpenClaw plugin installation behavior, see:
 - https://docs.openclaw.ai/tools/plugin
 
+## Host hook note
+
+OpenClaw host behavior can influence prompt-level guidance hooks used by Berry Shield.
+
+Operational note:
+- if the host explicitly disables plugin prompt-injection style prepend behavior for hooks, `Berry.Root` and Vine reminder guidance from `before_agent_start` can be partially degraded.
+
+See more:
+- [Technical limitations and host behavior](../../../README.md#-technical-limitations--sdk-diary)
+
 
 ### Quick navigation
 

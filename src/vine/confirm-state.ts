@@ -1,5 +1,6 @@
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { VINE_CONFIRMATION } from "../constants.js";
+import { DEFAULT_CONFIG } from "../config/defaults.js";
 import type { BerryShieldVineConfirmationConfig, BerryShieldVineRetentionConfig } from "../types/config.js";
 import {
     createIntentSignature,
@@ -242,17 +243,24 @@ export class VineConfirmStateManager {
         this.codeLength = Math.max(1, Math.floor(options.codeLength ?? VINE_CONFIRMATION.CODE_LENGTH));
         this.ttlMs = Math.max(
             1,
-            Math.floor((options.ttlSeconds ?? confirmation?.codeTtlSeconds ?? VINE_CONFIRMATION.TTL_SECONDS) * 1000)
+            Math.floor((options.ttlSeconds ?? confirmation?.codeTtlSeconds ?? DEFAULT_CONFIG.vine.confirmation.codeTtlSeconds) * 1000)
         );
-        this.maxAttempts = Math.max(1, Math.floor(options.maxAttempts ?? confirmation?.maxAttempts ?? VINE_CONFIRMATION.MAX_ATTEMPTS));
+        this.maxAttempts = Math.max(
+            1,
+            Math.floor(options.maxAttempts ?? confirmation?.maxAttempts ?? DEFAULT_CONFIG.vine.confirmation.maxAttempts)
+        );
         this.maxEntries = Math.max(1, Math.floor(retention.maxEntries));
         this.defaultWindowSeconds = Math.max(
             1,
-            Math.floor(options.defaultWindowSeconds ?? confirmation?.windowSeconds ?? 120)
+            Math.floor(options.defaultWindowSeconds ?? confirmation?.windowSeconds ?? DEFAULT_CONFIG.vine.confirmation.windowSeconds)
         );
         this.defaultMaxActionsPerWindow = Math.max(
             1,
-            Math.floor(options.defaultMaxActionsPerWindow ?? confirmation?.maxActionsPerWindow ?? 3)
+            Math.floor(
+                options.defaultMaxActionsPerWindow
+                ?? confirmation?.maxActionsPerWindow
+                ?? DEFAULT_CONFIG.vine.confirmation.maxActionsPerWindow
+            )
         );
         this.codePattern = new RegExp(`^\\d{${this.codeLength}}$`);
         const cleanupIntervalMs = Math.max(

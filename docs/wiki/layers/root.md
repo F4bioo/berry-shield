@@ -98,6 +98,8 @@ Root is useful for:
 ## Limits and caveats
 
 - Root is instruction-level control, not hard execution enforcement.
+- If the host disables prompt-injection style prepend behavior for plugin hooks, Root guidance can be partially degraded because `before_agent_start` context may no longer be injected.
+- This is a host/runtime constraint, not a full Berry Shield plugin failure.
 - If runtime context identity is missing, global safety fallback can increase policy verbosity.
 - Excessive full injections increase token cost.
 - Too little reinjection can reduce model adherence in long sessions.
