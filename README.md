@@ -230,8 +230,8 @@ See more:
 
 Berry Shield's effectiveness is tied to the underlying OpenClaw SDK capabilities. We maintain a detailed diary that tracks known bugs and blind spots across OpenClaw versions.
 
-### Key Points for v2026.3.2:
-*   **Hook Reliability**: In our v2026.3.2 checkpoint, `before_tool_call` and `message_sending` were observed as functional, but hook behavior remains runtime/version-dependent.
+### Key Points for v2026.3.13:
+*   **Hook Reliability**: In our v2026.3.13 checkpoint, `before_tool_call` and `message_sending` were observed as functional, but hook behavior remains runtime/version-dependent.
 *   **Soft Guardrails**: Prompt-based defenses (`Berry.Root`) are advisory and can be bypassed by clever user instructions.
 *   **Timing Gaps**: Redaction happens during persistence, which might create a transient data exposure.
 *   **Host Hook Behavior**: If the host explicitly disables prompt-injection style prepend behavior for plugin hooks, `Berry.Root` guidance and Vine reminder text from `before_agent_start` can be partially degraded. This should be treated as host-configurable behavior, not as evidence that Berry Shield runtime protection is broken.
