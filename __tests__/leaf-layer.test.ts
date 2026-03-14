@@ -40,7 +40,7 @@ describe("Berry.Leaf", () => {
 
         expect(api.on).not.toHaveBeenCalled();
         expect(handlers.has(HOOKS.MESSAGE_RECEIVED)).toBe(false);
-        expect(api.logger.debug).toHaveBeenCalledWith("[berry-shield] Berry.Leaf layer disabled");
+        expect(api.logger.info).toHaveBeenCalledWith("[berry-shield][runtime] Berry.Leaf layer disabled");
     });
 
     it("registers message_received hook when enabled", () => {
@@ -71,10 +71,7 @@ describe("Berry.Leaf", () => {
 
         expect(result).toBeUndefined();
         expect(api.logger.warn).toHaveBeenCalledWith(
-            expect.stringContaining("Berry.Leaf: AUDIT - sensitive content detected")
-        );
-        expect(api.logger.debug).toHaveBeenCalledWith(
-            expect.stringContaining("\"event\":\"message_received\"")
+            expect.stringContaining("[berry-shield][security] Berry.Leaf sensitive content detected")
         );
     });
 
@@ -94,10 +91,7 @@ describe("Berry.Leaf", () => {
 
         expect(result).toBeUndefined();
         expect(api.logger.warn).not.toHaveBeenCalledWith(
-            expect.stringContaining("AUDIT - sensitive content detected")
-        );
-        expect(api.logger.debug).toHaveBeenCalledWith(
-            expect.stringContaining("\"event\":\"message_received\"")
+            expect.stringContaining("Leaf sensitive content detected")
         );
     });
 
@@ -107,7 +101,6 @@ describe("Berry.Leaf", () => {
 
         const callback = handlers.get(HOOKS.MESSAGE_RECEIVED)!;
         const beforeWarnCalls = (api.logger.warn as any).mock.calls.length;
-        const beforeDebugCalls = (api.logger.debug as any).mock.calls.length;
 
         const result = callback(
             {
@@ -119,6 +112,5 @@ describe("Berry.Leaf", () => {
 
         expect(result).toBeUndefined();
         expect((api.logger.warn as any).mock.calls.length).toBe(beforeWarnCalls);
-        expect((api.logger.debug as any).mock.calls.length).toBe(beforeDebugCalls);
     });
 });

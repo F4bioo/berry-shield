@@ -88,7 +88,7 @@ export class VineStateManager {
         return entry;
     }
 
-    public shouldInjectContext(sessionKey: string, minIntervalMs = 120_000): boolean {
+    public shouldInjectContext(sessionKey: string, minIntervalMs = 180_000): boolean {
         const entry = this.state.get(sessionKey);
         if (!entry) return false;
         if (!entry.stickyExternalRisk && entry.forcedGuardTurnsRemaining <= 0) return false;
@@ -163,6 +163,12 @@ export class VineStateManager {
         const entry = this.state.get(sessionKey);
         if (!entry) return false;
         return entry.unknownSignalsCount > 0;
+    }
+
+    public getRiskWindowId(sessionKey: string): string | undefined {
+        const entry = this.state.get(sessionKey);
+        if (!entry) return undefined;
+        return entry.riskWindowId || undefined;
     }
 
     public clearRisk(sessionKey: string): void {

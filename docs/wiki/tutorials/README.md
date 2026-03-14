@@ -16,6 +16,7 @@ Use these pages when you want guided execution rather than command reference.
 
 - [secure session](secure-session.md): end-to-end first session with verification checkpoints
 - [choose your profile](choose-profile.md): decide strict/balanced/minimal with practical checks
+- [choose your Vine confirmation strategy](choose-vine-confirmation.md): decide when to use `1:1` or `1:N`
 - [tune policy](tune-policy.md): configure adaptive and retention values safely
 - [build custom rules](build-custom-rules.md): add, test, list, and remove organization-specific rules
 - [audit-to-enforce rollout](audit-to-enforce-rollout.md): move from observation to active mitigation

@@ -69,6 +69,31 @@ npm run version:update
 
 ---
 
+## `sync-manifest.mjs`
+
+This script synchronizes the generated sections of `openclaw.plugin.json` from the TypeScript plugin config contract.
+
+### What it does
+1.  **Loads**: Bundles and imports `src/config/schema.ts`, which derives generated manifest sections from `src/config/catalog.ts`.
+2.  **Preserves**: Keeps non-generated manifest metadata untouched.
+3.  **Synchronizes**: Rewrites only the generated `configSchema` and `uiHints` sections in `openclaw.plugin.json`.
+4.  **Stabilizes**: Writes the manifest with deterministic formatting so repeated runs do not create drift noise.
+
+### Idempotency
+This script is idempotent:
+- If the manifest is already aligned with `src/config/schema.ts`, it prints that the manifest is already in sync and does not rewrite the file.
+- Running it twice in a row should produce no additional diff on the second run.
+
+### How to use
+This script is triggered automatically before `typecheck`, `test`, `build`, and `release:preflight`.
+
+```bash
+# Standalone: force a sync without running the usual QA/build entry points
+npm run plugin:manifest:sync
+```
+
+---
+
 ## `doc-sanity.ts`
 
 This script validates the wiki content contracts used by Berry Shield documentation.

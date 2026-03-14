@@ -11,6 +11,7 @@ import { registerBerryShieldCli } from "./cli/index.js";
 import { initializePatterns } from "./patterns/index.js";
 import { initAuditWriter } from "./audit/writer.js";
 import { loadCustomRulesSync } from "./cli/storage.js";
+import { BERRY_LOG_CATEGORY, berryLog } from "./log/berry-log.js";
 
 /**
  * Berry Shield - Security architecture for OpenClaw
@@ -50,7 +51,11 @@ export default {
 
         // Warn when running in audit (Shadow Mode) — data is NOT protected
         if (config.mode === "audit") {
-            api.logger.warn(`[berry-shield] ${BRAND_SYMBOL} Running in AUDIT (Shadow Mode) — actions will NOT be blocked and output will NOT be redacted.`);
+            berryLog(
+                api.logger,
+                BERRY_LOG_CATEGORY.SECURITY_EVENT,
+                `${BRAND_SYMBOL} Running in AUDIT (Shadow Mode) — actions will NOT be blocked and output will NOT be redacted.`
+            );
         }
 
         // Register CLI commands (bshield)

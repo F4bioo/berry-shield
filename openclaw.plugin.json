@@ -173,6 +173,46 @@
                         },
                         "default": [],
                         "description": "Tool names exempt from Vine escalation"
+                    },
+                    "confirmation": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "description": "Confirmation flow tuning for sensitive actions under Vine risk",
+                        "properties": {
+                            "strategy": {
+                                "type": "string",
+                                "enum": [
+                                    "one_to_one",
+                                    "one_to_many"
+                                ],
+                                "default": "one_to_many",
+                                "description": "Confirmation strategy: 1:1 = one code per action, 1:N = one code for multiple actions within a short window"
+                            },
+                            "codeTtlSeconds": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 180,
+                                "description": "Confirmation code time-to-live in seconds"
+                            },
+                            "maxAttempts": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 3,
+                                "description": "Maximum invalid code attempts per challenge"
+                            },
+                            "windowSeconds": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 120,
+                                "description": "Window lifetime in seconds when strategy is 1:N"
+                            },
+                            "maxActionsPerWindow": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "default": 3,
+                                "description": "Maximum sensitive actions allowed during 1:N confirmation window"
+                            }
+                        }
                     }
                 }
             },

@@ -24,6 +24,7 @@ The tool evaluates operation intent (exec, read, write) against destructive-comm
   - sensitive file access in read/write requests
 - Emits structured audit events in both audit and enforce paths.
 - Returns allow/deny response payloads to the agent.
+- Returns a degraded human-confirm-required warning when Vine risk is active but native confirmation binding is unavailable.
 - Triggers adaptive escalation signaling on enforce denies.
 
 ## What Stem does not do

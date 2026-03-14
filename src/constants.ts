@@ -62,9 +62,29 @@ export const DEFAULTS = {
     WIN_BINARY_EXT: ".cmd",
 };
 
+/** Stable plugin mode values shared by config parsing, schema, and CLI validation. */
+export const PLUGIN_MODE = {
+    ENFORCE: "enforce",
+    AUDIT: "audit",
+} as const;
+
+/** Stable policy profile values shared by config parsing, schema, and CLI validation. */
+export const POLICY_PROFILE = {
+    STRICT: "strict",
+    BALANCED: "balanced",
+    MINIMAL: "minimal",
+} as const;
+
+/** Stable Vine mode values shared by config parsing, schema, and CLI validation. */
+export const VINE_MODE = {
+    BALANCED: "balanced",
+    STRICT: "strict",
+} as const;
+
 /** Hook names used by Berry Shield core security flows */
 export const HOOKS = {
     BEFORE_AGENT_START: "before_agent_start",
+    BEFORE_MESSAGE_WRITE: "before_message_write",
     MESSAGE_RECEIVED: "message_received",
     MESSAGE_SENDING: "message_sending",
     BEFORE_TOOL_CALL: "before_tool_call",
@@ -99,6 +119,9 @@ export const AUDIT_DECISIONS = {
     WOULD_REDACT: "would_redact",
     BLOCKED: "blocked",
     REDACTED: "redacted",
+    CONFIRM_REQUIRED: "confirm_required",
+    WOULD_CONFIRM_REQUIRED: "would_confirm_required",
+    ALLOWED_BY_CONFIRM: "allowed_by_confirm",
 } as const;
 
 /** Security layer identifiers used in audit events */
@@ -118,3 +141,46 @@ export const AUDIT_LOG = {
     MAX_BUFFER_SIZE: 200,
     MAX_FILE_SIZE: 5 * 1024 * 1024,
 } as const;
+
+/** Non-configurable Vine confirmation protocol constants. */
+export const VINE_CONFIRMATION = {
+    CODE_LENGTH: 4,
+    CLEANUP_INTERVAL_MS: 30_000,
+} as const;
+
+/** Vine confirmation strategy labels */
+export const VINE_CONFIRMATION_STRATEGY = {
+    ONE_TO_ONE: "one_to_one",
+    ONE_TO_MANY: "one_to_many",
+} as const;
+
+/** Preserved shared copy for approval-card UI helpers; not injected into the current native Vine runtime path. */
+export const VINE_APPROVAL_INJECT = {
+    TITLE: "Berry Shield",
+    FIELD_STATUS: "STATUS",
+    FIELD_DETAIL: "DETAIL",
+    FIELD_ACTION: "ACTION",
+    STATUS_SUCCESS: "SUCCESS",
+    STATUS_FAILURE: "FAILURE",
+    DETAIL_SUCCESS: "Confirmation accepted.",
+    DETAIL_USAGE_ERROR: "Invalid input format.",
+    DETAIL_INVALID_CODE: "Incorrect confirmation code.",
+    DETAIL_EXPIRED_OR_MISSING: "Code expired or no pending action found.",
+    DETAIL_MAX_ATTEMPTS_EXCEEDED: "Maximum confirmation attempts reached.",
+    DETAIL_AMBIGUOUS: "Multiple pending approvals detected.",
+    DETAIL_RESUME_FAILED: "Approval accepted but resume failed.",
+    REASON_USAGE_ERROR: "Invalid command usage format.",
+    REASON_INVALID_CODE: "Invalid confirmation code provided.",
+    REASON_EXPIRED_OR_MISSING: "Confirmation challenge expired or no matching pending action.",
+    REASON_MAX_ATTEMPTS_EXCEEDED: "Maximum confirmation attempts exceeded.",
+    REASON_AMBIGUOUS: "Ambiguous confirmation request.",
+    REASON_RESUME_FAILED: "Automatic resume failed after approval.",
+    ACTION_USE_CODE_PREFIX: "Send a message containing this 4-digit code: ",
+    ACTION_NEW_CODE: "Run the original prompt to get a new code.",
+    ACTION_RETRY_ORIGINAL_PROMPT: "Run the original prompt again.",
+    ACTION_RETRY_CURRENT_CODE: "Retry with a message containing the current 4-digit code.",
+} as const;
+
+/** Decision card ui defaults */
+export const MAX_TARGET_LENGTH = 120;
+export const DEFAULT_REASON = "Security policy violation";

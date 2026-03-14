@@ -71,6 +71,7 @@ export interface BerryShieldPolicyConfig {
  * Vine operating profile for external-content guardrails.
  */
 export type BerryShieldVineMode = "balanced" | "strict";
+export type BerryShieldVineConfirmationStrategy = "one_to_one" | "one_to_many";
 
 /**
  * In-memory retention controls for Vine runtime risk state.
@@ -93,6 +94,22 @@ export interface BerryShieldVineThresholdsConfig {
 }
 
 /**
+ * Vine confirmation tuning.
+ */
+export interface BerryShieldVineConfirmationConfig {
+    /** Strategy selector for sensitive-action confirmation flow */
+    strategy: BerryShieldVineConfirmationStrategy;
+    /** Challenge code TTL in seconds */
+    codeTtlSeconds: number;
+    /** Maximum invalid code attempts per challenge */
+    maxAttempts: number;
+    /** Window lifetime in seconds when strategy is one_to_many */
+    windowSeconds: number;
+    /** Maximum sensitive actions allowed inside one_to_many window */
+    maxActionsPerWindow: number;
+}
+
+/**
  * Vine configuration.
  */
 export interface BerryShieldVineConfig {
@@ -104,6 +121,8 @@ export interface BerryShieldVineConfig {
     thresholds: BerryShieldVineThresholdsConfig;
     /** Optional allowlist of tool names exempt from Vine escalation */
     toolAllowlist: string[];
+    /** Confirmation strategy/tuning for sensitive actions under Vine risk */
+    confirmation: BerryShieldVineConfirmationConfig;
 }
 
 /**

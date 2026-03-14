@@ -16,13 +16,15 @@ import type { AuditBlockEvent } from "../types/audit-event.js";
 import { formatAuditEvent } from "../types/audit-event.js";
 import { AUDIT_DECISIONS, SECURITY_LAYERS } from "../constants.js";
 import { appendAuditEvent } from "../audit/writer.js";
-import { BRAND_SYMBOL, HOOKS } from "../constants.js";
+import { HOOKS } from "../constants.js";
+import { formatCardForBlockReason } from "../ui/decision-card/format-text.js";
 import { notifyPolicyDenied } from "../policy/runtime-state.js";
 import {
     getAllDestructiveCommandPatterns,
     getAllSensitiveFilePatterns,
 } from "../patterns/index.js";
 import { findMatches } from "../utils/redaction.js";
+import { BERRY_LOG_CATEGORY, berryLog } from "../log/berry-log.js";
 
 /**
  * Checks if a command is destructive.
@@ -143,7 +145,7 @@ export function registerBerryThorn(
 ): void {
     // Skip if layer is disabled
     if (!config.layers.thorn) {
-        api.logger.debug?.("[berry-shield] Berry.Thorn layer disabled");
+        berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Thorn layer disabled");
         return;
     }
 
@@ -164,7 +166,7 @@ export function registerBerryThorn(
                         reason: "destructive command", target: command.substring(0, 100),
                         ts: new Date().toISOString(),
                     };
-                    api.logger.warn(`[berry-shield] Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
                     appendAuditEvent(auditEvent);
                     return undefined;
                 }
@@ -178,15 +180,21 @@ export function registerBerryThorn(
                 if (escalationSessionKey) {
                     notifyPolicyDenied(escalationSessionKey, config.policy.adaptive.escalationTurns, false);
                 } else if (config.policy.adaptive.allowGlobalEscalation) {
-                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, applying configured global adaptive escalation");
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.COMPAT_EVENT, "Berry.Thorn: sessionKey missing, applying configured global adaptive escalation");
                     notifyPolicyDenied(undefined, config.policy.adaptive.escalationTurns, true);
                 } else {
-                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, skipping adaptive escalation");
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.COMPAT_EVENT, "Berry.Thorn: sessionKey missing, skipping adaptive escalation");
                 }
-                api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
+                berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
-                    blockReason: `${BRAND_SYMBOL} Berry Shield: ${reason}. This command could cause irreversible damage.`,
+                    blockReason: formatCardForBlockReason({
+                        status: "BLOCKED",
+                        layer: "Thorn",
+                        operation: "exec",
+                        target: command,
+                        reason: "Destructive command detected",
+                    }),
                 };
             }
 
@@ -200,7 +208,7 @@ export function registerBerryThorn(
                         reason: "sensitive file reference", target: command.substring(0, 100),
                         ts: new Date().toISOString(),
                     };
-                    api.logger.warn(`[berry-shield] Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
                     appendAuditEvent(auditEvent);
                     return undefined;
                 }
@@ -214,15 +222,21 @@ export function registerBerryThorn(
                 if (escalationSessionKey) {
                     notifyPolicyDenied(escalationSessionKey, config.policy.adaptive.escalationTurns, false);
                 } else if (config.policy.adaptive.allowGlobalEscalation) {
-                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, applying configured global adaptive escalation");
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.COMPAT_EVENT, "Berry.Thorn: sessionKey missing, applying configured global adaptive escalation");
                     notifyPolicyDenied(undefined, config.policy.adaptive.escalationTurns, true);
                 } else {
-                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, skipping adaptive escalation");
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.COMPAT_EVENT, "Berry.Thorn: sessionKey missing, skipping adaptive escalation");
                 }
-                api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
+                berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
-                    blockReason: `${BRAND_SYMBOL} Berry Shield: ${reason}. This file may contain secrets or credentials.`,
+                    blockReason: formatCardForBlockReason({
+                        status: "BLOCKED",
+                        layer: "Thorn",
+                        operation: "exec",
+                        target: command,
+                        reason: "Command references sensitive file",
+                    }),
                 };
             }
 
@@ -237,7 +251,7 @@ export function registerBerryThorn(
                         reason: "sensitive file access", target: filePath,
                         ts: new Date().toISOString(),
                     };
-                    api.logger.warn(`[berry-shield] Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Thorn: ${formatAuditEvent(auditEvent)}`);
                     appendAuditEvent(auditEvent);
                     return undefined;
                 }
@@ -251,15 +265,20 @@ export function registerBerryThorn(
                 if (escalationSessionKey) {
                     notifyPolicyDenied(escalationSessionKey, config.policy.adaptive.escalationTurns, false);
                 } else if (config.policy.adaptive.allowGlobalEscalation) {
-                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, applying configured global adaptive escalation");
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.COMPAT_EVENT, "Berry.Thorn: sessionKey missing, applying configured global adaptive escalation");
                     notifyPolicyDenied(undefined, config.policy.adaptive.escalationTurns, true);
                 } else {
-                    api.logger.warn("[berry-shield] Berry.Thorn: sessionKey missing, skipping adaptive escalation");
+                    berryLog(api.logger, BERRY_LOG_CATEGORY.COMPAT_EVENT, "Berry.Thorn: sessionKey missing, skipping adaptive escalation");
                 }
-                api.logger.warn(`[berry-shield] Berry.Thorn: BLOCKED - ${reason}`);
+                berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Thorn: BLOCKED - ${reason}`);
                 return {
                     block: true,
-                    blockReason: `${BRAND_SYMBOL} Berry Shield: ${reason}. This file may contain secrets or credentials.`,
+                    blockReason: formatCardForBlockReason({
+                        status: "BLOCKED",
+                        layer: "Thorn",
+                        target: filePath,
+                        reason: "Sensitive file access",
+                    }),
                 };
             }
 
@@ -269,5 +288,5 @@ export function registerBerryThorn(
         { priority: 200 } // High priority - security runs first
     );
 
-    api.logger.debug?.("[berry-shield] Berry.Thorn layer registered");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Thorn layer registered (Tool Blocker)");
 }

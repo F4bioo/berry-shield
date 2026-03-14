@@ -13,6 +13,7 @@ import type { BerryShieldPluginConfig } from "../types/config.js";
 import { HOOKS } from "../constants.js";
 import { getAllRedactionPatterns } from "../patterns/index.js";
 import { walkAndRedact } from "../utils/redaction.js";
+import { BERRY_LOG_CATEGORY, berryLog } from "../log/berry-log.js";
 
 /**
  * Internal audit log entry structure.
@@ -50,7 +51,7 @@ export function registerBerryLeaf(
 ): void {
     // Skip if layer is disabled
     if (!config.layers.leaf) {
-        api.logger.debug?.("[berry-shield] Berry.Leaf layer disabled");
+        berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Leaf layer disabled");
         return;
     }
 
@@ -92,11 +93,11 @@ export function registerBerryLeaf(
             // Log the audit entry
             if (containsSecrets || containsPII) {
                 // Warn level for messages with sensitive content
-                api.logger.warn(`[berry-shield] Berry.Leaf: AUDIT - sensitive content detected [${redactedTypes.join(", ")}]`);
-                api.logger.debug?.(`[berry-shield] Berry.Leaf: ${JSON.stringify(auditEntry)}`);
+                berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Leaf sensitive content detected [${redactedTypes.join(", ")}]`);
+                berryLog(api.logger, BERRY_LOG_CATEGORY.LAYER_TRACE, `Berry.Leaf ${JSON.stringify(auditEntry)}`);
             } else {
                 // Debug level for normal messages
-                api.logger.debug?.(`[berry-shield] Berry.Leaf: ${JSON.stringify(auditEntry)}`);
+                berryLog(api.logger, BERRY_LOG_CATEGORY.LAYER_TRACE, `Berry.Leaf ${JSON.stringify(auditEntry)}`);
             }
 
             // NOTE: message_received hook cannot return values to modify/block
@@ -105,5 +106,5 @@ export function registerBerryLeaf(
         { priority: 50 } // Lower priority - audit runs after security checks
     );
 
-    api.logger.debug?.("[berry-shield] Berry.Leaf layer registered");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Leaf layer registered (Input Audit)");
 }

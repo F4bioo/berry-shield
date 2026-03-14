@@ -1,7 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOOKS, REQUIRED_SECURITY_HOOKS, AUDIT_HOOKS, COMPAT_POLICY, AUDIT_DECISIONS, SECURITY_LAYERS } from "../src/constants";
+import { PLUGIN_ID, ENV_VARS, CONFIG_PATHS, DEFAULTS, BRAND_SYMBOL, VERSION, HOOKS, REQUIRED_SECURITY_HOOKS, AUDIT_HOOKS, COMPAT_POLICY, AUDIT_DECISIONS, SECURITY_LAYERS, VINE_CONFIRMATION, VINE_CONFIRMATION_STRATEGY } from "../src/constants";
 import { DEFAULT_CONFIG } from "../src/config/defaults";
 import { readFileSync } from "node:fs";
+
+const EXPECTED_HOOKS = {
+    BEFORE_AGENT_START: "before_agent_start",
+    BEFORE_MESSAGE_WRITE: "before_message_write",
+    MESSAGE_RECEIVED: "message_received",
+    MESSAGE_SENDING: "message_sending",
+    BEFORE_TOOL_CALL: "before_tool_call",
+    AFTER_TOOL_CALL: "after_tool_call",
+    TOOL_RESULT_PERSIST: "tool_result_persist",
+    SESSION_END: "session_end",
+} as const;
 
 /**
  * Version contract:
@@ -52,12 +63,11 @@ describe("Constants Contract", () => {
     });
 
     it("should have stable core hook names", () => {
-        expect(HOOKS.BEFORE_AGENT_START).toBe("before_agent_start");
-        expect(HOOKS.MESSAGE_RECEIVED).toBe("message_received");
-        expect(HOOKS.MESSAGE_SENDING).toBe("message_sending");
-        expect(HOOKS.BEFORE_TOOL_CALL).toBe("before_tool_call");
-        expect(HOOKS.AFTER_TOOL_CALL).toBe("after_tool_call");
-        expect(HOOKS.TOOL_RESULT_PERSIST).toBe("tool_result_persist");
+        expect(HOOKS).toEqual(EXPECTED_HOOKS);
+        expect(
+            Object.keys(HOOKS).sort(),
+            "New hook added to HOOKS but tests were not updated. Review constants-contract.test.ts."
+        ).toEqual(Object.keys(EXPECTED_HOOKS).sort());
     });
 
     it("should keep required security hooks list synchronized", () => {
@@ -100,6 +110,9 @@ describe("Constants Contract", () => {
         expect(AUDIT_DECISIONS.WOULD_REDACT).toBe("would_redact");
         expect(AUDIT_DECISIONS.BLOCKED).toBe("blocked");
         expect(AUDIT_DECISIONS.REDACTED).toBe("redacted");
+        expect(AUDIT_DECISIONS.CONFIRM_REQUIRED).toBe("confirm_required");
+        expect(AUDIT_DECISIONS.WOULD_CONFIRM_REQUIRED).toBe("would_confirm_required");
+        expect(AUDIT_DECISIONS.ALLOWED_BY_CONFIRM).toBe("allowed_by_confirm");
     });
 
     it("should have stable security layer identifiers", () => {
@@ -107,5 +120,17 @@ describe("Constants Contract", () => {
         expect(SECURITY_LAYERS.PULP).toBe("pulp");
         expect(SECURITY_LAYERS.THORN).toBe("thorn");
         expect(SECURITY_LAYERS.VINE).toBe("vine");
+    });
+
+    it("should have stable vine confirmation strategy labels", () => {
+        expect(VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE).toBe("one_to_one");
+        expect(VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY).toBe("one_to_many");
+    });
+
+    it("should keep configurable Vine confirmation defaults out of constants.ts", () => {
+        expect("TTL_SECONDS" in VINE_CONFIRMATION).toBe(false);
+        expect("MAX_ATTEMPTS" in VINE_CONFIRMATION).toBe(false);
+        expect(VINE_CONFIRMATION.CODE_LENGTH).toBe(4);
+        expect(VINE_CONFIRMATION.CLEANUP_INTERVAL_MS).toBe(30_000);
     });
 });

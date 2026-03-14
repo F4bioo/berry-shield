@@ -1,9 +1,10 @@
 import { OpenClawPluginCliContext } from "../../types/openclaw-local.js";
-import { CONFIG_PATHS } from "../../constants.js";
+import { CONFIG_PATHS, POLICY_PROFILE } from "../../constants.js";
 import { type ConfigWrapper } from "../../config/wrapper.js";
+import { enumValues } from "../../config/catalog.js";
 import { ui } from "../ui/tui.js";
 
-const VALID_PROFILES = ["strict", "balanced", "minimal"] as const;
+const VALID_PROFILES = enumValues(POLICY_PROFILE);
 type PolicyProfile = typeof VALID_PROFILES[number];
 
 function isValidProfile(value: string): value is PolicyProfile {
@@ -41,4 +42,3 @@ export async function profileCommand(
         process.exit(1);
     }
 }
-

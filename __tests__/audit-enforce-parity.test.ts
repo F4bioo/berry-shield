@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { HOOKS } from "../src/constants";
+import { HOOKS, VINE_CONFIRMATION_STRATEGY } from "../src/constants";
 
 const { appendAuditEventMock } = vi.hoisted(() => ({
     appendAuditEventMock: vi.fn(),
@@ -47,6 +47,13 @@ function createConfig() {
                 forcedGuardTurns: 3,
             },
             toolAllowlist: [],
+            confirmation: {
+                strategy: VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY,
+                codeTtlSeconds: 90,
+                maxAttempts: 3,
+                windowSeconds: 120,
+                maxActionsPerWindow: 3,
+            },
         },
         customRules: {
             secrets: [],
@@ -113,6 +120,8 @@ describe("Enforce parity events", () => {
         const denied = await tool.execute("x", { operation: "read", target: "/home/user/.env" });
 
         expect(denied.details.status).toBe("denied");
+        expect(denied.content?.[0]?.text).toContain("STATUS: DENIED");
+        expect(denied.content?.[0]?.text).toContain("REASON:");
         expect(notifyPolicyDeniedMock).not.toHaveBeenCalled();
     });
 
@@ -145,6 +154,9 @@ describe("Enforce parity events", () => {
         const result = handler({ toolName: "exec", params: { command: "rm -rf /tmp" } });
 
         expect(result?.block).toBe(true);
+        expect(result?.blockReason).toContain("STATUS: BLOCKED");
+        expect(result?.blockReason).toContain("LAYER: Thorn");
+        expect(result?.blockReason).toContain("REASON:");
         expect(notifyPolicyDeniedMock).not.toHaveBeenCalled();
     });
 

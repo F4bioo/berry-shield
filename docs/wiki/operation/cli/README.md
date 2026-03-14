@@ -96,6 +96,13 @@ openclaw bshield vine set mode strict
 ```
 Expected: CLI confirms strict Vine mode for external-content guard behavior.
 
+### 9) Inspect or change Vine confirmation strategy
+Use this when you need to verify or switch between `1:1` and `1:N` confirmation behavior.
+```bash
+openclaw bshield vine confirmation
+```
+Expected: CLI opens the interactive selector for Vine confirmation strategy.
+
 ## Documentation structure
 
 Each command page follows the same structure:

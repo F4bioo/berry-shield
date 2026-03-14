@@ -1,10 +1,13 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { registerBerryRoot } from "../src/layers/root";
-import { HOOKS } from "../src/constants";
+import { HOOKS, VINE_CONFIRMATION_STRATEGY } from "../src/constants";
 import type { BerryShieldPluginConfig } from "../src/types/config";
 import { resetSharedPolicyStateManagerForTests } from "../src/policy/runtime-state";
 
-type RootHandler = (event: unknown, ctx: { sessionId?: string; sessionKey?: string; messageProvider?: string }) => { prependContext?: string } | void;
+type RootHandler = (
+    event: unknown,
+    ctx: { sessionId?: string; sessionKey?: string; messageProvider?: string }
+) => { prependContext?: string } | void;
 type SessionEndHandler = (event: { sessionId: string }) => void;
 
 function createConfig(
@@ -38,6 +41,13 @@ function createConfig(
                 forcedGuardTurns: 3,
             },
             toolAllowlist: [],
+            confirmation: {
+                strategy: VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY,
+                codeTtlSeconds: 90,
+                maxAttempts: 3,
+                windowSeconds: 120,
+                maxActionsPerWindow: 3,
+            },
         },
         customRules: {
             secrets: [],
