@@ -24,6 +24,7 @@ const PACKAGE_VERSION = JSON.parse(readFileSync("package.json", "utf8")).version
 const PLUGIN_MANIFEST_VERSION = JSON.parse(readFileSync("openclaw.plugin.json", "utf8")).version;
 const ROOT_PACKAGE_JSON = JSON.parse(readFileSync("package.json", "utf8")) as {
     engines?: Record<string, string>;
+    scripts?: Record<string, string>;
 };
 const OPENCLAW_PACKAGE_JSON = JSON.parse(readFileSync("node_modules/openclaw/package.json", "utf8")) as {
     engines?: Record<string, string>;
@@ -49,6 +50,15 @@ function compareTriples(a: [number, number, number], b: [number, number, number]
     }
 
     return 0;
+}
+
+function parseBuildTargetNodeMajor(command: string): number {
+    const match = /--target=node(\d+)/.exec(command);
+    if (!match) {
+        throw new Error(`Build script is missing a Node target: ${command}`);
+    }
+
+    return Number(match[1]);
 }
 
 /**
@@ -133,6 +143,23 @@ describe("Constants Contract", () => {
         if (!isAligned) {
             throw new Error(
                 `Project Node engine ${rootNodeEngine} is below installed OpenClaw requirement ${openClawNodeEngine}. Bump package.json engines.node or lower the installed OpenClaw floor.`,
+            );
+        }
+    });
+
+    it("should keep the build target aligned with the project Node engine", () => {
+        const rootNodeEngine = ROOT_PACKAGE_JSON.engines?.node;
+        const buildScript = ROOT_PACKAGE_JSON.scripts?.build;
+
+        expect(typeof rootNodeEngine).toBe("string");
+        expect(typeof buildScript).toBe("string");
+
+        const rootMinimum = parseMinimumNodeEngine(rootNodeEngine as string);
+        const buildTargetMajor = parseBuildTargetNodeMajor(buildScript as string);
+
+        if (buildTargetMajor < rootMinimum[0]) {
+            throw new Error(
+                `Build target node${buildTargetMajor} is below project Node engine ${rootNodeEngine}. Bump package.json scripts.build --target=node${rootMinimum[0]} or lower engines.node.`,
             );
         }
     });
