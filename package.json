@@ -49,7 +49,7 @@
     "pretypecheck": "npm run plugin:manifest:sync",
     "plugin:manifest:sync": "node scripts/sync-manifest.mjs",
     "prebuild": "npm run plugin:manifest:sync",
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --external:openclaw/plugin-sdk --target=node20",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --external:openclaw/plugin-sdk --target=node22",
     "build:types": "tsc -p tsconfig.build.json",
     "//release": "Preflight gates run before version bump",
     "prerelease:preflight": "npm run plugin:manifest:sync",
@@ -68,7 +68,7 @@
   "devDependencies": {
     "@iarna/toml": "^2.2.5",
     "@types/node": "^25.2.2",
-    "esbuild": "^0.27.3",
+    "esbuild": "^0.27.4",
     "typescript": "^5.3.0",
     "vitest": "^4.0.18"
   }
