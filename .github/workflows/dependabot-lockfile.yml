@@ -112,11 +112,12 @@ jobs:
         if: steps.guard.outputs.skip != 'true' && steps.changes.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         shell: bash
         run: |
           set -euo pipefail
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          git push origin "HEAD:${PR_HEAD_REF}"
 
       - name: Comment success on PR
         if: steps.guard.outputs.skip != 'true' && steps.changes.outputs.changed == 'true'
