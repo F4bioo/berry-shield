@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/F4bioo/berry-shield#readme",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.16.0"
   },
   "type": "module",
   "files": [
@@ -60,7 +60,7 @@
     "wiki:claim": "npx ts-node --esm scripts/doc-sanity.ts"
   },
   "peerDependencies": {
-    "openclaw": "^2026.2.23"
+    "openclaw": "^2026.3.12"
   },
   "dependencies": {
     "@clack/prompts": "^1.0.1"

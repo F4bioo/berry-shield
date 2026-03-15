@@ -22,6 +22,34 @@ const EXPECTED_HOOKS = {
  */
 const PACKAGE_VERSION = JSON.parse(readFileSync("package.json", "utf8")).version;
 const PLUGIN_MANIFEST_VERSION = JSON.parse(readFileSync("openclaw.plugin.json", "utf8")).version;
+const ROOT_PACKAGE_JSON = JSON.parse(readFileSync("package.json", "utf8")) as {
+    engines?: Record<string, string>;
+};
+const OPENCLAW_PACKAGE_JSON = JSON.parse(readFileSync("node_modules/openclaw/package.json", "utf8")) as {
+    engines?: Record<string, string>;
+};
+
+function parseMinimumNodeEngine(range: string): [number, number, number] {
+    const match = /^>=(\d+)\.(\d+)\.(\d+)$/.exec(range.trim());
+    if (!match) {
+        throw new Error(`Unsupported node engine range: ${range}`);
+    }
+
+    return [
+        Number(match[1]),
+        Number(match[2]),
+        Number(match[3]),
+    ];
+}
+
+function compareTriples(a: [number, number, number], b: [number, number, number]): number {
+    for (let i = 0; i < 3; i += 1) {
+        if (a[i] > b[i]) return 1;
+        if (a[i] < b[i]) return -1;
+    }
+
+    return 0;
+}
 
 /**
  * Contract Test for Constants
@@ -86,8 +114,27 @@ describe("Constants Contract", () => {
     });
 
     it("should keep compatibility policy constants stable", () => {
-        expect(COMPAT_POLICY.MIN_OPENCLAW_VERSION).toBe("2026.2.23");
-        expect(COMPAT_POLICY.PEER_RANGE).toBe("^2026.2.23");
+        const hostVersion = "2026.3.12";
+        expect(COMPAT_POLICY.MIN_OPENCLAW_VERSION).toBe(hostVersion);
+        expect(COMPAT_POLICY.PEER_RANGE).toBe(`^${hostVersion}`);
+    });
+
+    it("should keep the project Node engine aligned with installed OpenClaw requirements", () => {
+        const rootNodeEngine = ROOT_PACKAGE_JSON.engines?.node;
+        const openClawNodeEngine = OPENCLAW_PACKAGE_JSON.engines?.node;
+
+        expect(typeof rootNodeEngine).toBe("string");
+        expect(typeof openClawNodeEngine).toBe("string");
+
+        const rootMinimum = parseMinimumNodeEngine(rootNodeEngine as string);
+        const openClawMinimum = parseMinimumNodeEngine(openClawNodeEngine as string);
+        const isAligned = compareTriples(rootMinimum, openClawMinimum) >= 0;
+
+        if (!isAligned) {
+            throw new Error(
+                `Project Node engine ${rootNodeEngine} is below installed OpenClaw requirement ${openClawNodeEngine}. Bump package.json engines.node or lower the installed OpenClaw floor.`,
+            );
+        }
     });
 
     describe("Security Standards (Safe-by-Default)", () => {

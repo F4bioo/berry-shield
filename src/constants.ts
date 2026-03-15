@@ -107,7 +107,7 @@ export const AUDIT_HOOKS = [
 ] as const;
 
 /** Compatibility policy source of truth used by automated contract tests */
-const MIN_OPENCLAW_VERSION = "2026.2.23" as const;
+const MIN_OPENCLAW_VERSION = "2026.3.12" as const;
 export const COMPAT_POLICY = {
     MIN_OPENCLAW_VERSION,
     PEER_RANGE: `^${MIN_OPENCLAW_VERSION}`,
