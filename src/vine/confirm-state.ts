@@ -209,6 +209,21 @@ function isActiveChallengeStatus(status: VineConfirmStatus): boolean {
     return status === "pending" || status === "approved";
 }
 
+/**
+ * Manages Vine confirmation challenges, one-shot execution allowances, and one-to-many approval windows.
+ *
+ * The lifecycle is split into three stages:
+ * - challenge approval: a pending challenge becomes approved after the user confirms the numeric code
+ * - berry_check allowance: the approved challenge is consumed into a one-shot allowance for the next
+ *   matching `berry_check` handoff
+ * - real tool allowance: the same approval can also authorize the immediate tool execution when the
+ *   host cannot preserve the original runtime correlation exactly
+ *
+ * The manager prefers strong correlation signals such as `sessionKey`, `runId`, and chat bindings.
+ * When host/runtime identity drifts across surfaces, it may still resolve the single plausible
+ * challenge or allowance that matches the requested action. If multiple candidates remain plausible,
+ * it fails closed instead of guessing.
+ */
 export class VineConfirmStateManager {
     private readonly state = new Map<string, VineChallengeState>();
     private readonly activeBySessionKey = new Map<string, string>();
@@ -382,70 +397,8 @@ export class VineConfirmStateManager {
         senderId?: string;
     }): VineApproveResult {
         this.prune();
-        const candidateIds = new Set<string>();
-        for (const chatBindingKey of input.chatBindingKeys) {
-            const activeIds = this.activeByChatBindingKey.get(chatBindingKey);
-            if (!activeIds) {
-                continue;
-            }
-            for (const id of activeIds) {
-                candidateIds.add(id);
-            }
-        }
-
-        if (candidateIds.size === 0) {
-            return { kind: "not_found" };
-        }
-        if (candidateIds.size > 1) {
-            return { kind: "ambiguous" };
-        }
-
-        const confirmId = [...candidateIds][0];
-        const current = this.state.get(confirmId);
-        if (!current || !isActiveChallengeStatus(current.status)) {
-            return { kind: "not_found" };
-        }
-
-        const nowTs = this.now();
-        if (current.expiresAt < nowTs) {
-            this.markExpired(current);
-            return { kind: "expired" };
-        }
-
-        const normalizedCode = normalizeConfirmCodeInput(input.confirmCode, this.codeLength);
-        if (!this.codePattern.test(normalizedCode) || !secureEquals(current.confirmCode, normalizedCode)) {
-            current.attempts += 1;
-            current.lastSeenAt = nowTs;
-            if (current.attempts >= current.maxAttempts) {
-                this.markExpired(current);
-                return { kind: "max_attempts_exceeded" };
-            }
-            return {
-                kind: "invalid_code",
-                challenge: this.toPendingChallenge(current),
-                attemptsRemaining: current.maxAttempts - current.attempts,
-            };
-        }
-
-        current.lastSeenAt = nowTs;
-        if (current.status === "approved" && current.resumeToken) {
-            return {
-                kind: "already_approved",
-                challenge: this.toPendingChallenge(current),
-                resumeToken: current.resumeToken,
-            };
-        }
-
-        current.status = "approved";
-        current.approvedAt = nowTs;
-        current.approvedBySenderId = input.senderId?.trim() || undefined;
-        current.resumeToken = current.resumeToken ?? `vres_${randomUUID().replace(/-/g, "").slice(0, 18)}`;
-
-        return {
-            kind: "approved",
-            challenge: this.toPendingChallenge(current),
-            resumeToken: current.resumeToken,
-        };
+        const candidates = this.collectChallengesForChatBindings(input.chatBindingKeys);
+        return this.approveWithinCandidates(candidates, input.confirmCode, input.senderId);
     }
 
     public approvePendingForSession(input: {
@@ -458,50 +411,83 @@ export class VineConfirmStateManager {
         if (!current || !isActiveChallengeStatus(current.status)) {
             return { kind: "not_found" };
         }
-
-        const nowTs = this.now();
-        if (current.expiresAt < nowTs) {
-            this.markExpired(current);
-            return { kind: "expired" };
-        }
-
-        const normalizedCode = normalizeConfirmCodeInput(input.confirmCode, this.codeLength);
-        if (!this.codePattern.test(normalizedCode) || !secureEquals(current.confirmCode, normalizedCode)) {
-            current.attempts += 1;
-            current.lastSeenAt = nowTs;
-            if (current.attempts >= current.maxAttempts) {
-                this.markExpired(current);
-                return { kind: "max_attempts_exceeded" };
-            }
-            return {
-                kind: "invalid_code",
-                challenge: this.toPendingChallenge(current),
-                attemptsRemaining: current.maxAttempts - current.attempts,
-            };
-        }
-
-        current.lastSeenAt = nowTs;
-        if (current.status === "approved" && current.resumeToken) {
-            return {
-                kind: "already_approved",
-                challenge: this.toPendingChallenge(current),
-                resumeToken: current.resumeToken,
-            };
-        }
-
-        current.status = "approved";
-        current.approvedAt = nowTs;
-        current.approvedBySenderId = input.senderId?.trim() || undefined;
-        current.resumeToken = current.resumeToken ?? `vres_${randomUUID().replace(/-/g, "").slice(0, 18)}`;
-
-        return {
-            kind: "approved",
-            challenge: this.toPendingChallenge(current),
-            resumeToken: current.resumeToken,
-        };
+        return this.approveWithinCandidates([current], input.confirmCode, input.senderId);
     }
 
-    // Converts an approved human reply into a single run-scoped allowance and consumes the pending challenge.
+    /**
+     * Approves a pending challenge by numeric code even when the inbound message does not carry the same
+     * runtime identity that originally created the challenge.
+     *
+     * Resolution order is:
+     * 1. the preferred session challenge
+     * 2. preferred chat-binding candidates
+     * 3. the single active challenge matching the code globally
+     *
+     * More than one plausible match is treated as ambiguity and rejected.
+     */
+    public approvePendingByCode(input: {
+        confirmCode: string | number;
+        senderId?: string;
+        sessionKey?: string;
+        chatBindingKeys?: string[];
+    }): VineApproveResult {
+        this.prune();
+        const normalizedCode = normalizeConfirmCodeInput(input.confirmCode, this.codeLength);
+        if (!this.codePattern.test(normalizedCode)) {
+            return { kind: "not_found" };
+        }
+
+        const preferredSessionCandidate = input.sessionKey
+            ? this.getActiveChallengeForSession(input.sessionKey)
+            : null;
+        const preferredChatCandidates = this.collectChallengesForChatBindings(input.chatBindingKeys ?? []);
+        const activeChallenges = this.getActiveChallenges();
+        const matchingPreferredSession = preferredSessionCandidate
+            && secureEquals(preferredSessionCandidate.confirmCode, normalizedCode)
+            ? preferredSessionCandidate
+            : null;
+        if (matchingPreferredSession) {
+            return this.approveChallenge(matchingPreferredSession, input.senderId);
+        }
+
+        const matchingPreferredChats = this.findCodeMatches(preferredChatCandidates, normalizedCode);
+        if (matchingPreferredChats.length === 1) {
+            return this.approveChallenge(matchingPreferredChats[0], input.senderId);
+        }
+        if (matchingPreferredChats.length > 1) {
+            return { kind: "ambiguous" };
+        }
+
+        const matchingActiveChallenges = this.findCodeMatches(activeChallenges, normalizedCode);
+        if (matchingActiveChallenges.length === 1) {
+            return this.approveChallenge(matchingActiveChallenges[0], input.senderId);
+        }
+        if (matchingActiveChallenges.length > 1) {
+            return { kind: "ambiguous" };
+        }
+
+        if (preferredSessionCandidate) {
+            return this.rejectApprovalForChallenge(preferredSessionCandidate);
+        }
+        if (preferredChatCandidates.length === 1) {
+            return this.rejectApprovalForChallenge(preferredChatCandidates[0]);
+        }
+        if (activeChallenges.length === 1) {
+            return this.rejectApprovalForChallenge(activeChallenges[0]);
+        }
+
+        return activeChallenges.length > 1
+            ? { kind: "ambiguous" }
+            : { kind: "not_found" };
+    }
+
+    /**
+     * Consumes an approved challenge and converts it into the run-scoped allowance used by the next
+     * `berry_check` handoff.
+     *
+     * Exact session correlation is preferred, but the manager may reuse the single approved challenge
+     * matching the same action when approval and execution happen through different host surfaces.
+     */
     public consumeApprovedForBinding(input: {
         sessionKey: string;
         operation: VineConfirmOperation;
@@ -511,8 +497,8 @@ export class VineConfirmStateManager {
         rawTarget?: string;
     }): VineConsumeApprovedResult {
         this.prune();
-        const current = this.getActiveChallengeForSession(input.sessionKey);
-        if (!current || current.status !== "approved") {
+        const current = this.resolveApprovedChallengeForBinding(input);
+        if (!current) {
             return { kind: "not_found" };
         }
 
@@ -522,17 +508,8 @@ export class VineConfirmStateManager {
             return { kind: "expired" };
         }
 
-        let isMatch = false;
-        let matchedByIntent = false;
-
-        if (current.operation === input.operation && input.intent) {
-            isMatch = isEquivalentApprovedIntent(current.intent, input.intent);
-            matchedByIntent = isMatch;
-        } else if (current.operation === input.operation) {
-            isMatch = current.targetSignature === signTarget(input.operation, input.target);
-        }
-
-        if (!isMatch) {
+        const match = this.matchesChallengeBinding(current, input);
+        if (!match.isMatch) {
             return { kind: "not_found" };
         }
 
@@ -562,7 +539,7 @@ export class VineConfirmStateManager {
             kind: "allowed",
             challenge: this.toPendingChallenge(current),
             resumeToken: current.resumeToken,
-            matchedByIntent,
+            matchedByIntent: match.matchedByIntent,
         };
     }
 
@@ -622,7 +599,13 @@ export class VineConfirmStateManager {
         });
     }
 
-    // Consumes the exact run-scoped allowance created during the approved berry_check handoff.
+    /**
+     * Consumes the one-shot allowance created for the next matching runtime call.
+     *
+     * Direct `sessionKey + runId` correlation wins. If that exact key cannot be found, a single
+     * allowance sharing the same `runId` and matching the same action may still be consumed.
+     * Multiple matches are rejected to avoid crossing approvals between concurrent runs.
+     */
     public consumeExecutionAllowance(input: {
         sessionKey: string;
         runId: string;
@@ -632,34 +615,34 @@ export class VineConfirmStateManager {
     }): boolean {
         this.prune();
         const key = `${input.sessionKey}::${input.runId}`;
-        const allowance = this.executionAllowances.get(key);
-        if (!allowance) {
+        const directAllowance = this.executionAllowances.get(key);
+        if (directAllowance) {
+            const consumedDirect = this.consumeExecutionAllowanceCandidate(key, directAllowance, input);
+            if (consumedDirect) {
+                return true;
+            }
+        }
+
+        const matchingRunCandidates = [...this.executionAllowances.entries()]
+            .filter(([candidateKey, allowance]) => candidateKey !== key && allowance.runId === input.runId)
+            .sort((a, b) => a[1].lastSeenAt - b[1].lastSeenAt);
+
+        const matchedCandidates = matchingRunCandidates.filter(([, allowance]) => this.matchesAllowance(allowance, input));
+        if (matchedCandidates.length !== 1) {
             return false;
         }
 
-        const nowTs = this.now();
-        if (allowance.expiresAt < nowTs) {
-            this.executionAllowances.delete(key);
-            return false;
-        }
-
-        let isMatch = false;
-
-        if (allowance.operation === input.operation && input.intent) {
-            isMatch = isEquivalentApprovedIntent(allowance.intent, input.intent);
-        } else if (allowance.operation === input.operation) {
-            isMatch = allowance.targetSignature === signTarget(input.operation, input.target);
-        }
-
-        if (!isMatch) {
-            return false;
-        }
-
-        this.executionAllowances.delete(key);
-        return true;
+        const [matchedKey, matchedAllowance] = matchedCandidates[0];
+        return this.consumeExecutionAllowanceCandidate(matchedKey, matchedAllowance, input);
     }
 
-    // Consumes the fallback tool allowance when the real tool call cannot be correlated through the original run id.
+    /**
+     * Consumes the fallback allowance used by the real tool call when the host cannot preserve the
+     * original `runId` between `berry_check` and execution.
+     *
+     * Session-scoped matches are preferred. A single global match may still be consumed when surface
+     * drift prevents exact correlation. Ambiguous matches always fail closed.
+     */
     public consumeToolExecutionAllowance(input: {
         sessionKey: string;
         operation: VineConfirmOperation;
@@ -667,63 +650,39 @@ export class VineConfirmStateManager {
         intent?: VineIntent;
     }): boolean {
         this.prune();
-        const candidates = [...this.toolExecutionAllowances.entries()]
+        const sessionScopedCandidates = [...this.toolExecutionAllowances.entries()]
             .filter(([, allowance]) => allowance.sessionKey === input.sessionKey)
             .sort((a, b) => a[1].lastSeenAt - b[1].lastSeenAt);
-
-        for (const [key, allowance] of candidates) {
-            const nowTs = this.now();
-            if (allowance.expiresAt < nowTs) {
-                this.toolExecutionAllowances.delete(key);
-                continue;
-            }
-
-            let isMatch = false;
-            if (allowance.operation === input.operation && input.intent) {
-                isMatch = isEquivalentApprovedIntent(allowance.intent, input.intent);
-            } else if (allowance.operation === input.operation) {
-                isMatch = allowance.targetSignature === signTarget(input.operation, input.target);
-            }
-
-            if (!isMatch) {
-                continue;
-            }
-
-            this.toolExecutionAllowances.delete(key);
+        const matchedSessionScoped = sessionScopedCandidates
+            .filter(([, allowance]) => this.matchesAllowance(allowance, input));
+        if (matchedSessionScoped.length === 1) {
+            this.toolExecutionAllowances.delete(matchedSessionScoped[0][0]);
             return true;
         }
 
-        return false;
+        const matchedGlobal = [...this.toolExecutionAllowances.entries()]
+            .sort((a, b) => a[1].lastSeenAt - b[1].lastSeenAt)
+            .filter(([, allowance]) => this.matchesAllowance(allowance, input));
+        if (matchedGlobal.length !== 1) {
+            return false;
+        }
+
+        this.toolExecutionAllowances.delete(matchedGlobal[0][0]);
+        return true;
     }
 
     public resolveLatestChallengeForBinding(
         binding: Omit<VineConfirmBinding, "chatBindingKey" | "riskWindowId">
     ): VineResolvedChallenge | null {
         this.prune();
-        const expectedIntentSignature = binding.intent ? createIntentSignature(binding.intent) : null;
-        const expectedSignature = expectedIntentSignature ? null : signTarget(binding.operation, binding.target);
-        let newest: VineChallengeState | null = null;
-        for (const candidate of this.state.values()) {
-            if (candidate.status !== "pending") {
-                continue;
-            }
-            if (
-                candidate.sessionKey !== binding.sessionKey
-                || candidate.operation !== binding.operation
-            ) {
-                continue;
-            }
-            if (expectedIntentSignature) {
-                if (candidate.intentSignature !== expectedIntentSignature) {
-                    continue;
-                }
-            } else if (candidate.targetSignature !== expectedSignature) {
-                continue;
-            }
-            if (!newest || candidate.createdAt >= newest.createdAt) {
-                newest = candidate;
-            }
-        }
+        const matchingChallenges = this.getActiveChallenges()
+            .filter((candidate) => candidate.status === "pending")
+            .filter((candidate) => this.matchesChallengeBinding(candidate, binding).isMatch);
+        const preferredMatches = matchingChallenges.filter((candidate) => candidate.sessionKey === binding.sessionKey);
+        const candidates = preferredMatches.length > 0 ? preferredMatches : matchingChallenges;
+        const newest = candidates
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .at(0) ?? null;
         if (!newest) {
             return null;
         }
@@ -753,25 +712,44 @@ export class VineConfirmStateManager {
         this.prune();
     }
 
-    public consumeActiveWindowSlot(input: { sessionKey: string; riskWindowId: string }): boolean {
+    /**
+     * Consumes one slot from a one-to-many approval window.
+     *
+     * The window is resolved by exact `sessionKey + riskWindowId` first, then by a shared risk window,
+     * and only optionally by a single global active window. This preserves cross-surface continuity
+     * without turning a window into a broad global permit.
+     */
+    public consumeActiveWindowSlot(input: {
+        sessionKey: string;
+        riskWindowId: string;
+        allowGlobalFallback?: boolean;
+    }): boolean {
         this.prune();
         const windowKey = `${input.sessionKey}::${input.riskWindowId}`;
-        const window = this.windows.get(windowKey);
-        if (!window) {
-            return false;
+        const directWindow = this.windows.get(windowKey);
+        if (directWindow && this.consumeWindowCandidate(windowKey, directWindow)) {
+            return true;
         }
-        const nowTs = this.now();
-        if (window.expiresAt < nowTs || window.remainingActions <= 0) {
-            this.windows.delete(windowKey);
+
+        const sharedRiskMatches = [...this.windows.entries()]
+            .filter(([candidateKey]) => candidateKey !== windowKey)
+            .filter(([, window]) => window.riskWindowId === input.riskWindowId)
+            .sort((a, b) => a[1].lastSeenAt - b[1].lastSeenAt);
+        if (sharedRiskMatches.length === 1 && this.consumeWindowCandidate(sharedRiskMatches[0][0], sharedRiskMatches[0][1])) {
+            return true;
+        }
+
+        if (!input.allowGlobalFallback) {
             return false;
         }
 
-        window.remainingActions -= 1;
-        window.lastSeenAt = nowTs;
-        if (window.remainingActions <= 0) {
-            this.windows.delete(windowKey);
+        const activeWindows = [...this.windows.entries()]
+            .sort((a, b) => a[1].lastSeenAt - b[1].lastSeenAt);
+        if (activeWindows.length !== 1) {
+            return false;
         }
-        return true;
+
+        return this.consumeWindowCandidate(activeWindows[0][0], activeWindows[0][1]);
     }
 
     public getActiveWindowSnapshot(input: {
@@ -872,6 +850,222 @@ export class VineConfirmStateManager {
 
     public size(): number {
         return this.state.size;
+    }
+
+    private getActiveChallenges(): VineChallengeState[] {
+        return [...this.state.values()]
+            .filter((challenge) => isActiveChallengeStatus(challenge.status));
+    }
+
+    private collectChallengesForChatBindings(chatBindingKeys: string[]): VineChallengeState[] {
+        const candidateIds = new Set<string>();
+        for (const chatBindingKey of chatBindingKeys) {
+            const activeIds = this.activeByChatBindingKey.get(chatBindingKey);
+            if (!activeIds) {
+                continue;
+            }
+            for (const id of activeIds) {
+                candidateIds.add(id);
+            }
+        }
+        return [...candidateIds]
+            .map((id) => this.state.get(id))
+            .filter((challenge): challenge is VineChallengeState => Boolean(challenge && isActiveChallengeStatus(challenge.status)));
+    }
+
+    private findCodeMatches(challenges: VineChallengeState[], normalizedCode: string): VineChallengeState[] {
+        return challenges.filter((challenge) => secureEquals(challenge.confirmCode, normalizedCode));
+    }
+
+    private approveWithinCandidates(
+        candidates: VineChallengeState[],
+        confirmCode: string | number,
+        senderId?: string
+    ): VineApproveResult {
+        if (candidates.length === 0) {
+            return { kind: "not_found" };
+        }
+
+        const normalizedCode = normalizeConfirmCodeInput(confirmCode, this.codeLength);
+        if (!this.codePattern.test(normalizedCode)) {
+            return candidates.length === 1
+                ? this.rejectApprovalForChallenge(candidates[0])
+                : { kind: "ambiguous" };
+        }
+
+        const matches = this.findCodeMatches(candidates, normalizedCode);
+        if (matches.length === 1) {
+            return this.approveChallenge(matches[0], senderId);
+        }
+        if (matches.length > 1) {
+            return { kind: "ambiguous" };
+        }
+        return candidates.length === 1
+            ? this.rejectApprovalForChallenge(candidates[0])
+            : { kind: "ambiguous" };
+    }
+
+    private approveChallenge(challenge: VineChallengeState, senderId?: string): VineApproveResult {
+        const nowTs = this.now();
+        if (challenge.expiresAt < nowTs) {
+            this.markExpired(challenge);
+            return { kind: "expired" };
+        }
+
+        challenge.lastSeenAt = nowTs;
+        if (challenge.status === "approved" && challenge.resumeToken) {
+            return {
+                kind: "already_approved",
+                challenge: this.toPendingChallenge(challenge),
+                resumeToken: challenge.resumeToken,
+            };
+        }
+
+        challenge.status = "approved";
+        challenge.approvedAt = nowTs;
+        challenge.approvedBySenderId = senderId?.trim() || undefined;
+        challenge.resumeToken = challenge.resumeToken ?? `vres_${randomUUID().replace(/-/g, "").slice(0, 18)}`;
+
+        return {
+            kind: "approved",
+            challenge: this.toPendingChallenge(challenge),
+            resumeToken: challenge.resumeToken,
+        };
+    }
+
+    private rejectApprovalForChallenge(challenge: VineChallengeState): VineApproveResult {
+        const nowTs = this.now();
+        if (challenge.expiresAt < nowTs) {
+            this.markExpired(challenge);
+            return { kind: "expired" };
+        }
+
+        challenge.attempts += 1;
+        challenge.lastSeenAt = nowTs;
+        if (challenge.attempts >= challenge.maxAttempts) {
+            this.markExpired(challenge);
+            return { kind: "max_attempts_exceeded" };
+        }
+
+        return {
+            kind: "invalid_code",
+            challenge: this.toPendingChallenge(challenge),
+            attemptsRemaining: challenge.maxAttempts - challenge.attempts,
+        };
+    }
+
+    /**
+     * Resolves which approved challenge should authorize the next matching action.
+     *
+     * Exact session matches win. If runtime identity drifted and only one approved challenge remains
+     * plausible for the same action, that challenge may still be used. If more than one approved
+     * challenge matches, resolution stops and returns null.
+     */
+    private resolveApprovedChallengeForBinding(input: {
+        sessionKey: string;
+        operation: VineConfirmOperation;
+        target: string;
+        intent?: VineIntent;
+        rawTarget?: string;
+    }): VineChallengeState | null {
+        const approvedChallenges = this.getActiveChallenges()
+            .filter((challenge) => challenge.status === "approved")
+            .filter((challenge) => this.matchesChallengeBinding(challenge, input).isMatch);
+        if (approvedChallenges.length === 0) {
+            return null;
+        }
+
+        const sessionScoped = approvedChallenges.filter((challenge) => challenge.sessionKey === input.sessionKey);
+        if (sessionScoped.length === 1) {
+            return sessionScoped[0];
+        }
+        if (sessionScoped.length > 1) {
+            return null;
+        }
+
+        return approvedChallenges.length === 1
+            ? approvedChallenges[0]
+            : null;
+    }
+
+    /**
+     * Matches a challenge against a requested action. Intent equality is preferred because it captures
+     * the semantic action that was approved; target-signature matching is the legacy fallback.
+     */
+    private matchesChallengeBinding(
+        challenge: VineChallengeState,
+        binding: Omit<VineConfirmBinding, "chatBindingKey" | "riskWindowId">
+    ): { isMatch: boolean; matchedByIntent: boolean } {
+        if (challenge.operation !== binding.operation) {
+            return { isMatch: false, matchedByIntent: false };
+        }
+        if (binding.intent) {
+            const matchedByIntent = isEquivalentApprovedIntent(challenge.intent, binding.intent);
+            return { isMatch: matchedByIntent, matchedByIntent };
+        }
+        return {
+            isMatch: challenge.targetSignature === signTarget(binding.operation, binding.target),
+            matchedByIntent: false,
+        };
+    }
+
+    /**
+     * Applies the same action-matching rules used for approved challenges to execution allowances.
+     */
+    private matchesAllowance(
+        allowance: Pick<VineExecutionAllowanceState, "operation" | "intent" | "targetSignature" | "expiresAt">,
+        input: {
+            operation: VineConfirmOperation;
+            target: string;
+            intent?: VineIntent;
+        }
+    ): boolean {
+        const nowTs = this.now();
+        if (allowance.expiresAt < nowTs) {
+            return false;
+        }
+        if (allowance.operation !== input.operation) {
+            return false;
+        }
+        if (input.intent) {
+            return isEquivalentApprovedIntent(allowance.intent, input.intent);
+        }
+        return allowance.targetSignature === signTarget(input.operation, input.target);
+    }
+
+    private consumeExecutionAllowanceCandidate(
+        key: string,
+        allowance: VineExecutionAllowanceState,
+        input: {
+            operation: VineConfirmOperation;
+            target: string;
+            intent?: VineIntent;
+        }
+    ): boolean {
+        if (!this.matchesAllowance(allowance, input)) {
+            if (allowance.expiresAt < this.now()) {
+                this.executionAllowances.delete(key);
+            }
+            return false;
+        }
+
+        this.executionAllowances.delete(key);
+        return true;
+    }
+
+    private consumeWindowCandidate(windowKey: string, window: VineWindowState): boolean {
+        const nowTs = this.now();
+        if (window.expiresAt < nowTs || window.remainingActions <= 0) {
+            this.windows.delete(windowKey);
+            return false;
+        }
+
+        window.remainingActions -= 1;
+        window.lastSeenAt = nowTs;
+        if (window.remainingActions <= 0) {
+            this.windows.delete(windowKey);
+        }
+        return true;
     }
 
     private toIssuedChallenge(challenge: VineChallengeState): VineIssuedChallenge {

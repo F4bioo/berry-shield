@@ -15,6 +15,13 @@ interface VineSessionState {
     blockedSensitiveAttemptsCount: number;
 }
 
+export interface VineResolvedRiskState {
+    sessionKey: string;
+    riskWindowId?: string;
+    hasGuardRisk: boolean;
+    hasUnknownSignal: boolean;
+}
+
 interface MarkExternalSignalInput {
     sessionKey: string;
     escalationThreshold: number;
@@ -24,6 +31,10 @@ interface MarkExternalSignalInput {
 
 /**
  * Runtime in-memory state manager for Berry.Vine.
+ *
+ * This manager tracks whether a session is still carrying external-risk state. It does not approve
+ * actions directly; it only keeps the risk markers that later drive `berry_check`, confirmation
+ * windows, and risk resolution when runtime identity drifts across host surfaces.
  */
 export class VineStateManager {
     private readonly state = new Map<string, VineSessionState>();
@@ -37,6 +48,11 @@ export class VineStateManager {
         this.now = now;
     }
 
+    /**
+     * Records a new external signal for the session and escalates into guard mode once the configured
+     * threshold is reached. Each escalation rotates `riskWindowId` so one-to-many confirmation windows
+     * remain bound to the latest external-risk episode instead of leaking across unrelated visits.
+     */
     public markExternalSignal(input: MarkExternalSignalInput): VineSessionState {
         this.prune();
         const nowTs = this.now();
@@ -147,6 +163,11 @@ export class VineStateManager {
         entry.lastSeenAt = this.now();
     }
 
+    /**
+     * Clears sticky external risk only after enough explicit safe human turns have happened and no recent
+     * blocked sensitive attempt is still pending. This prevents risk from disappearing immediately after
+     * a single benign reply while the guarded flow is still active.
+     */
     public tryClearBalancedRisk(sessionKey: string, requiredSafeTurns: number): boolean {
         const entry = this.state.get(sessionKey);
         if (!entry) return false;
@@ -169,6 +190,48 @@ export class VineStateManager {
         const entry = this.state.get(sessionKey);
         if (!entry) return undefined;
         return entry.riskWindowId || undefined;
+    }
+
+    /**
+     * Resolves which session should be treated as carrying the active Vine risk.
+     *
+     * The preferred session wins when it still has guard risk or unknown signals. Otherwise, the manager
+     * only falls back to a global candidate when exactly one risky session remains plausible. More than
+     * one candidate is treated as ambiguous and returns `null`.
+     */
+    public resolveRiskState(preferredSessionKey?: string): VineResolvedRiskState | null {
+        this.prune();
+
+        if (preferredSessionKey) {
+            const preferredEntry = this.state.get(preferredSessionKey);
+            if (preferredEntry) {
+                const hasGuardRisk = preferredEntry.stickyExternalRisk || preferredEntry.forcedGuardTurnsRemaining > 0;
+                const hasUnknownSignal = preferredEntry.unknownSignalsCount > 0;
+                if (hasGuardRisk || hasUnknownSignal) {
+                    return {
+                        sessionKey: preferredSessionKey,
+                        riskWindowId: preferredEntry.riskWindowId || undefined,
+                        hasGuardRisk,
+                        hasUnknownSignal,
+                    };
+                }
+            }
+        }
+
+        const candidates = [...this.state.entries()]
+            .map(([sessionKey, entry]) => ({
+                sessionKey,
+                riskWindowId: entry.riskWindowId || undefined,
+                hasGuardRisk: entry.stickyExternalRisk || entry.forcedGuardTurnsRemaining > 0,
+                hasUnknownSignal: entry.unknownSignalsCount > 0,
+            }))
+            .filter((entry) => entry.hasGuardRisk || entry.hasUnknownSignal);
+
+        if (candidates.length !== 1) {
+            return null;
+        }
+
+        return candidates[0];
     }
 
     public clearRisk(sessionKey: string): void {

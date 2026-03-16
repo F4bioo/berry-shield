@@ -104,19 +104,19 @@ async function handleStatus(wrapper: ConfigWrapper): Promise<void> {
     const vine = await readEffectiveVine(wrapper);
     ui.scaffold({
         header: (s) => s.header("Vine Configuration"),
-        content: (s) => {
-            s.row("mode", vine.mode.toUpperCase());
-            s.row("thresholds.externalSignalsToEscalate", String(vine.thresholds.externalSignalsToEscalate));
-            s.row("thresholds.forcedGuardTurns", String(vine.thresholds.forcedGuardTurns));
-            s.row("retention.maxEntries", String(vine.retention.maxEntries));
-            s.row("retention.ttlSeconds", String(vine.retention.ttlSeconds));
-            s.row("toolAllowlist.count", String(vine.toolAllowlist.length));
-            s.row("confirmation.strategy", vine.confirmation.strategy);
-            s.row("confirmation.codeTtlSeconds", String(vine.confirmation.codeTtlSeconds));
-            s.row("confirmation.maxAttempts", String(vine.confirmation.maxAttempts));
-            s.row("confirmation.windowSeconds", String(vine.confirmation.windowSeconds));
-            s.row("confirmation.maxActionsPerWindow", String(vine.confirmation.maxActionsPerWindow));
-        },
+        content: (s) => s.table([
+            { label: "mode", value: vine.mode.toUpperCase() },
+            { label: "thresholds.externalSignalsToEscalate", value: String(vine.thresholds.externalSignalsToEscalate) },
+            { label: "thresholds.forcedGuardTurns", value: String(vine.thresholds.forcedGuardTurns) },
+            { label: "retention.maxEntries", value: String(vine.retention.maxEntries) },
+            { label: "retention.ttlSeconds", value: String(vine.retention.ttlSeconds) },
+            { label: "toolAllowlist.count", value: String(vine.toolAllowlist.length) },
+            { label: "confirmation.strategy", value: vine.confirmation.strategy },
+            { label: "confirmation.codeTtlSeconds", value: String(vine.confirmation.codeTtlSeconds) },
+            { label: "confirmation.maxAttempts", value: String(vine.confirmation.maxAttempts) },
+            { label: "confirmation.windowSeconds", value: String(vine.confirmation.windowSeconds) },
+            { label: "confirmation.maxActionsPerWindow", value: String(vine.confirmation.maxActionsPerWindow) },
+        ]),
     });
 }
 
@@ -133,17 +133,19 @@ async function handleGet(path: string | undefined, wrapper: ConfigWrapper): Prom
                 s.row(path, JSON.stringify(value));
                 return;
             }
-            s.row("mode", vine.mode);
-            s.row("thresholds.externalSignalsToEscalate", String(vine.thresholds.externalSignalsToEscalate));
-            s.row("thresholds.forcedGuardTurns", String(vine.thresholds.forcedGuardTurns));
-            s.row("retention.maxEntries", String(vine.retention.maxEntries));
-            s.row("retention.ttlSeconds", String(vine.retention.ttlSeconds));
-            s.row("toolAllowlist", JSON.stringify(vine.toolAllowlist));
-            s.row("confirmation.strategy", vine.confirmation.strategy);
-            s.row("confirmation.codeTtlSeconds", String(vine.confirmation.codeTtlSeconds));
-            s.row("confirmation.maxAttempts", String(vine.confirmation.maxAttempts));
-            s.row("confirmation.windowSeconds", String(vine.confirmation.windowSeconds));
-            s.row("confirmation.maxActionsPerWindow", String(vine.confirmation.maxActionsPerWindow));
+            s.table([
+                { label: "mode", value: vine.mode },
+                { label: "thresholds.externalSignalsToEscalate", value: String(vine.thresholds.externalSignalsToEscalate) },
+                { label: "thresholds.forcedGuardTurns", value: String(vine.thresholds.forcedGuardTurns) },
+                { label: "retention.maxEntries", value: String(vine.retention.maxEntries) },
+                { label: "retention.ttlSeconds", value: String(vine.retention.ttlSeconds) },
+                { label: "toolAllowlist", value: JSON.stringify(vine.toolAllowlist) },
+                { label: "confirmation.strategy", value: vine.confirmation.strategy },
+                { label: "confirmation.codeTtlSeconds", value: String(vine.confirmation.codeTtlSeconds) },
+                { label: "confirmation.maxAttempts", value: String(vine.confirmation.maxAttempts) },
+                { label: "confirmation.windowSeconds", value: String(vine.confirmation.windowSeconds) },
+                { label: "confirmation.maxActionsPerWindow", value: String(vine.confirmation.maxActionsPerWindow) },
+            ]);
         },
     });
 }

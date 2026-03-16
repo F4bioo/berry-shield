@@ -148,10 +148,16 @@ export const VINE_CONFIRMATION = {
     CLEANUP_INTERVAL_MS: 30_000,
 } as const;
 
-/** Vine confirmation strategy labels */
+/** Vine confirmation strategy */
 export const VINE_CONFIRMATION_STRATEGY = {
     ONE_TO_ONE: "one_to_one",
     ONE_TO_MANY: "one_to_many",
+} as const;
+
+/** Vine confirmation strategy labels */
+export const VINE_CONFIRMATION_STRATEGY_LABEL = {
+    ONE_TO_ONE: "1:1",
+    ONE_TO_MANY: "1:N",
 } as const;
 
 /** Preserved shared copy for approval-card UI helpers; not injected into the current native Vine runtime path. */

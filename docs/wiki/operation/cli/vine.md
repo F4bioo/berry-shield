@@ -95,7 +95,7 @@ Default:
 - `one_to_many` is the default confirmation strategy.
 
 Operational note:
-- if host/runtime binding is degraded, the visible confirmation path may fall back to an explicit human-confirm-required warning without changing the configured Vine strategy itself.
+- if host/runtime binding is degraded, Vine still uses the same visible code-based confirmation flow without changing the configured confirmation strategy itself.
 
 ## Tuning guide
 

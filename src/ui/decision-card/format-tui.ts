@@ -15,7 +15,6 @@ const STATUS_SYMBOL: Record<DecisionStatus, string> = {
     DENIED: symbols.failure,
     BLOCKED: symbols.failure,
     CONFIRM_REQUIRED: symbols.warning,
-    HUMAN_CONFIRM_REQUIRED: symbols.warning,
 };
 
 const STATUS_COLOR: Record<DecisionStatus, (text: string) => string> = {
@@ -23,7 +22,6 @@ const STATUS_COLOR: Record<DecisionStatus, (text: string) => string> = {
     DENIED: theme.error,
     BLOCKED: theme.error,
     CONFIRM_REQUIRED: theme.warning,
-    HUMAN_CONFIRM_REQUIRED: theme.warning,
 };
 
 function truncateTarget(target: string): string {

@@ -1099,7 +1099,7 @@ describe("Berry.Vine", () => {
         expect(naturalTurn?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
     });
 
-    it("does not approve the same code from a different chat binding", () => {
+    it("approves the same code from a different chat binding when the code uniquely matches", () => {
         const { api, handlers } = createApi();
         const config = createConfig({
             mode: "enforce",
@@ -1142,7 +1142,7 @@ describe("Berry.Vine", () => {
             messages: [],
         }, { sessionKey: "agent:other:main", sessionId: "sid-other", channelId: "webchat" });
 
-        expect(confirmState.getPendingChallengeForSession("agent:main:main")?.status).toBe("pending");
+        expect(confirmState.getPendingChallengeForSession("agent:main:main")?.status).toBe("approved");
         expect(wrongTurn?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
     });
 
@@ -1223,7 +1223,7 @@ describe("Berry.Vine", () => {
         expect(ambiguousTurn?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
     });
 
-    it("does not approve a sparse inbound code when more than one live session matches", () => {
+    it("approves a sparse inbound code by unique challenge match even when more than one live session matches", () => {
         const { api, handlers } = createApi();
         const config = createConfig({
             mode: "enforce",
@@ -1278,7 +1278,7 @@ describe("Berry.Vine", () => {
             messages: [],
         }, { sessionKey: "agent:s2", sessionId: "sid-sparse-b", channelId: "webchat" });
 
-        expect(confirmState.getPendingChallengeForSession("agent:s1")?.status).toBe("pending");
+        expect(confirmState.getPendingChallengeForSession("agent:s1")?.status).toBe("approved");
         expect(confirmState.getPendingChallengeForSession("agent:s2")).toBeNull();
         expect(sparseTurnA?.prependContext ?? "").not.toContain("STATUS: SUCCESS");
         expect(sparseTurnB?.prependContext ?? "").not.toContain("STATUS: SUCCESS");

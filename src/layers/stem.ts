@@ -12,7 +12,7 @@
 import { randomUUID } from "node:crypto";
 import type { AuditBlockEvent } from "../types/audit-event.js";
 import { formatAuditEvent } from "../types/audit-event.js";
-import { AUDIT_DECISIONS, HOOKS, SECURITY_LAYERS } from "../constants.js";
+import { AUDIT_DECISIONS, HOOKS, SECURITY_LAYERS, VINE_CONFIRMATION_STRATEGY_LABEL } from "../constants.js";
 import { appendAuditEvent } from "../audit/writer.js";
 import { notifyPolicyDenied } from "../policy/runtime-state.js";
 import { getSharedVineStateManager } from "../vine/runtime-state.js";
@@ -33,6 +33,7 @@ import {
 import { BERRY_LOG_CATEGORY, berryLog } from "../log/berry-log.js";
 
 type OperationType = "exec" | "read" | "write";
+const DEGRADED_VINE_SESSION_KEY = "degraded:confirm-required";
 
 /** Parameters accepted by the `berry_check` tool. */
 interface BerryCheckParams {
@@ -156,17 +157,19 @@ function emitVineConfirmEvent(
     appendAuditEvent(event);
 }
 
-function buildNativeConfirmAction(confirmCode: string): string {
+function buildNativeConfirmAction(
+    confirmCode: string,
+    confirmation: BerryShieldPluginConfig["vine"]["confirmation"]
+): string {
+    const strategyLine = confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+        ? `This opens a short confirmation window for the next compatible sensitive actions (up to ${confirmation.maxActionsPerWindow} actions within ${confirmation.windowSeconds} seconds).`
+        : "This will allow the pending action once.";
     return [
         "External untrusted content risk (Vine).",
         `Reply with a message containing this 4-digit code: ${confirmCode}`,
-        "This will allow the pending action once.",
+        strategyLine,
         "WARNING: STOP EXECUTION IMMEDIATELY. You MUST WAIT for the user to reply to this challenge before checking other actions or executing any tools.",
     ].join("\n");
-}
-
-function buildDegradedHumanConfirmAction(): string {
-    return "Binding degraded; confirm explicitly to proceed with this single action.";
 }
 
 function resolveBerryCheckRunId(runId: string | undefined): string {
@@ -185,6 +188,18 @@ function emitVineTrace(
     berryLog(api.logger, BERRY_LOG_CATEGORY.LAYER_TRACE, `Berry.Vine ${stage} ${JSON.stringify(payload)}`);
 }
 
+/**
+ * Applies the Vine confirmation gate for `berry_check`.
+ *
+ * This is the bridge between runtime risk state and the confirmation state machine:
+ * - it resolves which session should carry the risk for the current action
+ * - it consumes a previously approved challenge or active one-to-many window when possible
+ * - it issues a new `CONFIRM_REQUIRED` challenge when the action still needs an explicit pause
+ *
+ * Degraded identity still uses the normal confirmation protocol. The flow prefers exact runtime
+ * correlation, but it can fall back to the single plausible risky session/window exposed by the
+ * Vine managers. Ambiguous matches stay blocked.
+ */
 function maybeApplyVineConfirmRequired(
     api: OpenClawPluginApi,
     config: BerryShieldPluginConfig,
@@ -200,7 +215,6 @@ function maybeApplyVineConfirmRequired(
         ttlSeconds: number;
         maxAttempts: number;
     };
-    humanConfirmRequired?: boolean;
     deniedReason?: string;
     confirmationAccepted?: boolean;
     allowedByWindow?: boolean;
@@ -214,42 +228,17 @@ function maybeApplyVineConfirmRequired(
     // Same-command fetch-and-act flows must not bypass confirmation just because no prior session risk exists yet.
     const hasIntrinsicExecRisk = operationForIntent === "exec"
         && hasIntrinsicExternalHostActionRisk(intent);
-    if (!sessionKey) {
-        if (!hasIntrinsicExecRisk && operationForIntent !== "write") {
-            return { requiresConfirmation: false };
-        }
-
-        if (config.mode === "audit") {
-            const event: AuditBlockEvent = {
-                mode: "audit",
-                decision: AUDIT_DECISIONS.WOULD_CONFIRM_REQUIRED,
-                layer: SECURITY_LAYERS.VINE,
-                reason: "external-untrusted instruction risk (binding degraded)",
-                target: target.slice(0, 120),
-                ts: new Date().toISOString(),
-            };
-            berryLog(api.logger, BERRY_LOG_CATEGORY.SECURITY_EVENT, `Berry.Vine: ${formatAuditEvent(event)}`);
-            appendAuditEvent(event);
-            return { requiresConfirmation: false };
-        }
-
-        emitVineConfirmEvent(
-            config,
-            AUDIT_DECISIONS.CONFIRM_REQUIRED,
-            target,
-            "external-untrusted instruction risk (binding degraded)"
-        );
-        return { requiresConfirmation: false, humanConfirmRequired: true };
-    }
-
     const vineState = getSharedVineStateManager(config.vine.retention);
-    const hasGuardRisk = vineState.shouldGuardSensitiveAction(sessionKey);
-    const hasUnknownSignal = vineState.hasUnknownSignal(sessionKey);
+    const resolvedRiskState = vineState.resolveRiskState(sessionKey);
+    const effectiveSessionKey = resolvedRiskState?.sessionKey ?? sessionKey;
+    const hasGuardRisk = resolvedRiskState?.hasGuardRisk ?? false;
+    const hasUnknownSignal = resolvedRiskState?.hasUnknownSignal ?? false;
     const requiresConfirmation = hasIntrinsicExecRisk || (config.vine.mode === "strict"
         ? (hasGuardRisk || hasUnknownSignal)
         : hasGuardRisk);
+    const requiresDegradedConfirmation = requiresConfirmation || operationForIntent === "write";
 
-    if (!requiresConfirmation) {
+    if (!effectiveSessionKey && !requiresDegradedConfirmation) {
         return { requiresConfirmation: false };
     }
 
@@ -258,7 +247,9 @@ function maybeApplyVineConfirmRequired(
             mode: "audit",
             decision: AUDIT_DECISIONS.WOULD_CONFIRM_REQUIRED,
             layer: SECURITY_LAYERS.VINE,
-            reason: "external-untrusted instruction risk (confirm required)",
+            reason: !effectiveSessionKey
+                ? "external-untrusted instruction risk (binding degraded)"
+                : "external-untrusted instruction risk (confirm required)",
             target: target.slice(0, 120),
             ts: new Date().toISOString(),
         };
@@ -268,12 +259,17 @@ function maybeApplyVineConfirmRequired(
     }
 
     const confirmState = getSharedVineConfirmStateManager(config.vine.retention, config.vine.confirmation);
-    const riskWindowId = vineState.getRiskWindowId(sessionKey) ?? "risk-window-default";
+    const stateSessionKey = effectiveSessionKey ?? DEGRADED_VINE_SESSION_KEY;
+    const riskWindowId = resolvedRiskState?.riskWindowId
+        ?? (effectiveSessionKey ? vineState.getRiskWindowId(effectiveSessionKey) : undefined)
+        ?? "risk-window-default";
     const normalizedRunId = resolveBerryCheckRunId(runId);
-    const pendingChallenge = confirmState.getPendingChallengeForSession(sessionKey);
-    const activeWindow = confirmState.getActiveWindowSnapshot({ sessionKey, riskWindowId });
+    const pendingChallenge = confirmState.getPendingChallengeForSession(stateSessionKey);
+    const activeWindow = confirmState.getActiveWindowSnapshot({ sessionKey: stateSessionKey, riskWindowId });
     emitVineTrace(api, "gate-entry", {
-        sessionKey,
+        requestedSessionKey: sessionKey ?? null,
+        effectiveSessionKey: effectiveSessionKey ?? null,
+        stateSessionKey,
         operation: operationForIntent,
         target,
         runId: normalizedRunId,
@@ -283,10 +279,13 @@ function maybeApplyVineConfirmRequired(
         pendingTarget: pendingChallenge?.target ?? null,
         activeWindowRemainingActions: activeWindow?.remainingActions ?? null,
         hasIntrinsicExecRisk,
+        hasGuardRisk,
+        hasUnknownSignal,
+        usedRiskFallback: resolvedRiskState?.sessionKey !== undefined && resolvedRiskState.sessionKey !== sessionKey,
     });
     if (normalizedRunId) {
         const approved = confirmState.consumeApprovedForBinding({
-            sessionKey,
+            sessionKey: stateSessionKey,
             operation: operationForIntent,
             target,
             runId: normalizedRunId,
@@ -297,7 +296,7 @@ function maybeApplyVineConfirmRequired(
             if (approved.resumeToken) {
                 // Bridge berry_check approval to the next real tool call even when runtime run ids diverge.
                 confirmState.grantToolExecutionAllowance({
-                    sessionKey,
+                    sessionKey: stateSessionKey,
                     operation: operationForIntent,
                     target,
                     resumeToken: approved.resumeToken,
@@ -307,14 +306,16 @@ function maybeApplyVineConfirmRequired(
             }
             if (config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY) {
                 confirmState.openWindowAfterConfirmation({
-                    sessionKey,
+                    sessionKey: stateSessionKey,
                     riskWindowId,
                     windowSeconds: config.vine.confirmation.windowSeconds,
                     maxActionsPerWindow: config.vine.confirmation.maxActionsPerWindow,
                 });
             }
             emitVineTrace(api, "gate-approved", {
-                sessionKey,
+                requestedSessionKey: sessionKey ?? null,
+                effectiveSessionKey: effectiveSessionKey ?? null,
+                stateSessionKey,
                 operation: operationForIntent,
                 target,
                 runId: normalizedRunId,
@@ -331,12 +332,16 @@ function maybeApplyVineConfirmRequired(
     }
 
     if (config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY) {
-        const consumedWindow = confirmState.consumeActiveWindowSlot({ sessionKey, riskWindowId });
+        const consumedWindow = confirmState.consumeActiveWindowSlot({
+            sessionKey: stateSessionKey,
+            riskWindowId,
+            allowGlobalFallback: effectiveSessionKey !== sessionKey,
+        });
         if (consumedWindow) {
             const resumeToken = `vwin_${normalizedRunId}`;
             if (normalizedRunId) {
                 confirmState.grantExecutionAllowance({
-                    sessionKey,
+                    sessionKey: stateSessionKey,
                     runId: normalizedRunId,
                     operation: operationForIntent,
                     target,
@@ -346,7 +351,7 @@ function maybeApplyVineConfirmRequired(
                 });
             }
             confirmState.grantToolExecutionAllowance({
-                sessionKey,
+                sessionKey: stateSessionKey,
                 operation: operationForIntent,
                 target,
                 resumeToken,
@@ -354,7 +359,9 @@ function maybeApplyVineConfirmRequired(
                 rawTarget: target,
             });
             emitVineTrace(api, "gate-window-allow", {
-                sessionKey,
+                requestedSessionKey: sessionKey ?? null,
+                effectiveSessionKey: effectiveSessionKey ?? null,
+                stateSessionKey,
                 operation: operationForIntent,
                 target,
                 runId: normalizedRunId,
@@ -364,7 +371,9 @@ function maybeApplyVineConfirmRequired(
             return { requiresConfirmation: false, confirmationAccepted: true, allowedByWindow: true };
         }
         emitVineTrace(api, "gate-window-miss", {
-            sessionKey,
+            requestedSessionKey: sessionKey ?? null,
+            effectiveSessionKey: effectiveSessionKey ?? null,
+            stateSessionKey,
             operation: operationForIntent,
             target,
             runId: normalizedRunId,
@@ -373,9 +382,11 @@ function maybeApplyVineConfirmRequired(
     }
 
     const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
-    const binding = sessionBindings.getBindingForSession(sessionKey);
+    const binding = effectiveSessionKey
+        ? sessionBindings.getBindingForSession(effectiveSessionKey)
+        : null;
     const challenge = confirmState.issueChallenge({
-        sessionKey,
+        sessionKey: stateSessionKey,
         chatBindingKey: binding?.chatBindingKey,
         operation: operationForIntent,
         target,
@@ -384,7 +395,9 @@ function maybeApplyVineConfirmRequired(
         riskWindowId,
     });
     emitVineTrace(api, "gate-challenge-issued", {
-        sessionKey,
+        requestedSessionKey: sessionKey ?? null,
+        effectiveSessionKey: effectiveSessionKey ?? null,
+        stateSessionKey,
         operation: operationForIntent,
         target,
         runId: normalizedRunId,
@@ -399,7 +412,9 @@ function maybeApplyVineConfirmRequired(
         config,
         AUDIT_DECISIONS.CONFIRM_REQUIRED,
         target,
-        "external-untrusted instruction risk"
+        effectiveSessionKey
+            ? "external-untrusted instruction risk"
+            : "external-untrusted instruction risk (binding degraded)"
     );
     return { requiresConfirmation: true, challenge };
 }
@@ -410,6 +425,10 @@ function maybeApplyVineConfirmRequired(
  * - Auto-injects `sessionKey`/`runId` into `berry_check` params from runtime context.
  * - Enforces destructive/sensitive checks and emits decision-card responses.
  * - Bridges Vine confirm-required state when external-risk sensitive actions are requested.
+ *
+ * Stem is the policy entrypoint for `berry_check`: it normalizes runtime identity, applies static
+ * policy decisions, and then hands exec/write actions to Vine so approval state can survive host
+ * drift between chat surfaces and real tool execution.
  */
 export function registerBerryStem(
     api: OpenClawPluginApi,
@@ -433,6 +452,12 @@ export function registerBerryStem(
             const runtimeChannelId = readOptionalContextString(ctx, "channelId");
             const runtimeAccountId = readOptionalContextString(ctx, "accountId");
             const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
+            /**
+             * Berry tries to preserve a stable session identity for `berry_check` even when the host
+             * omits `sessionKey` from the hook context. This lets later confirmation replies and tool
+             * handoffs correlate back to the same runtime session whenever a single plausible identity
+             * can be reconstructed from session ids or chat bindings.
+             */
             const resolvedRuntimeSessionKey = (() => {
                 if (rawRuntimeSessionKey) {
                     return rawRuntimeSessionKey;
@@ -632,25 +657,6 @@ export function registerBerryStem(
                         details: { status: "denied", reason: vineConfirm.deniedReason },
                     };
                 }
-                if (vineConfirm.humanConfirmRequired) {
-                    return {
-                        content: [{
-                            type: "text",
-                            text: formatCardForToolResult({
-                                status: "HUMAN_CONFIRM_REQUIRED",
-                                layer: "Vine",
-                                operation,
-                                target,
-                                reason: "External untrusted content risk (Vine)",
-                                action: buildDegradedHumanConfirmAction(),
-                            }),
-                        }],
-                        details: {
-                            status: "allowed_with_warning",
-                            reason: "binding degraded; explicit human confirmation required",
-                        },
-                    };
-                }
                 if (vineConfirm.confirmationAccepted) {
                     emitVineConfirmEvent(
                         config,
@@ -671,11 +677,20 @@ export function registerBerryStem(
                                 operation,
                                 target,
                                 reason: "External untrusted content risk (Vine)",
-                                action: buildNativeConfirmAction(vineConfirm.challenge.confirmCode),
+                                action: buildNativeConfirmAction(vineConfirm.challenge.confirmCode, config.vine.confirmation),
                                 confirm: {
                                     confirmCode: vineConfirm.challenge.confirmCode,
                                     ttlSeconds: vineConfirm.challenge.ttlSeconds,
                                     maxAttempts: vineConfirm.challenge.maxAttempts,
+                                    strategyLabel: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                        ? VINE_CONFIRMATION_STRATEGY_LABEL.ONE_TO_MANY
+                                        : VINE_CONFIRMATION_STRATEGY_LABEL.ONE_TO_ONE,
+                                    windowSeconds: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                        ? config.vine.confirmation.windowSeconds
+                                        : undefined,
+                                    maxActionsPerWindow: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                        ? config.vine.confirmation.maxActionsPerWindow
+                                        : undefined,
                                 },
                             }),
                         }],
@@ -685,6 +700,16 @@ export function registerBerryStem(
                             confirmCode: vineConfirm.challenge.confirmCode,
                             ttlSeconds: vineConfirm.challenge.ttlSeconds,
                             maxAttempts: vineConfirm.challenge.maxAttempts,
+                            confirmationStrategy: config.vine.confirmation.strategy,
+                            confirmationStrategyLabel: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                ? VINE_CONFIRMATION_STRATEGY_LABEL.ONE_TO_MANY
+                                : VINE_CONFIRMATION_STRATEGY_LABEL.ONE_TO_ONE,
+                            windowSeconds: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                ? config.vine.confirmation.windowSeconds
+                                : undefined,
+                            maxActionsPerWindow: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                ? config.vine.confirmation.maxActionsPerWindow
+                                : undefined,
                         },
                     };
                 }
@@ -758,25 +783,6 @@ export function registerBerryStem(
                             details: { status: "denied", reason: vineConfirm.deniedReason },
                         };
                     }
-                    if (vineConfirm.humanConfirmRequired) {
-                        return {
-                            content: [{
-                                type: "text",
-                                text: formatCardForToolResult({
-                                    status: "HUMAN_CONFIRM_REQUIRED",
-                                    layer: "Vine",
-                                    operation,
-                                    target,
-                                    reason: "External untrusted content risk (Vine)",
-                                    action: buildDegradedHumanConfirmAction(),
-                                }),
-                            }],
-                            details: {
-                                status: "allowed_with_warning",
-                                reason: "binding degraded; explicit human confirmation required",
-                            },
-                        };
-                    }
                     if (vineConfirm.confirmationAccepted) {
                         emitVineConfirmEvent(
                             config,
@@ -797,11 +803,20 @@ export function registerBerryStem(
                                     operation,
                                     target,
                                     reason: "External untrusted content risk (Vine)",
-                                    action: buildNativeConfirmAction(vineConfirm.challenge.confirmCode),
+                                    action: buildNativeConfirmAction(vineConfirm.challenge.confirmCode, config.vine.confirmation),
                                     confirm: {
                                         confirmCode: vineConfirm.challenge.confirmCode,
                                         ttlSeconds: vineConfirm.challenge.ttlSeconds,
                                         maxAttempts: vineConfirm.challenge.maxAttempts,
+                                        strategyLabel: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                            ? VINE_CONFIRMATION_STRATEGY_LABEL.ONE_TO_MANY
+                                            : VINE_CONFIRMATION_STRATEGY_LABEL.ONE_TO_ONE,
+                                        windowSeconds: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                            ? config.vine.confirmation.windowSeconds
+                                            : undefined,
+                                        maxActionsPerWindow: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                            ? config.vine.confirmation.maxActionsPerWindow
+                                            : undefined,
                                     },
                                 }),
                             }],
@@ -811,6 +826,16 @@ export function registerBerryStem(
                                 confirmCode: vineConfirm.challenge.confirmCode,
                                 ttlSeconds: vineConfirm.challenge.ttlSeconds,
                                 maxAttempts: vineConfirm.challenge.maxAttempts,
+                                confirmationStrategy: config.vine.confirmation.strategy,
+                                confirmationStrategyLabel: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                    ? VINE_CONFIRMATION_STRATEGY_LABEL.ONE_TO_MANY
+                                    : VINE_CONFIRMATION_STRATEGY_LABEL.ONE_TO_ONE,
+                                windowSeconds: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                    ? config.vine.confirmation.windowSeconds
+                                    : undefined,
+                                maxActionsPerWindow: config.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY
+                                    ? config.vine.confirmation.maxActionsPerWindow
+                                    : undefined,
                             },
                         };
                     }

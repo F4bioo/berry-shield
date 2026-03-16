@@ -1,3 +1,17 @@
+/**
+ * Berry.Vine - External Risk Pause Layer
+ *
+ * Tracks external-content exposure and requires human confirmation before the
+ * next sensitive action (`exec` or `write`) continues.
+ *
+ * Uses runtime hooks to observe external tool activity, maintain session risk,
+ * and correlate confirmation replies back to pending Vine challenges.
+ *
+ * NOTE: Vine does not judge whether content is good or bad.
+ * It only pauses after untrusted external exposure so the next sensitive action
+ * can be confirmed by the user before execution continues.
+ */
+
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type { BerryShieldPluginConfig } from "../types/config.js";
 import type { AuditBlockEvent } from "../types/audit-event.js";
@@ -127,6 +141,13 @@ function isSensitiveAction(toolName: string, params: Record<string, unknown>): {
     return { sensitive: false, target: toolName };
 }
 
+/**
+ * Resolves the best available runtime session identity for Vine state.
+ *
+ * Vine prefers the explicit runtime `sessionKey`, then falls back to host identifiers such as
+ * `sessionId` or `conversationId`. Returning `global_session` means no stable session identity
+ * could be reconstructed from the current hook payload alone.
+ */
 function resolveSessionKey(input: SessionResolutionInput): string {
     return input.sessionKey ?? input.sessionId ?? input.conversationId ?? "global_session";
 }
@@ -140,6 +161,13 @@ type ApprovalCodeParseResult =
     | { kind: "single"; code: string }
     | { kind: "multiple"; codes: string[] };
 
+/**
+ * Extracts a formal Vine approval reply from a human message.
+ *
+ * Approval remains deterministic by requiring a single isolated numeric code. Surrounding text is
+ * tolerated, but multiple codes are treated as ambiguous and non-code messages do not count as
+ * formal approval input.
+ */
 function parseApprovalCodeMessage(content: string): ApprovalCodeParseResult {
     // Human replies may include surrounding text, but approval stays explicit by requiring exactly one isolated code.
     const pattern = new RegExp(`(?<!\\d)\\d{${VINE_CONFIRMATION.CODE_LENGTH}}(?!\\d)`, "g");
@@ -212,6 +240,11 @@ export function registerBerryVine(
         return resolved || resolveSessionKey(input);
     }
 
+    /**
+     * Balanced mode clears sticky risk only after the runtime state manager sees enough safe human
+     * interaction. The call sites intentionally centralize that relaxation so it only happens on
+     * turn/message boundaries, not in the middle of a sensitive-action decision.
+     */
     function maybeRelaxBalancedRisk(sessionKey: string): void {
         if (config.vine.mode !== "balanced") return;
         vineState.tryClearBalancedRisk(sessionKey, requiredSafeTurns);
@@ -223,6 +256,8 @@ export function registerBerryVine(
             if (isSyntheticBerrySystemSender(event.from)) {
                 return;
             }
+            // Rebuild inbound identity from sparse host metadata so confirmation replies can still map
+            // back to the original runtime session or the single plausible chat binding.
             const resolutionInput: SessionResolutionInput = {
                 sessionKey: readOptionalContextString(ctx, "sessionKey"),
                 sessionId: readOptionalContextString(ctx, "sessionId"),
@@ -285,50 +320,32 @@ export function registerBerryVine(
 
             const approvalInput = parseApprovalCodeMessage(event.content);
             const activeChallenge = vineConfirmState.getPendingChallengeForSession(sessionKey);
+            const chatBindingKeys = [...new Set([
+                binding?.chatBindingKey,
+                inboundChatBindingKey ?? undefined,
+            ].filter((value): value is string => Boolean(value)))];
             let approvedOnCurrentTurn = false;
             emitVineTrace(api, "message-received", {
                 sessionKey,
-                chatBindingKey: binding?.chatBindingKey ?? inboundChatBindingKey,
+                chatBindingKey: chatBindingKeys[0] ?? null,
                 senderId: event.from ?? null,
                 approvalInputKind: approvalInput.kind,
                 pendingConfirmId: activeChallenge?.confirmId ?? null,
                 pendingStatus: activeChallenge?.status ?? null,
             });
 
-            if (activeChallenge && approvalInput.kind === "single") {
-                const chatBindingKeys = [...new Set([
-                    binding?.chatBindingKey,
-                    inboundChatBindingKey ?? undefined,
-                ].filter((value): value is string => Boolean(value)))];
-                let approval;
-                let authPath = "binding_1to1";
-
-                if (chatBindingKeys.length > 0) {
-                    approval = vineConfirmState.approvePendingByChatBindingKeys({
-                        chatBindingKeys,
-                        confirmCode: approvalInput.code,
-                        senderId: event.from,
-                    });
-                    if (approval.kind === "not_found" && sessionKey !== "global_session") {
-                        // Session-resolved approval must still work after chat binding promotion enriches the runtime context.
-                        approval = vineConfirmState.approvePendingForSession({
-                            sessionKey,
-                            confirmCode: approvalInput.code,
-                            senderId: event.from,
-                        });
-                        authPath = "session_fallback";
-                    }
-                } else if (sessionKey !== "global_session") {
-                    approval = vineConfirmState.approvePendingForSession({
-                        sessionKey,
-                        confirmCode: approvalInput.code,
-                        senderId: event.from,
-                    });
-                    authPath = "session_only";
-                } else {
-                    approval = { kind: "not_found" } as const;
-                    authPath = "unbound";
-                }
+            if (approvalInput.kind === "single") {
+                const approval = vineConfirmState.approvePendingByCode({
+                    confirmCode: approvalInput.code,
+                    senderId: event.from,
+                    sessionKey: sessionKey !== "global_session" ? sessionKey : undefined,
+                    chatBindingKeys,
+                });
+                const authPath = chatBindingKeys.length > 0
+                    ? "code_with_binding_hints"
+                    : sessionKey !== "global_session"
+                        ? "code_with_session_hint"
+                        : "code_global";
 
                 berryLog(
                     api.logger,
@@ -352,10 +369,10 @@ export function registerBerryVine(
                 if (approval.kind === "approved" || approval.kind === "already_approved") {
                     approvedOnCurrentTurn = true;
                 }
-            } else if (activeChallenge && approvalInput.kind === "multiple") {
+            } else if (approvalInput.kind === "multiple") {
                 emitVineTrace(api, "message-approval-result", {
                     sessionKey,
-                    chatBindingKey: binding?.chatBindingKey ?? null,
+                    chatBindingKey: chatBindingKeys[0] ?? null,
                     result: "multiple_candidates",
                     candidateCount: approvalInput.codes.length,
                 });
@@ -453,9 +470,12 @@ export function registerBerryVine(
         { priority: 150 }
     );
 
-    api.on(
+            api.on(
         HOOKS.BEFORE_TOOL_CALL,
         (event, ctx) => {
+            // This hook is the runtime enforcement counterpart to `berry_check`: it marks external
+            // exposure, consumes any pending allowances created by Stem/Vine confirmation, and only
+            // blocks when external-risk state still applies to the requested sensitive action.
             const resolutionInput: SessionResolutionInput = {
                 sessionKey: ctx.sessionKey,
                 sessionId: readOptionalContextString(ctx, "sessionId"),

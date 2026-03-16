@@ -11,8 +11,7 @@ export type DecisionStatus =
     | "ALLOWED"
     | "DENIED"
     | "BLOCKED"
-    | "CONFIRM_REQUIRED"
-    | "HUMAN_CONFIRM_REQUIRED";
+    | "CONFIRM_REQUIRED";
 
 /** Layers that produce user-visible decision messages. */
 export type DecisionLayer = "Stem" | "Thorn" | "Vine";
@@ -22,6 +21,9 @@ export interface ConfirmDetails {
     readonly confirmCode: string;
     readonly ttlSeconds: number;
     readonly maxAttempts: number;
+    readonly strategyLabel?: "1:1" | "1:N";
+    readonly windowSeconds?: number;
+    readonly maxActionsPerWindow?: number;
     readonly attemptsRemaining?: number;
     readonly invalidCode?: boolean;
 }

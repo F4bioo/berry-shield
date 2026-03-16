@@ -15,7 +15,6 @@ const STATUS_ICON: Record<DecisionStatus, string> = {
     DENIED: "✗",
     BLOCKED: "✗",
     CONFIRM_REQUIRED: "!",
-    HUMAN_CONFIRM_REQUIRED: "!",
 };
 
 function resolveLayer(card: DecisionCard): string {
@@ -67,6 +66,12 @@ export function formatCardForToolResult(card: DecisionCard): string {
         lines.push(`CONFIRM_CODE: ${card.confirm.confirmCode}`);
         lines.push(`TTL_SECONDS: ${card.confirm.ttlSeconds}`);
         lines.push(`MAX_ATTEMPTS: ${card.confirm.maxAttempts}`);
+        if (card.confirm.strategyLabel) {
+            lines.push(`CONFIRM_STRATEGY: ${card.confirm.strategyLabel}`);
+        }
+        if (typeof card.confirm.windowSeconds === "number") {
+            lines.push(`WINDOW_SECONDS: ${card.confirm.windowSeconds}`);
+        }
         if (typeof card.confirm.attemptsRemaining === "number") {
             lines.push(`ATTEMPTS_REMAINING: ${card.confirm.attemptsRemaining}`);
         }
@@ -84,8 +89,6 @@ export function formatCardForToolResult(card: DecisionCard): string {
             : "";
         lines.push(`Your session is marked as external-untrusted.`);
         lines.push(`Reply with a message containing ${card.confirm?.confirmCode ?? "****"} to proceed once.${retryHint}`);
-    } else if (card.status === "HUMAN_CONFIRM_REQUIRED") {
-        lines.push("Human confirmation is required before proceeding.");
     } else if (card.status === "DENIED") {
         lines.push(`This operation was denied by security policy.`);
     } else if (card.status === "BLOCKED") {
