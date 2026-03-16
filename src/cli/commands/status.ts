@@ -80,9 +80,9 @@ export async function statusCommand(context: OpenClawPluginCliContext, wrapper: 
                 s.spacer();
                 s.section("Vine Confirmation");
                 s.table([
-                    { label: "Confirmation Strategy", value: shieldConfig.vine.confirmation.strategy.toUpperCase() },
-                    { label: "ONE_TO_ONE", value: shieldConfig.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE ? theme.success("ACTIVE") : theme.muted("OFF") },
-                    { label: "ONE_TO_MANY", value: shieldConfig.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY ? theme.success("ACTIVE") : theme.muted("OFF") },
+                    { label: "Confirmation Strategy", value: shieldConfig.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY ? "1:N" : "1:1" },
+                    { label: "1:1", value: shieldConfig.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_ONE ? theme.success("ACTIVE") : theme.muted("OFF") },
+                    { label: "1:N", value: shieldConfig.vine.confirmation.strategy === VINE_CONFIRMATION_STRATEGY.ONE_TO_MANY ? theme.success("ACTIVE") : theme.muted("OFF") },
                     { label: "Code TTL (sec)", value: String(shieldConfig.vine.confirmation.codeTtlSeconds) },
                     { label: "Max Attempts", value: String(shieldConfig.vine.confirmation.maxAttempts) },
                     { label: "Window (sec)", value: String(shieldConfig.vine.confirmation.windowSeconds) },

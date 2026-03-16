@@ -76,6 +76,7 @@ describe("decision-card / format-text", () => {
                     confirmCode: "8750",
                     ttlSeconds: 90,
                     maxAttempts: 3,
+                    strategyLabel: "1:1",
                 },
             };
             const result = formatCardForToolResult(card);
@@ -85,6 +86,33 @@ describe("decision-card / format-text", () => {
             expect(result).toContain("MAX_ATTEMPTS: 3");
             expect(result).toContain("Reply with a message containing 8750 to proceed once.");
             expect(result).not.toContain("ATTEMPTS_REMAINING:");
+        });
+
+        it("renders CONFIRM_REQUIRED one_to_many strategy details", () => {
+            const card: DecisionCard = {
+                status: "CONFIRM_REQUIRED",
+                layer: "Vine",
+                operation: "write",
+                target: "/tmp/proof.txt",
+                reason: "External untrusted content risk (Vine)",
+                action: [
+                    "External untrusted content risk (Vine).",
+                    "Reply with a message containing this 4-digit code: 8750",
+                    "This opens a short confirmation window for the next compatible sensitive actions (up to 2 actions within 120 seconds).",
+                ].join("\n"),
+                confirm: {
+                    confirmCode: "8750",
+                    ttlSeconds: 90,
+                    maxAttempts: 3,
+                    strategyLabel: "1:N",
+                    windowSeconds: 120,
+                    maxActionsPerWindow: 2,
+                },
+            };
+            const result = formatCardForToolResult(card);
+            expect(result).toContain("CONFIRM_STRATEGY: 1:N");
+            expect(result).toContain("WINDOW_SECONDS: 120");
+            expect(result).toContain("This opens a short confirmation window for the next compatible sensitive actions");
         });
 
         it("renders CONFIRM_REQUIRED with retry hint on invalid code", () => {
@@ -105,21 +133,6 @@ describe("decision-card / format-text", () => {
             expect(result).toContain("ATTEMPTS_REMAINING: 2");
             expect(result).toContain("Last code was invalid.");
             expect(result).toContain("Attempts remaining: 2.");
-        });
-
-        it("renders HUMAN_CONFIRM_REQUIRED with explicit degraded-binding action", () => {
-            const card: DecisionCard = {
-                status: "HUMAN_CONFIRM_REQUIRED",
-                layer: "Vine",
-                operation: "write",
-                target: "/tmp/proof.txt",
-                reason: "External untrusted content risk (Vine)",
-                action: "Binding degraded; confirm explicitly to proceed with this single action.",
-            };
-            const result = formatCardForToolResult(card);
-            expect(result).toContain("STATUS: HUMAN_CONFIRM_REQUIRED !");
-            expect(result).toContain("REASON: External untrusted content risk (Vine)");
-            expect(result).toContain("Binding degraded; confirm explicitly to proceed with this single action.");
         });
 
         it("omits optional fields when absent", () => {
@@ -335,18 +348,6 @@ describe("decision-card / format-tui", () => {
             expect(result).toContain("4321");
             expect(result).toContain("90s");
             expect(result).toContain("2 remaining");
-        });
-
-        it("renders HUMAN_CONFIRM_REQUIRED with warning styling", () => {
-            const card: DecisionCard = {
-                status: "HUMAN_CONFIRM_REQUIRED",
-                layer: "Vine",
-                reason: "External untrusted content risk (Vine)",
-                action: "Binding degraded; confirm explicitly to proceed with this single action.",
-            };
-            const result = formatCardForTui(card);
-            expect(result).toContain("HUMAN_CONFIRM_REQUIRED");
-            expect(result).toContain("Binding degraded; confirm explicitly to proceed with this single action.");
         });
 
         it("truncates long target", () => {

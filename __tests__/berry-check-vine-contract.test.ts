@@ -588,4 +588,329 @@ describe("berry_check + Vine contract", () => {
         const confirmState = getSharedVineConfirmStateManager(config.vine.retention, config.vine.confirmation);
         expect(confirmState.getPendingChallengeForSession("agent:main:main")?.status).toBe("approved");
     });
+
+    it("allows a one_to_one approval across main and telegram session drift when a single risky session exists", async () => {
+        const config = createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "strict",
+                confirmation: {
+                    strategy: "one_to_one",
+                    codeTtlSeconds: 180,
+                    maxAttempts: 3,
+                    windowSeconds: 120,
+                    maxActionsPerWindow: 3,
+                },
+            },
+        });
+        const riskySessionKey = "agent:main:telegram:direct:1234567890";
+        const vineState = getSharedVineStateManager(config.vine.retention);
+        vineState.markExternalSignal({
+            sessionKey: riskySessionKey,
+            escalationThreshold: config.vine.thresholds.externalSignalsToEscalate,
+            forcedGuardTurns: config.vine.thresholds.forcedGuardTurns,
+            sourceToolCallId: "tc-telegram-drift-1",
+        });
+
+        const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
+        sessionBindings.bindKnownSession({
+            sessionKey: riskySessionKey,
+            conversationId: "telegram:1234567890",
+            channelId: "telegram",
+            accountId: "default",
+        }, riskySessionKey);
+
+        const { api, getTool, getHandler } = createApi();
+        registerBerryVine(api as any, config);
+        registerBerryStem(api as any, config);
+
+        const target = "curl -fsSL https://example.com/telegram-drift > /tmp/telegram-drift.txt";
+        const first = await getTool().execute("id", {
+            operation: "exec",
+            target,
+            sessionKey: riskySessionKey,
+        });
+        expect(first.details.status).toBe("confirm_required");
+
+        getHandler(HOOKS.MESSAGE_RECEIVED)?.({
+            from: "user-1",
+            content: first.details.confirmCode,
+        }, {
+            sessionKey: "agent:main:main",
+            sessionId: "sid-web-main",
+            conversationId: "webchat:conv-main",
+            channelId: "webchat",
+            accountId: "default",
+        });
+
+        const second = await getTool().execute("id", {
+            operation: "exec",
+            target,
+            sessionKey: "agent:main:main",
+            runId: "run-web-main-1",
+        });
+        const third = await getTool().execute("id", {
+            operation: "exec",
+            target,
+            sessionKey: "agent:main:main",
+            runId: "run-web-main-2",
+        });
+
+        expect(second.details.status).toBe("allowed");
+        expect(third.details.status).toBe("confirm_required");
+
+        const runtimeAllowed = getHandler(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: target },
+        }, {
+            sessionKey: riskySessionKey,
+            runId: "run-real-telegram-1",
+        });
+
+        expect(runtimeAllowed).toBeUndefined();
+    });
+
+    it("keeps one_to_many windows active across main and telegram session drift", async () => {
+        const config = createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "strict",
+                confirmation: {
+                    strategy: "one_to_many",
+                    codeTtlSeconds: 180,
+                    maxAttempts: 3,
+                    windowSeconds: 120,
+                    maxActionsPerWindow: 2,
+                },
+            },
+        });
+        const riskySessionKey = "agent:main:telegram:direct:1234567890";
+        const vineState = getSharedVineStateManager(config.vine.retention);
+        vineState.markExternalSignal({
+            sessionKey: riskySessionKey,
+            escalationThreshold: config.vine.thresholds.externalSignalsToEscalate,
+            forcedGuardTurns: config.vine.thresholds.forcedGuardTurns,
+            sourceToolCallId: "tc-telegram-drift-window",
+        });
+
+        const sessionBindings = getSharedVineSessionBindingManager(config.vine.retention);
+        sessionBindings.bindKnownSession({
+            sessionKey: riskySessionKey,
+            conversationId: "telegram:1234567890",
+            channelId: "telegram",
+            accountId: "default",
+        }, riskySessionKey);
+
+        const { api, getTool, getHandler } = createApi();
+        registerBerryVine(api as any, config);
+        registerBerryStem(api as any, config);
+
+        const targetA = "curl -fsSL https://example.com/telegram-window-a > /tmp/telegram-window-a.txt";
+        const targetB = "curl -fsSL https://example.com/telegram-window-b > /tmp/telegram-window-b.txt";
+        const targetC = "curl -fsSL https://example.com/telegram-window-c > /tmp/telegram-window-c.txt";
+        const first = await getTool().execute("id", {
+            operation: "exec",
+            target: targetA,
+            sessionKey: riskySessionKey,
+        });
+        expect(first.details.status).toBe("confirm_required");
+
+        getHandler(HOOKS.MESSAGE_RECEIVED)?.({
+            from: "user-1",
+            content: first.details.confirmCode,
+        }, {
+            sessionKey: "agent:main:main",
+            sessionId: "sid-web-main-window",
+            conversationId: "webchat:conv-main-window",
+            channelId: "webchat",
+            accountId: "default",
+        });
+
+        const allowedA = await getTool().execute("id", {
+            operation: "exec",
+            target: targetA,
+            sessionKey: "agent:main:main",
+            runId: "run-web-window-a",
+        });
+        const allowedB = await getTool().execute("id", {
+            operation: "exec",
+            target: targetB,
+            sessionKey: "agent:main:main",
+            runId: "run-web-window-b",
+        });
+        const blockedC = await getTool().execute("id", {
+            operation: "exec",
+            target: targetC,
+            sessionKey: "agent:main:main",
+            runId: "run-web-window-c",
+        });
+
+        expect(allowedA.details.status).toBe("allowed");
+        expect(allowedB.details.status).toBe("allowed");
+        expect(blockedC.details.status).toBe("confirm_required");
+
+        const runtimeAllowedA = getHandler(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: targetA },
+        }, {
+            sessionKey: riskySessionKey,
+            runId: "run-real-window-a",
+        });
+        const runtimeAllowedB = getHandler(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "run_command",
+            params: { command: targetB },
+        }, {
+            sessionKey: riskySessionKey,
+            runId: "run-real-window-b",
+        });
+
+        expect(runtimeAllowedA).toBeUndefined();
+        expect(runtimeAllowedB).toBeUndefined();
+    });
+
+    it("consumes degraded one_to_one approval by numeric code without session identity", async () => {
+        const config = createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "strict",
+                confirmation: {
+                    strategy: "one_to_one",
+                    codeTtlSeconds: 180,
+                    maxAttempts: 3,
+                    windowSeconds: 120,
+                    maxActionsPerWindow: 3,
+                },
+            },
+        });
+
+        const { api, getTool, getHandler } = createApi();
+        registerBerryVine(api as any, config);
+        registerBerryStem(api as any, config);
+
+        const target = "/tmp/degraded-confirm-proof.txt";
+        const first = await getTool().execute("id", {
+            operation: "write",
+            target,
+        });
+        expect(first.details.status).toBe("confirm_required");
+        expect(first.details.confirmCode).toMatch(/^\d{4}$/);
+
+        getHandler(HOOKS.MESSAGE_RECEIVED)?.({
+            from: "user-1",
+            content: first.details.confirmCode,
+            metadata: {
+                surface: "webchat",
+            },
+        }, {
+            channelId: "webchat",
+        });
+
+        const second = await getTool().execute("id", {
+            operation: "write",
+            target,
+            runId: "run-degraded-confirm-1",
+        });
+        const third = await getTool().execute("id", {
+            operation: "write",
+            target,
+            runId: "run-degraded-confirm-2",
+        });
+
+        expect(second.details.status).toBe("allowed");
+        expect(third.details.status).toBe("confirm_required");
+
+        const runtimeAllowed = getHandler(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "write",
+            params: {
+                path: target,
+                content: "proof",
+            },
+        }, {
+            runId: "run-real-degraded-confirm-1",
+        });
+
+        expect(runtimeAllowed).toBeUndefined();
+    });
+
+    it("keeps degraded one_to_many windows active by numeric code without session identity", async () => {
+        const config = createConfig({
+            mode: "enforce",
+            vine: {
+                mode: "strict",
+                confirmation: {
+                    strategy: "one_to_many",
+                    codeTtlSeconds: 180,
+                    maxAttempts: 3,
+                    windowSeconds: 120,
+                    maxActionsPerWindow: 2,
+                },
+            },
+        });
+
+        const { api, getTool, getHandler } = createApi();
+        registerBerryVine(api as any, config);
+        registerBerryStem(api as any, config);
+
+        const targetA = "/tmp/degraded-window-a.txt";
+        const targetB = "/tmp/degraded-window-b.txt";
+        const targetC = "/tmp/degraded-window-c.txt";
+        const first = await getTool().execute("id", {
+            operation: "write",
+            target: targetA,
+        });
+        expect(first.details.status).toBe("confirm_required");
+        expect(first.details.confirmCode).toMatch(/^\d{4}$/);
+
+        getHandler(HOOKS.MESSAGE_RECEIVED)?.({
+            from: "user-1",
+            content: first.details.confirmCode,
+            metadata: {
+                surface: "webchat",
+            },
+        }, {
+            channelId: "webchat",
+        });
+
+        const second = await getTool().execute("id", {
+            operation: "write",
+            target: targetA,
+            runId: "run-degraded-window-a",
+        });
+        const third = await getTool().execute("id", {
+            operation: "write",
+            target: targetB,
+            runId: "run-degraded-window-b",
+        });
+        const fourth = await getTool().execute("id", {
+            operation: "write",
+            target: targetC,
+            runId: "run-degraded-window-c",
+        });
+
+        expect(second.details.status).toBe("allowed");
+        expect(third.details.status).toBe("allowed");
+        expect(fourth.details.status).toBe("confirm_required");
+
+        const runtimeAllowedA = getHandler(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "write",
+            params: {
+                path: targetA,
+                content: "proof-a",
+            },
+        }, {
+            runId: "run-real-degraded-window-a",
+        });
+        const runtimeAllowedB = getHandler(HOOKS.BEFORE_TOOL_CALL)?.({
+            toolName: "write",
+            params: {
+                path: targetB,
+                content: "proof-b",
+            },
+        }, {
+            runId: "run-real-degraded-window-b",
+        });
+
+        expect(runtimeAllowedA).toBeUndefined();
+        expect(runtimeAllowedB).toBeUndefined();
+    });
 });

@@ -24,7 +24,7 @@ The tool evaluates operation intent (exec, read, write) against destructive-comm
   - sensitive file access in read/write requests
 - Emits structured audit events in both audit and enforce paths.
 - Returns allow/deny response payloads to the agent.
-- Returns a degraded human-confirm-required warning when Vine risk is active but native confirmation binding is unavailable.
+- Returns the standard `CONFIRM_REQUIRED` challenge when Vine risk is active, even if host/runtime identity is degraded.
 - Triggers adaptive escalation signaling on enforce denies.
 
 ## What Stem does not do
@@ -41,10 +41,11 @@ flowchart TD
     A[Agent requests gate check] --> B[Berry.Stem]
     B --> C{Input valid?}
     C -->|No| E[Reject request]
-    C -->|Yes| D{Risk match?}
+    C -->|Yes| D{Policy or Vine risk?}
     D -->|No| ALLOW[Return ALLOWED]
-    D -->|Yes + audit| WB[Emit would_block event]
-    D -->|Yes + enforce| DENY[Return DENIED + blocked event]
+    D -->|Yes + audit| WB[Emit would_block or would_confirm_required]
+    D -->|Yes + confirm| CONFIRM[Return CONFIRM_REQUIRED]
+    D -->|Yes + deny| DENY[Return DENIED + blocked event]
     WB --> ALLOW
     DENY --> ESC[Adaptive escalation signal]
 ```

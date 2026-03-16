@@ -67,11 +67,11 @@ Result expected:
 ### Vine Confirmation section
 Command for this check: `openclaw bshield status`.
 Result expected:
-- `Confirmation Strategy` shows the configured runtime contract (`ONE_TO_ONE` or `ONE_TO_MANY`).
-- `ONE_TO_ONE` and `ONE_TO_MANY` show which strategy is currently `ACTIVE`.
+- `Confirmation Strategy` shows the configured runtime contract (`1:1` or `1:N`).
+- `1:1` and `1:N` show which strategy is currently `ACTIVE`.
 - `Code TTL (sec)` shows how long the challenge code remains valid.
 - `Max Attempts` shows how many invalid confirmation tries are tolerated.
-- `Window (sec)` and `Max Actions/Window` matter primarily for `ONE_TO_MANY`.
+- `Window (sec)` and `Max Actions/Window` matter primarily for `1:N`.
 - `Window (sec)` is the active multi-action approval window after a successful confirmation.
 - `Max Actions/Window` is the maximum number of sensitive actions that one `1:N` approval can unlock inside that window.
 

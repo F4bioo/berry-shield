@@ -165,9 +165,13 @@ describe("Berry.Stem", () => {
         expect(result.details.status).toBe("confirm_required");
         expect(result.details.reason).toBe("external untrusted content risk (vine)");
         expect(result.details.confirmCode).toMatch(/^\d{4}$/);
+        expect(result.details.confirmationStrategy).toBe("one_to_many");
+        expect(result.details.confirmationStrategyLabel).toBe("1:N");
+        expect(result.details.windowSeconds).toBeGreaterThan(0);
+        expect(result.details.maxActionsPerWindow).toBeGreaterThan(0);
     });
 
-    it("returns HUMAN_CONFIRM_REQUIRED warning for degraded Vine write confirmation without session identity", async () => {
+    it("returns CONFIRM_REQUIRED for degraded Vine write confirmation without session identity", async () => {
         const { api, tools } = createApi();
         const config = {
             ...createConfig("enforce"),
@@ -185,9 +189,11 @@ describe("Berry.Stem", () => {
             target: "/tmp/degraded-binding-proof.txt",
         });
 
-        expect(result.details.status).toBe("allowed_with_warning");
-        expect(result.details.reason).toBe("binding degraded; explicit human confirmation required");
-        expect(String(result.content?.[0]?.text ?? "")).toContain("STATUS: HUMAN_CONFIRM_REQUIRED");
-        expect(String(result.content?.[0]?.text ?? "")).toContain("Binding degraded; confirm explicitly to proceed with this single action.");
+        expect(result.details.status).toBe("confirm_required");
+        expect(result.details.reason).toBe("external untrusted content risk (vine)");
+        expect(result.details.confirmCode).toMatch(/^\d{4}$/);
+        expect(result.details.confirmationStrategy).toBe("one_to_many");
+        expect(String(result.content?.[0]?.text ?? "")).toContain("STATUS: CONFIRM_REQUIRED");
+        expect(String(result.content?.[0]?.text ?? "")).toContain("CONFIRM_STRATEGY: 1:N");
     });
 });

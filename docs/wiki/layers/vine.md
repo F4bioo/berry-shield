@@ -64,8 +64,8 @@ High-level confirmation flow:
 - Human approval unlocks the real action according to the configured strategy.
 
 Degraded path:
-- if native binding or session identity is degraded, Berry can surface `HUMAN_CONFIRM_REQUIRED` with `allowed_with_warning` instead of silently allowing the action;
-- this fallback exists to preserve the visible human pause even when host/runtime identity is imperfect.
+- if native binding or session identity is degraded, Berry still uses the normal `CONFIRM_REQUIRED` code-based challenge instead of silently allowing the action;
+- degraded identity may reduce correlation precision, but it does not change the public confirmation protocol.
 
 ## Runtime flow
 
@@ -99,7 +99,7 @@ Key operational rule:
 ### Enforce
 - Sensitive actions under active external risk can be blocked.
 - In strict profile, unknown-origin sensitive attempts can also block.
-- When native confirmation binding is degraded, Berry can still surface an explicit human-confirm-required warning instead of silently allowing the action.
+- When native confirmation binding is degraded, Berry still uses the same explicit code-based confirmation flow instead of silently allowing the action.
 
 ### Audit
 - No hard block.

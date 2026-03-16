@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
     headerMock,
     rowMock,
+    tableMock,
     successMsgMock,
     failureMsgMock,
     warningMsgMock,
@@ -13,6 +14,7 @@ const {
 } = vi.hoisted(() => ({
     headerMock: vi.fn(),
     rowMock: vi.fn(),
+    tableMock: vi.fn(),
     successMsgMock: vi.fn(),
     failureMsgMock: vi.fn(),
     warningMsgMock: vi.fn(),
@@ -33,7 +35,7 @@ vi.mock("../src/cli/ui/tui.js", () => ({
                 warningMsg: warningMsgMock,
                 footer: footerMock,
                 section: vi.fn(),
-                table: vi.fn(),
+                table: tableMock,
                 spacer: vi.fn(),
                 divider: vi.fn(),
             };
@@ -76,8 +78,26 @@ describe("Vine CLI command", () => {
 
     it("prints status by default", async () => {
         await vineCommand(undefined, undefined, undefined, context, wrapper as any);
-        expect(rowMock).toHaveBeenCalledWith("mode", "BALANCED");
-        expect(rowMock).toHaveBeenCalledWith("toolAllowlist.count", "0");
+        expect(tableMock).toHaveBeenCalledWith(expect.arrayContaining([
+            { label: "mode", value: "BALANCED" },
+            { label: "toolAllowlist.count", value: "0" },
+        ]));
+    });
+
+    it("prints full config as a table for get without path", async () => {
+        await vineCommand("get", undefined, undefined, context, wrapper as any);
+
+        expect(tableMock).toHaveBeenCalledWith(expect.arrayContaining([
+            { label: "mode", value: "balanced" },
+            { label: "toolAllowlist", value: "[]" },
+            { label: "confirmation.strategy", value: "one_to_many" },
+        ]));
+    });
+
+    it("prints a single value row for get with path", async () => {
+        await vineCommand("get", "confirmation.strategy", undefined, context, wrapper as any);
+
+        expect(rowMock).toHaveBeenCalledWith("confirmation.strategy", "\"one_to_many\"");
     });
 
     it("sets vine mode", async () => {
