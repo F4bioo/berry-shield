@@ -70,6 +70,7 @@ describe("Berry.Pulp", () => {
         );
         expect(handlers.has(HOOKS.TOOL_RESULT_PERSIST)).toBe(true);
         expect(handlers.has(HOOKS.MESSAGE_SENDING)).toBe(true);
+        expect(api.logger.debug).toHaveBeenCalledWith("[berry-shield][layer-trace] Berry.Pulp layer registered (Output Scanner)");
     });
 
     it("redacts tool_result_persist content in enforce mode", () => {

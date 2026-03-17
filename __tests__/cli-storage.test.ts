@@ -117,7 +117,7 @@ describe("CLI Storage", () => {
 
             const rules = await loadCustomRules();
 
-            expect(rules.disabledBuiltInIds).toEqual(["secret:gitleaks:gitlab-runner-authentication-token"]);
+            expect(rules.disabledBuiltInIds).toEqual(["gitleaks:secret:gitlab-runner-authentication-token"]);
         });
 
         it("returns empty rules on parse error", async () => {
@@ -196,7 +196,7 @@ describe("CLI Storage", () => {
 
             const rules = loadCustomRulesSync();
 
-            expect(rules.disabledBuiltInIds).toEqual(["secret:gitleaks:gitlab-runner-authentication-token"]);
+            expect(rules.disabledBuiltInIds).toEqual(["gitleaks:secret:gitlab-runner-authentication-token"]);
         });
 
         it("backs up corrupted file and restores defaults on parse error", () => {
@@ -401,12 +401,12 @@ describe("CLI Storage", () => {
             vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
             vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 
-            const result = await disableBuiltInRule("SeCrEt:OpEnAi-Key");
+            const result = await disableBuiltInRule("BeRrY:SeCrEt:OpEnAi-Key");
 
             expect(result.success).toBe(true);
             expect(fs.writeFile).toHaveBeenCalledTimes(1);
             const content = JSON.parse(vi.mocked(fs.writeFile).mock.calls[0][1] as string);
-            expect(content.disabledBuiltInIds).toContain("secret:openai-key");
+            expect(content.disabledBuiltInIds).toContain("berry:secret:openai-key");
         });
 
         it("rejects unknown built-in id", async () => {
@@ -424,7 +424,7 @@ describe("CLI Storage", () => {
             const result = await disableBuiltInRule("secret:does-not-exist");
 
             expect(result.success).toBe(false);
-            expect(result.error).toContain("Unknown built-in rule id");
+            expect(result.error).toContain("Unknown baseline rule id");
             expect(fs.writeFile).not.toHaveBeenCalled();
         });
 
@@ -434,13 +434,13 @@ describe("CLI Storage", () => {
                 secrets: [],
                 sensitiveFiles: [],
                 destructiveCommands: [],
-                disabledBuiltInIds: ["secret:openai-key"],
+                disabledBuiltInIds: ["berry:secret:openai-key"],
             };
 
             vi.mocked(fs.access).mockResolvedValue(undefined);
             vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
 
-            const result = await disableBuiltInRule("secret:openai-key");
+            const result = await disableBuiltInRule("berry:secret:openai-key");
 
             expect(result.success).toBe(false);
             expect(result.error).toContain("already disabled");
@@ -453,14 +453,14 @@ describe("CLI Storage", () => {
                 secrets: [],
                 sensitiveFiles: [],
                 destructiveCommands: [],
-                disabledBuiltInIds: ["secret:openai-key"],
+                disabledBuiltInIds: ["berry:secret:openai-key"],
             };
 
             vi.mocked(fs.access).mockResolvedValue(undefined);
             vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
             vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 
-            const result = await restoreBuiltInRule("SeCrEt:OpEnAi-Key");
+            const result = await restoreBuiltInRule("BeRrY:SeCrEt:OpEnAi-Key");
 
             expect(result.success).toBe(true);
             expect(result.restored).toBe(true);
@@ -481,7 +481,7 @@ describe("CLI Storage", () => {
             vi.mocked(fs.access).mockResolvedValue(undefined);
             vi.mocked(fs.readFile).mockResolvedValue(JSON.stringify(existingRules));
 
-            const result = await restoreBuiltInRule("secret:openai-key");
+            const result = await restoreBuiltInRule("berry:secret:openai-key");
 
             expect(result.success).toBe(true);
             expect(result.restored).toBe(false);

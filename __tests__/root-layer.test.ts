@@ -99,6 +99,19 @@ describe("Berry.Root adaptive injection strategy", () => {
         expect(api.on).not.toHaveBeenCalled();
     });
 
+    it("registers hooks when enabled", () => {
+        const { api, handlers } = createApi();
+        registerBerryRoot(api as any, createConfig("balanced"));
+
+        expect(api.on).toHaveBeenCalledWith(
+            HOOKS.BEFORE_AGENT_START,
+            expect.any(Function),
+            { priority: 200 }
+        );
+        expect(handlers.has(HOOKS.BEFORE_AGENT_START)).toBe(true);
+        expect(api.logger.debug).toHaveBeenCalledWith("[berry-shield][layer-trace] Berry.Root layer registered (Prompt Guard)");
+    });
+
     it("strict profile injects full policy on every turn", () => {
         const { api, handlers } = createApi();
         registerBerryRoot(api as any, createConfig("strict"));

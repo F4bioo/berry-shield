@@ -130,5 +130,5 @@ export function registerBerryPulp(
         { priority: 200 }
     );
 
-    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Pulp layer registered (Output Scanner)");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.LAYER_TRACE, "Berry.Pulp layer registered (Output Scanner)");
 }

@@ -84,7 +84,7 @@ describe("Berry.Stem", () => {
 
         expect(handlers.has(HOOKS.BEFORE_TOOL_CALL)).toBe(true);
         expect(tools.some((tool) => tool.name === "berry_check")).toBe(true);
-        expect(api.logger.info).toHaveBeenCalledWith("[berry-shield][runtime] Berry.Stem layer registered (Security Gate)");
+        expect(api.logger.debug).toHaveBeenCalledWith("[berry-shield][layer-trace] Berry.Stem layer registered (Security Gate)");
     });
 
     it("logs would_block in audit mode for destructive exec", async () => {

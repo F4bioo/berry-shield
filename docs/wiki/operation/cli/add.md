@@ -97,7 +97,7 @@ If cancel is selected, the wizard exits without persisting data.
 ### Step 2: Preset or custom pattern
 After choosing type, the wizard offers:
 - custom pattern
-- built-in presets for the selected type
+- baseline presets for the selected type
 - cancel
 
 If a preset is selected, name/pattern/placeholder values are prefilled from that preset.

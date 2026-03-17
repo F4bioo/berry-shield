@@ -642,5 +642,5 @@ export function registerBerryVine(
         { priority: 190 }
     );
 
-    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Vine layer registered (External Content Guard)");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.LAYER_TRACE, "Berry.Vine layer registered (External Content Guard)");
 }

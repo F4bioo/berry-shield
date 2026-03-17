@@ -106,5 +106,5 @@ export function registerBerryLeaf(
         { priority: 50 } // Lower priority - audit runs after security checks
     );
 
-    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Leaf layer registered (Input Audit)");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.LAYER_TRACE, "Berry.Leaf layer registered (Input Audit)");
 }

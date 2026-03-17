@@ -46,30 +46,54 @@ openclaw bshield rules remove custom <id>
 Expected: Removes one custom rule by typed id (`secret:<name> | file:<name> | command:<name>`).
 
 ### Disable one baseline rule
-Use this to disable a single baseline rule when you need a controlled exception.
+Use this to disable baseline rules by stable ID. This applies to both internal `berry:` patterns and `gitleaks:` community rules.
+
+Example (Berry Shield):
 ```bash
-openclaw bshield rules disable baseline <id>
+# openclaw bshield rules disable baseline <id>
+openclaw bshield rules disable baseline berry:secret:openai-key
+```
+
+Example (Gitleaks Community):
+```bash
+# openclaw bshield rules disable baseline <id>
+openclaw bshield rules disable baseline gitleaks:secret:aws-access-token
 ```
 Expected: Marks one baseline rule as disabled.
 
 ### Disable one custom rule
 Use this to disable one custom rule without deleting it.
+
+Example (User custom):
 ```bash
-openclaw bshield rules disable custom <id>
+# openclaw bshield rules disable custom <id>
+openclaw bshield rules disable custom secret:my-token-rule
 ```
 Expected: Marks one custom rule as disabled and keeps it in inventory.
 
 ### Enable one baseline rule
-Use this to re-enable a previously disabled baseline rule by ID.
+Use this to re-enable baseline rules by stable ID. This applies to both internal `berry:` patterns and `gitleaks:` community rules.
+
+Example (Berry Shield):
 ```bash
-openclaw bshield rules enable baseline <id>
+# openclaw bshield rules enable baseline <id>
+openclaw bshield rules enable baseline berry:secret:openai-key
+```
+
+Example (Gitleaks Community):
+```bash
+# openclaw bshield rules enable baseline <id>
+openclaw bshield rules enable baseline gitleaks:secret:aws-access-token
 ```
 Expected: Marks one baseline rule as enabled.
 
 ### Enable one custom rule
 Use this to re-enable one custom rule by ID.
+
+Example (User custom):
 ```bash
-openclaw bshield rules enable custom <id>
+# openclaw bshield rules enable custom <id>
+openclaw bshield rules enable custom secret:my-token-rule
 ```
 Expected: Marks one custom rule as enabled.
 
@@ -128,21 +152,36 @@ Expected: Applies enable to full rule scope (`baseline + custom`).
 
 ### Wrong target for remove
 Use this check to validate that remove only accepts the custom target.
+
+Example (Berry Shield):
 ```bash
-openclaw bshield rules remove baseline secret:openai-key
+# openclaw bshield rules remove baseline <id>
+openclaw bshield rules remove baseline berry:secret:openai-key
+```
+
+Example (Gitleaks Community):
+```bash
+# openclaw bshield rules remove baseline <id>
+openclaw bshield rules remove baseline gitleaks:secret:aws-access-token
 ```
 Expected: Usage failure (remove supports only custom target).
 
 ### Unknown baseline ID
 Use this check to validate error handling when an ID does not exist in baseline catalog.
+
+Example (Berry Shield):
 ```bash
-openclaw bshield rules disable baseline secret:does-not-exist
+# openclaw bshield rules disable baseline <id>
+openclaw bshield rules disable baseline berry:secret:does-not-exist
 ```
 Expected: Operation failure (`Unknown baseline rule id`).
 
 ### Unknown custom ID
 Use this check to validate error handling when a custom rule is not found.
+
+Example (User custom):
 ```bash
+# openclaw bshield rules disable custom <id>
 openclaw bshield rules disable custom secret:does-not-exist
 ```
 Expected: Operation failure (`Unknown custom rule id`).

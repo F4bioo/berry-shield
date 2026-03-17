@@ -54,6 +54,31 @@ describe("Berry.Vine", () => {
         resetSharedVineSessionBindingManagerForTests();
     });
 
+    it("does not register hooks when layer is disabled", () => {
+        const { api } = createApi();
+        registerBerryVine(api as any, createConfig({
+            layers: { vine: false },
+        }));
+
+        expect(api.on).not.toHaveBeenCalled();
+        expect(api.logger.info).toHaveBeenCalledWith("[berry-shield][runtime] Berry.Vine layer disabled");
+    });
+
+    it("registers hooks when enabled", () => {
+        const { api, handlers } = createApi();
+        registerBerryVine(api as any, createConfig({
+            layers: { vine: true },
+        }));
+
+        expect(api.on).toHaveBeenCalledWith(
+            HOOKS.TOOL_RESULT_PERSIST,
+            expect.any(Function),
+            { priority: 190 }
+        );
+        expect(handlers.has(HOOKS.BEFORE_TOOL_CALL)).toBe(true);
+        expect(api.logger.debug).toHaveBeenCalledWith("[berry-shield][layer-trace] Berry.Vine layer registered (External Content Guard)");
+    });
+
     it("enforce balanced blocks sensitive action after external signal", () => {
         const { api, handlers } = createApi();
         registerBerryVine(api as any, createConfig({
