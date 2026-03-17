@@ -287,8 +287,10 @@ async function main() {
     notes = firstReleaseNotes;
   }
 
-  git(["config", "--local", "user.email", "action@github.com"]);
-  git(["config", "--local", "user.name", "GitHub Action"]);
+  if (process.env.GITHUB_ACTIONS === "true") {
+    git(["config", "--local", "user.email", "action@github.com"]);
+    git(["config", "--local", "user.name", "GitHub Action"]);
+  }
 
   const localTagExists = gitAllowFail(["rev-parse", "--verify", `refs/tags/${tag}`]).ok;
   if (!localTagExists) {
