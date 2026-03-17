@@ -4,8 +4,9 @@
  * Keys and values must be lowercase full baseline IDs (e.g. secret:gitleaks:<id>).
  */
 export const BASELINE_ID_ALIASES: Record<string, string> = {
-    // Upstream naming drift example: old short name -> current explicit name.
-    "secret:gitleaks:gitlab-runner-token": "secret:gitleaks:gitlab-runner-authentication-token",
+    // Proof of Concept (POC) - Example of drift in Gitleaks
+    // If an external pattern ID changes in the future, map it here to maintain compatibility.
+    "secret:gitleaks:gitlab-runner-token": "gitleaks:secret:gitlab-runner-authentication-token",
 };
 
 /**
@@ -38,4 +39,3 @@ export function remapDisabledBuiltInIds(
 
     return Array.from(out);
 }
-

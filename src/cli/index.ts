@@ -216,8 +216,8 @@ export function registerBerryShieldCli(api: OpenClawPluginApi): void {
             attachSubcommandHelp(
                 bshield
                     .command("reset <target>")
-                    .description("Reset defaults (builtins or full scope)")
-                    .option("--scope <scope>", "Reset scope (builtins | all)")
+                    .description("Reset defaults (baseline or full scope)")
+                    .option("--scope <scope>", "Reset scope (baseline | all)")
                     .option("--yes", "Skip confirmation prompt")
                     .action(async (target: string, options: { scope?: string; yes?: boolean }) => {
                         await resetCommand(target, options, context, wrapper);

@@ -493,12 +493,11 @@ export async function disableBuiltInRule(id: string): Promise<{ success: boolean
     const rules = await loadCustomRules();
     rules.disabledBuiltInIds = rules.disabledBuiltInIds || [];
 
-    // Normalize to lowercase for consistency
     const normalizedId = id.toLowerCase();
     const knownBuiltInIds = await loadKnownBuiltInIds();
 
     if (!knownBuiltInIds.has(normalizedId)) {
-        return { success: false, error: `Unknown built-in rule id: ${id}` };
+        return { success: false, error: `Unknown baseline rule id: ${id}` };
     }
 
     if (!rules.disabledBuiltInIds.includes(normalizedId)) {

@@ -857,5 +857,5 @@ export function registerBerryStem(
         },
     });
 
-    berryLog(api.logger, BERRY_LOG_CATEGORY.RUNTIME_EVENT, "Berry.Stem layer registered (Security Gate)");
+    berryLog(api.logger, BERRY_LOG_CATEGORY.LAYER_TRACE, "Berry.Stem layer registered (Security Gate)");
 }

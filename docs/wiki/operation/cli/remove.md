@@ -40,6 +40,8 @@ Positional arguments:
 
 ### Remove an existing custom rule
 Use this when the exact custom rule id is known.
+
+Example (User custom):
 ```bash
 openclaw bshield rules remove custom secret:MyToken
 ```
@@ -47,6 +49,8 @@ Result: CLI confirms custom rule removal.
 
 ### Remove a custom file rule
 Use this when a file-pattern custom rule must be removed.
+
+Example (User custom):
 ```bash
 openclaw bshield rules remove custom file:team-key
 ```
@@ -61,8 +65,15 @@ Result: Removed custom rule no longer appears in custom entries.
 
 ### Disable a baseline rule (separate command)
 Use this when the target is a baseline ID.
+
+Example (Berry Shield):
 ```bash
-openclaw bshield rules disable baseline secret:openai-key
+openclaw bshield rules disable baseline berry:secret:openai-key
+```
+
+Example (Gitleaks Community):
+```bash
+openclaw bshield rules disable baseline gitleaks:secret:aws-access-token
 ```
 Result: Baseline rule is marked disabled in rules inventory.
 
@@ -70,13 +81,24 @@ Result: Baseline rule is marked disabled in rules inventory.
 
 ### Wrong target
 Use this to validate explicit target semantics.
+
+Example (Berry Shield):
 ```bash
-openclaw bshield rules remove baseline secret:openai-key
+# openclaw bshield rules remove baseline <id>
+openclaw bshield rules remove baseline berry:secret:openai-key
+```
+
+Example (Gitleaks Community):
+```bash
+# openclaw bshield rules remove baseline <id>
+openclaw bshield rules remove baseline gitleaks:secret:aws-access-key
 ```
 Expected: CLI returns usage error because remove supports only custom target.
 
 ### Rule not found
 Use this to verify missing-rule behavior.
+
+Example (User custom):
 ```bash
 openclaw bshield rules remove custom secret:UnknownRule
 ```

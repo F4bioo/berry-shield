@@ -76,14 +76,23 @@ openclaw bshield rules list
 Expected: CLI shows baseline and custom IDs, including `[ENABLED]` and `[DISABLED]` status.
 
 ### 6) Disable one baseline rule
-Use this to disable one baseline rule by stable ID.
+Use this to disable baseline rules by stable ID. This applies to both internal `berry:` patterns and `gitleaks:` community rules.
+
+Example (Berry Shield):
 ```bash
-openclaw bshield rules disable baseline secret:openai-key
+openclaw bshield rules disable baseline berry:secret:openai-key
+```
+
+Example (Gitleaks Community):
+```bash
+openclaw bshield rules disable baseline gitleaks:secret:aws-access-token
 ```
 Expected: CLI marks the target baseline rule as disabled.
 
 ### 7) Disable one custom rule
 Use this to keep a custom rule stored but inactive.
+
+Example (User custom):
 ```bash
 openclaw bshield rules disable custom secret:my-token-rule
 ```

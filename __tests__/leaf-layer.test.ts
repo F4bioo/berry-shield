@@ -53,6 +53,7 @@ describe("Berry.Leaf", () => {
             { priority: 50 }
         );
         expect(handlers.has(HOOKS.MESSAGE_RECEIVED)).toBe(true);
+        expect(api.logger.debug).toHaveBeenCalledWith("[berry-shield][layer-trace] Berry.Leaf layer registered (Input Audit)");
     });
 
     it("logs warning when sensitive input is detected", () => {

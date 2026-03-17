@@ -4,7 +4,7 @@
  * Source: Gitleaks (https://github.com/gitleaks/gitleaks)
  * License: MIT (https://github.com/gitleaks/gitleaks/blob/master/LICENSE)
  * Source URL: https://raw.githubusercontent.com/gitleaks/gitleaks/master/config/gitleaks.toml
- * Generated at: 2026-02-24T20:00:32.264Z
+ * Generated at: 2026-03-17T13:05:40.368Z
  *
  * This file contains security patterns extracted from the Gitleaks project.
  * These patterns are used to detect secrets and sensitive information.

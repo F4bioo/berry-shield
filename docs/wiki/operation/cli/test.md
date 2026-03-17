@@ -1,17 +1,17 @@
 ---
 summary: "CLI reference for `openclaw bshield test` (test one input against active match patterns)"
 read_when:
-  - You need to verify if a string matches built-in or custom patterns
+  - You need to verify if a string matches baseline or custom patterns
   - You are validating custom regex behavior before production use
 title: "test"
 ---
 
 # `openclaw bshield test`
 
-Test one input string against active built-in and custom match patterns.
+Test one input string against active baseline and custom match patterns.
 
 ## What it does
-- Loads built-in secret/PII patterns and custom secret rules.
+- Loads baseline secret/PII patterns and custom secret rules.
 - Evaluates the provided input against active patterns.
 - Prints either no-match output or match details with rule source and redaction placeholder.
 
@@ -45,7 +45,7 @@ Expected: CLI reports no matches or prints one or more matching rule entries.
 
 ## Options
 Positional argument:
-- `<input>`: string to test against active built-in and custom patterns.
+- `<input>`: string to test against active baseline and custom patterns.
 
 ## Examples
 
@@ -78,9 +78,24 @@ openclaw bshield test "SMOKE_WEB_CMD"
 Expected: `No matches found` because this command does not evaluate custom command/file rules.
 
 ### Typed ID input is not a payload value
-Use this when input is a rule ID format.
+Use this when input is a rule ID format to confirm it is not used as a test literal.
+
+Example (Berry Shield):
 ```bash
-openclaw bshield test "command:smoke-web-cmd"
+# openclaw bshield test "<input>"
+openclaw bshield test "berry:command:smoke-web-cmd"
+```
+
+Example (Gitleaks Community):
+```bash
+# openclaw bshield test "<input>"
+openclaw bshield test "gitleaks:secret:aws-access-token"
+```
+
+Example (User custom):
+```bash
+# openclaw bshield test "<input>"
+openclaw bshield test "secret:my-token"
 ```
 Expected: no matches and guidance that typed IDs are rule identifiers, not payload values for this command.
 

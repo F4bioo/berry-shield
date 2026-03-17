@@ -1,4 +1,4 @@
-﻿---
+---
 summary: "Use report output for incident triage and policy follow-up"
 read_when:
   - You need to investigate suspicious activity patterns
