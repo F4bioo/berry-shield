@@ -30,11 +30,36 @@ export interface SecurityPattern {
     /** Name of the pattern for logging */
     name: string;
     /** Category of the pattern */
-    category: "secret" | "pii";
+    category: "secret" | "pii" | "file" | "command";
     /** Regex pattern to match sensitive data */
     pattern: RegExp;
-    /** Placeholder to replace matched content */
-    placeholder: string;
+    /** Placeholder to replace matched content. If not provided, one will be generated from ID. */
+    placeholder?: string;
+    /** If true, includes a deterministic session-salted hash in the placeholder. */
+    includeHash?: boolean;
+    
+    // Context-awareness fields for reducing false positives
+    /** 
+     * If true, pattern requires contextual validation before redaction.
+     * Match will only be redacted if at least one contextWord appears within contextWindow.
+     */
+    isContextRequired?: boolean;
+    /** 
+     * Keywords that must appear near the match to validate it.
+     * Used when isContextRequired is true. Case-insensitive matching.
+     */
+    contextWords?: string[];
+    /** 
+     * Character window size for context search (measured in characters, not words).
+     * Defines how far to look before/after the match for contextWords.
+     * Default: { before: 30, after: 15 }
+     */
+    contextWindow?: {
+        /** Number of characters to search BEFORE the match */
+        before: number;
+        /** Number of characters to search AFTER the match */
+        after: number;
+    };
 }
 
 /**
@@ -82,7 +107,7 @@ interface PatternCache {
 
 // Initial cache with only built-in patterns
 let _cache: PatternCache = {
-    redactionPatterns: [...SECRET_PATTERNS, ...PII_PATTERNS],
+    redactionPatterns: [...SECRET_PATTERNS, ...PII_PATTERNS, ..._COMMAND, ..._FILES],
     filePatterns: [...SENSITIVE_FILE_PATTERNS],
     commandPatterns: [...DESTRUCTIVE_COMMAND_PATTERNS],
 };
@@ -136,7 +161,13 @@ function compileCustomPatterns(
     const activeCmds = _COMMAND.filter(p => !disabledIds.has(p.id)).map(p => p.pattern);
 
     return {
-        redactionPatterns: [...activeSecrets, ...customSecrets, ...activePII],
+        redactionPatterns: [
+            ...activeSecrets, 
+            ...customSecrets, 
+            ...activePII, 
+            ..._COMMAND.filter(p => !disabledIds.has(p.id)),
+            ..._FILES.filter(p => !disabledIds.has(p.id))
+        ],
         filePatterns: [...activeFiles, ...customFiles],
         commandPatterns: [...activeCmds, ...customCmds],
     };
@@ -203,13 +234,3 @@ export function getAllDestructiveCommandPatterns(): RegExp[] {
     return _cache.commandPatterns;
 }
 
-/**
- * Clear the pattern cache (for testing purposes only).
- */
-export function clearPatternCache(): void {
-    _cache = {
-        redactionPatterns: [...SECRET_PATTERNS, ...PII_PATTERNS],
-        filePatterns: [...SENSITIVE_FILE_PATTERNS],
-        commandPatterns: [...DESTRUCTIVE_COMMAND_PATTERNS],
-    };
-}

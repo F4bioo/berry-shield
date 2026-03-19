@@ -63,7 +63,7 @@ describe("Berry.Leaf", () => {
         const callback = handlers.get(HOOKS.MESSAGE_RECEIVED)!;
         const result = callback(
             {
-                content: "my email is user@example.com and token is sk-1234567890abcdef",
+                content: "my email is user@example.com and token is sk-1234567890abcdef1234567890abcdef",
                 from: "u1",
                 timestamp: "2026-02-22T00:00:00.000Z",
             },
@@ -73,6 +73,12 @@ describe("Berry.Leaf", () => {
         expect(result).toBeUndefined();
         expect(api.logger.warn).toHaveBeenCalledWith(
             expect.stringContaining("[berry-shield][security] Berry.Leaf sensitive content detected")
+        );
+        expect(api.logger.warn).toHaveBeenCalledWith(
+            expect.stringContaining("berry:pii:email")
+        );
+        expect(api.logger.warn).toHaveBeenCalledWith(
+            expect.stringContaining("berry:secret:openai-key")
         );
     });
 

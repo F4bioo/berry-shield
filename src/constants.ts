@@ -38,6 +38,8 @@ export const SENSITIVE_KEY_EXACT = new Set([
     "credential",
     "cred",
     "secret",
+    "mnemonic",
+    "seed",
 ]);
 
 /** 

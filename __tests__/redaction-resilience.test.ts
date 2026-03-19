@@ -90,7 +90,7 @@ describe("Redaction Engine - Resilience & Performance", () => {
             const result = redactString(encoded, patterns);
 
             expect(result.redactionCount).toBeGreaterThan(0);
-            expect(result.content).toBe("[OPENAI_KEY_REDACTED]");
+            expect(result.content).toMatch(/\[BERRY:SECRET_OPENAI_KEY#[A-F0-9]{6}\]/);
         });
     });
 

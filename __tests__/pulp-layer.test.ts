@@ -84,13 +84,14 @@ describe("Berry.Pulp", () => {
         });
 
         expect(result.message).not.toContain("sk-abc123def456ghi789jkl012");
-        expect(result.message).toContain("[OPENAI_KEY_REDACTED]");
+        expect(result.message).toMatch(/token=\[BERRY:SECRET_OPENAI_KEY#[A-F0-9]{6}\]/);
         expect(appendAuditEventMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 mode: "enforce",
                 decision: "redacted",
                 layer: "pulp",
                 hook: "tool_result_persist",
+                types: expect.arrayContaining(["berry:secret:openai-key"]),
             })
         );
         expect(api.logger.warn).toHaveBeenCalledWith(

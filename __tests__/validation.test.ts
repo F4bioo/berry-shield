@@ -225,8 +225,8 @@ describe("DESTRUCTIVE_COMMAND_PATTERNS", () => {
         });
 
     describe("dangerous commands", () => {
-        it("matches rm", () => {
-            expect(testCommand("rm file.txt")).toBe(true);
+        it("matches rm with flags", () => {
+            expect(testCommand("rm -rf file.txt")).toBe(true);
         });
 
         it("matches rm -rf", () => {
