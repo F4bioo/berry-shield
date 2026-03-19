@@ -73,7 +73,7 @@ export function registerBerryLeaf(
             const { redactedTypes } = walkAndRedact(message, patterns);
 
             // Map types back to categories using the central pattern list
-            const matchedPatterns = patterns.filter(p => redactedTypes.includes(p.name));
+            const matchedPatterns = patterns.filter(p => redactedTypes.includes(p.id));
             const containsSecrets = matchedPatterns.some(p => p.category === "secret");
             const containsPII = matchedPatterns.some(p => p.category === "pii");
 

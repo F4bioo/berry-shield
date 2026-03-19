@@ -7,9 +7,9 @@ describe("redactString", () => {
         const text = "My key is AKIAIOSFODNN7EXAMPLE";
         const result = redactString(text, SECRET_PATTERNS);
 
-        expect(result.content).toBe("My key is [AWS_KEY_REDACTED]");
+        expect(result.content).toMatch(/\[BERRY:SECRET_AWS_ACCESS_KEY#[A-F0-9]{6}\]/);
         expect(result.redactionCount).toBe(1);
-        expect(result.redactedTypes).toContain("AWS Access Key");
+        expect(result.redactedTypes).toContain("berry:secret:aws-access-key");
     });
 
     it("redacts multiple secrets", () => {
@@ -17,15 +17,15 @@ describe("redactString", () => {
         const result = redactString(text, SECRET_PATTERNS);
 
         expect(result.redactionCount).toBe(2);
-        expect(result.redactedTypes).toContain("AWS Access Key");
-        expect(result.redactedTypes).toContain("OpenAI Key");
+        expect(result.redactedTypes).toContain("berry:secret:aws-access-key");
+        expect(result.redactedTypes).toContain("berry:secret:openai-key");
     });
 
     it("redacts email from text", () => {
         const text = "Contact me at user@example.com";
         const result = redactString(text, PII_PATTERNS);
 
-        expect(result.content).toBe("Contact me at [EMAIL_REDACTED]");
+        expect(result.content).toMatch(/\[BERRY:PII_EMAIL#[A-F0-9]{6}\]/);
         expect(result.redactionCount).toBe(1);
     });
 
@@ -44,14 +44,14 @@ describe("walkAndRedact", () => {
 
     it("redacts strings", () => {
         const result = walkAndRedact("Key: AKIAIOSFODNN7EXAMPLE", patterns);
-        expect(result.content).toBe("Key: [AWS_KEY_REDACTED]");
+        expect(result.content).toMatch(/Key: \[BERRY:SECRET_AWS_ACCESS_KEY#[A-F0-9]{6}\]/);
     });
 
     it("redacts arrays", () => {
         const input = ["user@example.com", "normal text"];
         const result = walkAndRedact(input, patterns);
 
-        expect(result.content).toEqual(["[EMAIL_REDACTED]", "normal text"]);
+        expect((result.content as string[])[0]).toMatch(/\[BERRY:PII_EMAIL#[A-F0-9]{6}\]/);
         expect(result.redactionCount).toBe(1);
     });
 
@@ -65,13 +65,8 @@ describe("walkAndRedact", () => {
         };
         const result = walkAndRedact(input, patterns);
 
-        expect(result.content).toEqual({
-            user: {
-                email: "[EMAIL_REDACTED]",
-                name: "John",
-            },
-            awsField: "[AWS_KEY_REDACTED]",
-        });
+        expect((result.content as any).user.email).toMatch(/\[BERRY:PII_EMAIL#[A-F0-9]{6}\]/);
+        expect((result.content as any).awsField).toMatch(/\[BERRY:SECRET_AWS_ACCESS_KEY#[A-F0-9]{6}\]/);
         expect(result.redactionCount).toBe(2);
     });
 
@@ -92,14 +87,10 @@ describe("redactSensitiveData", () => {
         };
         const result = redactSensitiveData(input);
 
-        expect(result.content).toEqual({
-            config: {
-                awsAccess: "[AWS_KEY_REDACTED]",
-                email: "[EMAIL_REDACTED]",
-            },
-        });
+        expect((result.content as any).config.awsAccess).toMatch(/\[BERRY:SECRET_AWS_ACCESS_KEY#[A-F0-9]{6}\]/);
+        expect((result.content as any).config.email).toMatch(/\[BERRY:PII_EMAIL#[A-F0-9]{6}\]/);
         expect(result.redactionCount).toBe(2);
-        expect(result.redactedTypes).toContain("AWS Access Key");
-        expect(result.redactedTypes).toContain("Email");
+        expect(result.redactedTypes).toContain("berry:secret:aws-access-key");
+        expect(result.redactedTypes).toContain("berry:pii:email");
     });
 });

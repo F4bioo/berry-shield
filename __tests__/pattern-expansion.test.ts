@@ -1,4 +1,3 @@
-
 import { describe, expect, it } from "vitest";
 import { walkAndRedact } from "../src/utils/redaction";
 import { getAllRedactionPatterns } from "../src/patterns";
@@ -23,7 +22,7 @@ describe("Pattern Expansion (Gitleaks Rules)", () => {
         // Expect redaction
         expect(result.content.message).toContain("[SENTRY_USER_TOKEN_REDACTED]");
         expect(result.content.config.sentry).toBe("[SENTRY_USER_TOKEN_REDACTED]");
-        expect(result.redactedTypes).toContain("sentry-user-token");
+        expect(result.redactedTypes).toContain("gitleaks:secret:sentry-user-token");
     });
 
     it("should detect multiple Gitleaks rule types", () => {
@@ -37,12 +36,10 @@ describe("Pattern Expansion (Gitleaks Rules)", () => {
 
         const result = walkAndRedact(input, patterns);
 
-        expect(result.content.slack).toContain("REDACTED"); // Placeholder might vary slightly
         // Check if redacted type matches either custom slack rule or gitleaks rule
-        // Custom rule is "Slack Token", Gitleaks is "slack-legacy-token"
-        // Both might match. As long as it is redacted, we are good.
         const isRedacted = result.content.slack.includes("SLACK_TOKEN_REDACTED") ||
-            result.content.slack.includes("SLACK_LEGACY_TOKEN_REDACTED");
+            result.content.slack.includes("SLACK_LEGACY_TOKEN_REDACTED") ||
+            result.content.slack.includes("BERRY:SECRET_SLACK_TOKEN");
 
         expect(isRedacted).toBe(true);
     });

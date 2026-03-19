@@ -148,4 +148,28 @@ describe("Berry.Thorn", () => {
         );
         expect(notifyPolicyDeniedMock).not.toHaveBeenCalled();
     });
+
+    it("blocks commands that reference openclaw.json as sensitive file path", () => {
+        const { api, handlers } = createApi();
+        registerBerryThorn(api as any, createConfig("enforce") as any);
+
+        const callback = handlers.get(HOOKS.BEFORE_TOOL_CALL)!;
+        const result = callback(
+            {
+                toolName: "run_command",
+                params: { command: "cat /home/user/.openclaw/openclaw.json" },
+            },
+            { sessionKey: "agent:main:main" }
+        );
+
+        expect(result.block).toBe(true);
+        expect(result.blockReason).toContain("Command references sensitive file");
+        expect(appendAuditEventMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: "enforce",
+                decision: "blocked",
+                layer: "thorn",
+            })
+        );
+    });
 });

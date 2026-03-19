@@ -100,6 +100,7 @@ function maybeEscalateFromStem(
 /** Checks if a command matches destructive command patterns. */
 function isDestructiveCommand(command: string, customPatterns: string[]): boolean {
     for (const pattern of getAllDestructiveCommandPatterns()) {
+        pattern.lastIndex = 0;
         if (pattern.test(command)) {
             return true;
         }
@@ -121,6 +122,7 @@ function isDestructiveCommand(command: string, customPatterns: string[]): boolea
 function isSensitiveFile(filePath: string, customPatterns: string[]): boolean {
     const normalizedPath = filePath.replace(/\\/g, "/");
     for (const pattern of getAllSensitiveFilePatterns()) {
+        pattern.lastIndex = 0;
         if (pattern.test(normalizedPath)) {
             return true;
         }

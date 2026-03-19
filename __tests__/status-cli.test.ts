@@ -74,7 +74,7 @@ describe("Status CLI command", () => {
         expect(sectionMock).toHaveBeenCalledWith("Security Layers");
 
         expect(renderedTables).toContainEqual(expect.arrayContaining([
-            { label: "Rules", value: "Built-in (143) - Custom (0)" },
+            { label: "Rules", value: "Built-in (186) - Custom (0)" },
             expect.objectContaining({ label: "Status", value: expect.stringContaining("ENABLED") }),
             expect.objectContaining({ label: "Mode", value: expect.stringContaining("ENFORCE") }),
         ]));
