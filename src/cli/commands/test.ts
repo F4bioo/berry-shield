@@ -18,7 +18,7 @@ import { type ConfigWrapper } from "../../config/wrapper.js";
 interface MatchResult {
     name: string;
     source: "built-in" | "custom";
-    placeholder: string;
+    placeholder?: string;
 }
 
 function looksLikeCustomRuleId(value: string): boolean {
@@ -89,9 +89,10 @@ export async function testCommand(
             s.divider(24);
             for (const match of matches) {
                 s.row(match.source.toUpperCase(), match.name);
-                s.row("Redaction", match.placeholder);
+                s.row("Redaction", match.placeholder || theme.dim("(dynamic placeholder)"));
                 s.divider(24);
             }
+            s.divider(24);
         },
     });
 }

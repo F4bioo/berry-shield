@@ -57,11 +57,17 @@ describe("Pattern Governance Contract", () => {
     });
 
     describe("Placeholder & Redaction Quality", () => {
-        it("every redaction pattern MUST contain an uppercase bracketed tag ending in _REDACTED", () => {
+        it("every redaction pattern MUST have a placeholder OR use the dynamic generator", () => {
             const redactionPatterns = [...SECRET_PATTERNS, ...PII_PATTERNS];
             redactionPatterns.forEach(p => {
-                // Check if it HAS the tag (e.g. [ANY_REDACTED]) anywhere in the string
-                expect(p.placeholder).toMatch(/\[[A-Z0-9_]+_REDACTED\]/);
+                if (p.placeholder) {
+                    // Check if it HAS the tag (e.g. [ANY_REDACTED]) anywhere in the string
+                    expect(p.placeholder).toMatch(/\[[A-Z0-9_]+_REDACTED\]|\[BERRY:[A-Z0-9_]+\]/);
+                } else {
+                    // If no placeholder, it MUST have an ID and (optionally) includeHash
+                    expect(p.id).toBeDefined();
+                    expect(p.id).toMatch(/^(berry|gitleaks):/);
+                }
             });
         });
 
@@ -75,8 +81,10 @@ describe("Pattern Governance Contract", () => {
         it("placeholders follow standard visual format (even with context)", () => {
             const redactionPatterns = [...SECRET_PATTERNS, ...PII_PATTERNS];
             redactionPatterns.forEach(p => {
-                // Should at least end with the closing bracket of the tag or a quote
-                expect(p.placeholder).toMatch(/[\]"]$/);
+                if (p.placeholder) {
+                    // Should at least end with the closing bracket of the tag or a quote
+                    expect(p.placeholder).toMatch(/[\]"]$/);
+                }
             });
         });
     });

@@ -44,7 +44,10 @@ vi.mock("../src/cli/utils/match.js", () => ({
 }));
 
 vi.mock("../src/patterns/index.js", () => ({
-    SECRET_PATTERNS: [{ name: "OpenAI Key", pattern: /sk-.+/, placeholder: "[OPENAI_KEY_REDACTED]" }],
+    SECRET_PATTERNS: [
+        { name: "OpenAI Key", pattern: /sk-.+/, placeholder: "[OPENAI_KEY_REDACTED]" },
+        { name: "AWS Access Key", pattern: /AKIA[0-9A-Z]{16}/, placeholder: undefined },
+    ],
     PII_PATTERNS: [{ name: "Email", pattern: /@/, placeholder: "[EMAIL_REDACTED]" }],
 }));
 
@@ -81,5 +84,17 @@ describe("test command", () => {
         await testCommand("command:smoke-web-cmd", {} as any, logger, {} as any);
 
         expect(warningMsgMock).toHaveBeenCalledWith("Input looks like a custom rule ID, not a payload value.");
+    });
+
+    it("renders dynamic placeholder label when a built-in pattern has no static placeholder", async () => {
+        matchAgainstPatternMock.mockImplementation((input: string, pattern: string) => {
+            return input.includes("AKIA") && pattern.includes("AKIA");
+        });
+
+        const logger = { debug: vi.fn() } as any;
+        await testCommand("AKIA1234567890123456", {} as any, logger, {} as any);
+
+        expect(successMsgMock).toHaveBeenCalledWith("1 match(es) found");
+        expect(rowMock).toHaveBeenCalledWith("Redaction", expect.stringContaining("(dynamic placeholder)"));
     });
 });

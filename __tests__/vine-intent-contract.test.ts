@@ -87,4 +87,29 @@ describe("Vine intent contract", () => {
 
         expect(createIntentSignature(fromTool)).toBe(createIntentSignature(fromStem));
     });
+
+    it("marks destructive command capability from run_command call-site detection", () => {
+        const intent = extractVineIntent("run_command", {
+            command: "rm -rf /tmp/vine-contract",
+        });
+
+        expect(intent.capabilities).toContain("destructive_exec");
+    });
+
+    it("marks sensitive write capability when exec target is a sensitive file path", () => {
+        const intent = extractVineIntent("run_command", {
+            command: "printf secret > /home/user/.env",
+        });
+
+        expect(intent.capabilities).toContain("sensitive_write");
+    });
+
+    it("does not mark destructive or sensitive-write capabilities for safe command", () => {
+        const intent = extractVineIntent("run_command", {
+            command: "echo hello > /tmp/safe-output.txt",
+        });
+
+        expect(intent.capabilities).not.toContain("destructive_exec");
+        expect(intent.capabilities).not.toContain("sensitive_write");
+    });
 });
