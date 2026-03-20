@@ -14,7 +14,7 @@ This guide defines two installation tracks and when each one should be used.
 
 ## Prerequisites
 
-- Node.js 20 or newer.
+- Node.js 22.16.0 or newer.
 - OpenClaw runtime available in environment.
 - Git available in environment.
 

@@ -1,7 +1,7 @@
 # 🍓 Berry Shield - Security plugin for OpenClaw
 
 <p align="center">
-    <img src="docs/assets/demo/berry-shield-baner.png" alt="Berry Shield" width="720">
+    <img src="https://raw.githubusercontent.com/F4bioo/berry-shield/master/docs/assets/demo/berry-shield-banner.png" alt="Berry Shield" width="720">
 </p>
 
 <p align="center">
@@ -71,7 +71,7 @@ Baseline runtime state before the demo (plugin enabled, `enforce` mode, all core
 
 ---
 
-### 1) Enforce: external-risk action is blocked (Vine Layer)
+### 1) Enforce: external-risk action is blocked [Watch demo: Vine Layer](https://github.com/user-attachments/assets/024aca2b-21d1-4d1b-b6f4-aad8a3bd54fb)
 
 <video src='https://github.com/user-attachments/assets/024aca2b-21d1-4d1b-b6f4-aad8a3bd54fb' alt="Berry.Vine Enforce" controls width="720"></video>
 
@@ -83,7 +83,7 @@ Expected: denied in `enforce` after external untrusted ingestion.
 
 ---
 
-### 2) Audit: same flow is allowed but logged as would_block (Vine Layer)
+### 2) Audit: same flow is allowed but logged as would_block [Watch demo: Vine Layer](https://github.com/user-attachments/assets/8fbff8e0-003c-4463-a6ae-319c3d909599)
 
 <video src='https://github.com/user-attachments/assets/8fbff8e0-003c-4463-a6ae-319c3d909599' alt="Berry.Vine Audit" controls width="720"></video>
 
