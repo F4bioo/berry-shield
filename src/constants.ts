@@ -11,7 +11,7 @@ export const PLUGIN_ID = "berry-shield";
 export const BRAND_SYMBOL = "🍓";
 
 /** Current project version (CalVer) */
-export const VERSION = "2026.3.17";
+export const VERSION = "2026.3.20";
 
 /** Environment variables for OpenClaw binary configuration */
 export const ENV_VARS = {
